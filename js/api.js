@@ -1,0 +1,215 @@
+// api.js — HTTP API Bridge for AlokaFastFood
+// Replaces localStorage calls with MySQL-backed REST API
+// Falls back gracefully to localStorage if server is unreachable
+
+const API_BASE = 'http://localhost:3001/api';
+
+window.AlokaAPI = {
+  _online: false,
+
+  async ping() {
+    try {
+      const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000) });
+      this._online = r.ok;
+    } catch { this._online = false; }
+    return this._online;
+  },
+
+  isOnline() { return this._online; },
+
+  async get(path) {
+    const r = await fetch(`${API_BASE}${path}`);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+
+  async post(path, data) {
+    const r = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+
+  async postForm(path, formData) {
+    const r = await fetch(`${API_BASE}${path}`, { method: 'POST', body: formData });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+
+  async patch(path, data) {
+    const r = await fetch(`${API_BASE}${path}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+
+  async patchForm(path, formData) {
+    const r = await fetch(`${API_BASE}${path}`, { method: 'PATCH', body: formData });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+
+  async put(path, data) {
+    const r = await fetch(`${API_BASE}${path}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+
+  async del(path) {
+    const r = await fetch(`${API_BASE}${path}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+
+  // High-level helpers
+  async loadAllState() {
+    const [menuItems, stations, workers, rawInv, intermediateInv, batchRecipes,
+           expenses, orders, auditLogs, dayHistory, customItems, suppliers] = await Promise.all([
+      this.get('/menu'),
+      this.get('/stations'),
+      this.get('/workers'),
+      this.get('/inventory/raw'),
+      this.get('/inventory/intermediate'),
+      this.get('/inventory/batch-recipes'),
+      this.get('/expenses'),
+      this.get('/orders?status=ACCEPTED'),
+      this.get('/orders/audit-logs'),
+      this.get('/orders/day-history'),
+      this.get('/expenses/custom-items'),
+      this.get('/expenses/suppliers')
+    ]);
+
+    // Transform DB rows into the shape AutoBrixStore.state expects
+    const menuMap = {};
+    menuItems.forEach(item => {
+      const variants = {};
+      (item.variants || []).forEach(v => { variants[v.id] = v; });
+      const recipe = {};
+      (item.recipe || []).forEach(r => { recipe[r.ingredient_id] = r.quantity; });
+      menuMap[item.id] = {
+        id: item.id,
+        name: item.name,
+        station: item.station_id,
+        prepTime: item.prep_time,
+        active: !!item.active,
+        image: item.image_path || null,
+        variants,
+        recipe
+      };
+    });
+
+    const stationsMap = {};
+    stations.forEach(s => { stationsMap[s.id] = { id: s.id, name: s.name, baseCapacity: s.base_capacity }; });
+
+    const workersArr = workers.map(w => ({
+      id: w.id,
+      name: w.name,
+      stations: w.stations || [],
+      prepTime: w.prep_time_per_item,
+      active: !!w.active
+    }));
+
+    const rawMap = {};
+    rawInv.forEach(r => { rawMap[r.id] = {
+      name: r.name, stock: +r.stock, reserved: +r.reserved, minStock: +r.min_stock,
+      purchaseUnit: r.purchase_unit, stockUnit: r.stock_unit,
+      conversionFactor: +r.conversion_factor, costPerPurchaseUnit: +r.cost_per_purchase_unit,
+      supplier: r.supplier
+    }; });
+
+    const interMap = {}, prepMap = {};
+    intermediateInv.forEach(i => {
+      const obj = { name: i.name, stock: +i.stock, reserved: +i.reserved, minStock: +i.min_stock, unit: i.unit };
+      if (i.item_type === 'prepared') prepMap[i.id] = obj;
+      else interMap[i.id] = obj;
+    });
+
+    const batchMap = {};
+    batchRecipes.forEach(r => {
+      const rawIngredients = {};
+      (r.ingredients || []).forEach(ing => { rawIngredients[ing.raw_ingredient_id] = +ing.ratio_per_unit; });
+      batchMap[r.id] = {
+        name: r.name, unit: r.unit,
+        rawIngredients,
+        expectedYieldRatio: +r.expected_yield_ratio,
+        processingType: r.processing_type,
+        stages: r.stages || []
+      };
+    });
+
+    // Patch AutoBrixStore state
+    const store = window.AutoBrixStore;
+    store.state.config.menuItems = menuMap;
+    store.state.config.stations = stationsMap;
+    store.state.config.workers = workersArr;
+    store.state.config.batchRecipes = batchMap;
+    store.state.inventory.raw = rawMap;
+    store.state.inventory.intermediate = interMap;
+    store.state.inventory.prepared = prepMap;
+    store.state.expenses = expenses;
+    store.state.auditLogs = auditLogs.map(l => ({
+      timestamp: l.log_timestamp, user: l.actor, action: l.action, payload: l.payload
+    }));
+    store.state.dayHistory = dayHistory.map(d => ({
+      date: d.report_date, orderCount: d.order_count,
+      revenue: +d.revenue, expenses: +d.expenses, netProfit: +d.net_profit
+    }));
+    store.state.customExpenseItems = customItems;
+    store.state.customSuppliers = suppliers;
+
+    console.log('[AlokaAPI] State synced from MySQL ✓');
+    store.notifyListeners('mysql-sync');
+  }
+};
+
+// Auto-init: ping server and load state if online
+(async () => {
+  const statusEl = document.createElement('div');
+  statusEl.id = 'db-status-badge';
+  statusEl.style.cssText = `
+    position:fixed; bottom:12px; right:12px; z-index:9999;
+    padding:6px 12px; border-radius:20px; font-size:0.7rem; font-weight:700;
+    letter-spacing:0.05em; backdrop-filter:blur(8px); transition:all 0.3s;
+  `;
+  document.body.appendChild(statusEl);
+
+  const setStatus = (online) => {
+    statusEl.textContent = online ? '🟢 MySQL Connected' : '🟡 Offline (LocalStorage)';
+    statusEl.style.background = online ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)';
+    statusEl.style.color = online ? '#10b981' : '#f59e0b';
+    statusEl.style.border = online ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(245,158,11,0.4)';
+  };
+
+  const online = await window.AlokaAPI.ping();
+  setStatus(online);
+
+  if (online) {
+    try {
+      await window.AlokaAPI.loadAllState();
+    } catch (e) {
+      console.error('[AlokaAPI] Failed to load from MySQL:', e);
+      setStatus(false);
+    }
+  }
+
+  // Retry every 30s if offline
+  setInterval(async () => {
+    if (!window.AlokaAPI.isOnline()) {
+      const reconnected = await window.AlokaAPI.ping();
+      setStatus(reconnected);
+      if (reconnected) {
+        try { await window.AlokaAPI.loadAllState(); } catch (e) { console.error(e); }
+      }
+    }
+  }, 30000);
+})();

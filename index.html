@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoBrix — AlokaFastFood OS</title>
+  
+  <!-- Styling -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Main Grid App Shell -->
+  <div id="app-container">
+    
+    <!-- Unified Top Header Bar -->
+    <header>
+      <div class="logo-section">
+        <div class="logo-icon">A</div>
+        <h1 class="logo-text">AutoBrix</h1>
+        <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px; font-family:var(--font-mono);">v1.0.0</span>
+      </div>
+
+      <!-- Mode Selector Controls (Control Tower Switcher) -->
+      <div class="nav-controls">
+        <div class="nav-buttons">
+          <button class="nav-btn active" data-view="hub">Control Hub</button>
+          <button class="nav-btn" data-view="receptionist">POS Cashier</button>
+          <button class="nav-btn" data-view="kitchen-a">Kitchen A (Fast Food)</button>
+          <button class="nav-btn" data-view="kitchen-b">Kitchen B (Mains)</button>
+          <button class="nav-btn" data-view="operations">Operations</button>
+          <button class="nav-btn" data-view="owner">Owner Admin</button>
+        </div>
+
+        <!-- Utilities -->
+        <button class="theme-btn" id="theme-toggle" title="Toggle Light/Dark Theme">
+          <!-- loaded dynamically in app.js -->
+        </button>
+        
+        <button class="theme-btn" id="reset-toggle" title="Reset All Data" style="color:var(--color-critical); border-color:rgba(239,68,68,0.2);">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M16 3h5v5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 21H3v-5"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Content panels (Routed dynamically via CSS and JS) -->
+    <main>
+      <div id="panel-hub" class="view-panel active"></div>
+      <div id="panel-receptionist" class="view-panel"></div>
+      <div id="panel-kitchen-a" class="view-panel"></div>
+      <div id="panel-kitchen-b" class="view-panel"></div>
+      <div id="panel-operations" class="view-panel"></div>
+      <div id="panel-owner" class="view-panel"></div>
+    </main>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/store.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/receptionist.js"></script>
+  <script src="js/kitchen.js"></script>
+  <script src="js/operations.js"></script>
+  <script src="js/owner.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
