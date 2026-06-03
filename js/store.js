@@ -167,13 +167,13 @@ const MODIFIERS_DEFAULT = {
 };
 
 const WORKERS_DEFAULT = [
-  { id: "w1", name: "Raju", stations: ["tawa"], prepTime: 3, active: true },
-  { id: "w2", name: "Sanjay", stations: ["tawa", "prep"], prepTime: 4, active: true },
-  { id: "w3", name: "Amit", stations: ["prep"], prepTime: 3, active: true },
-  { id: "w4", name: "Bikram", stations: ["moghlai", "moghlai_tawa"], prepTime: 4, active: true },
-  { id: "w5", name: "Joy", stations: ["deep_fry"], prepTime: 3, active: true },
-  { id: "w6", name: "Kunal", stations: ["kosha", "chilley"], prepTime: 5, active: true },
-  { id: "w7", name: "Debu", stations: ["server", "reception"], prepTime: 5, active: true }
+  { id: "w1", name: "Raju", stations: ["tawa"], dailySalary: 400, active: true },
+  { id: "w2", name: "Sanjay", stations: ["tawa", "prep"], dailySalary: 500, active: true },
+  { id: "w3", name: "Amit", stations: ["prep"], dailySalary: 400, active: true },
+  { id: "w4", name: "Bikram", stations: ["moghlai", "moghlai_tawa"], dailySalary: 600, active: true },
+  { id: "w5", name: "Joy", stations: ["deep_fry"], dailySalary: 400, active: true },
+  { id: "w6", name: "Kunal", stations: ["kosha", "chilley"], dailySalary: 550, active: true },
+  { id: "w7", name: "Debu", stations: ["server", "reception"], dailySalary: 450, active: true }
 ];
 
 const RAW_DEFAULT = {
@@ -461,8 +461,8 @@ class AutoBrixStore {
       return station ? station.baseCapacity * 0.5 : 0.5;
     }
     return workers.reduce((sum, w) => {
-      const basePrepTime = 3.0;
-      const capacityContribution = (basePrepTime / w.prepTime) / w.stations.length;
+      // Worker splits their time equally among assigned stations
+      const capacityContribution = 1.0 / (w.stations.length || 1);
       return sum + capacityContribution;
     }, 0);
   }
@@ -867,6 +867,29 @@ class AutoBrixStore {
         });
       });
 
+      // Calculate daily wages of all checked-in staff
+      let staffWages = 0;
+      (state.config.workers || []).forEach(w => {
+        if (w.active) {
+          staffWages += parseFloat(w.dailySalary || 0);
+        }
+      });
+
+      if (staffWages > 0) {
+        // Automatically record an expense for today's staff wages
+        const newExpense = {
+          id: "EXP-WAGE-" + Math.floor(1000 + Math.random() * 9000),
+          date: new Date().toISOString().split("T")[0],
+          item: "Staff Wages (Checked-in)",
+          quantity: 1,
+          unit: "day",
+          supplier: "Employee Payroll",
+          cost: staffWages
+        };
+        state.expenses.unshift(newExpense);
+        this.logAudit("Log Expense", `Auto-logged checked-in staff wages: ₹${staffWages}`);
+      }
+
       // Calculate total expenses logged today
       const totalExpenses = state.expenses.reduce((sum, exp) => sum + exp.cost, 0);
 
@@ -941,7 +964,7 @@ class AutoBrixStore {
     });
   }
 
-  updateWorkerShift(workerId, isActive, stations = null, prepTime = null, name = null) {
+  updateWorkerShift(workerId, isActive, stations = null, dailySalary = null, name = null) {
     this.updateState((state) => {
       const worker = state.config.workers.find(w => w.id === workerId);
       if (worker) {
@@ -953,8 +976,8 @@ class AutoBrixStore {
         if (stations !== null) {
           worker.stations = Array.isArray(stations) ? stations : [stations];
         }
-        if (prepTime !== null) {
-          worker.prepTime = parseInt(prepTime);
+        if (dailySalary !== null) {
+          worker.dailySalary = parseInt(dailySalary) || 0;
         }
         if (name !== null) {
           worker.name = name;
@@ -965,17 +988,28 @@ class AutoBrixStore {
     });
   }
 
-  addWorker(name, stations, prepTime) {
+  addWorker(name, stations, dailySalary) {
     this.updateState((state) => {
       const newWorker = {
         id: "w" + (state.config.workers.length + 1),
         name: name,
         stations: Array.isArray(stations) ? stations : [stations],
-        prepTime: parseInt(prepTime),
+        dailySalary: parseInt(dailySalary) || 0,
         active: true
       };
       state.config.workers.push(newWorker);
-      this.logAudit("Labor Change", `Added new worker ${name} to stations ${JSON.stringify(stations)} with prep time ${prepTime} min`);
+      this.logAudit("Labor Change", `Added new worker ${name} to stations ${JSON.stringify(stations)} with daily salary ₹${dailySalary}`);
+    });
+  }
+
+  removeWorker(workerId) {
+    this.updateState((state) => {
+      const idx = state.config.workers.findIndex(w => w.id === workerId);
+      if (idx !== -1) {
+        const name = state.config.workers[idx].name;
+        state.config.workers.splice(idx, 1);
+        this.logAudit("Labor Change", `Removed staff member: ${name} (${workerId})`);
+      }
     });
   }
 

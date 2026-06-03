@@ -24,6 +24,27 @@ app.use(express.static(path.join(__dirname, '..')));
 
 // Health check — also verifies DB connectivity
 const db = require('./db');
+
+// Auto-migration: ensure worker_stations and workers have required columns
+(async () => {
+  try {
+    await db.query('ALTER TABLE worker_stations ADD COLUMN prep_time INT DEFAULT 3');
+    console.log('[Auto-Migration] Added COLUMN prep_time to worker_stations');
+  } catch (e) {
+    if (e.code !== 'ER_DUP_COLUMN_NAME') {
+      console.warn('[Auto-Migration] Notice:', e.message);
+    }
+  }
+  try {
+    await db.query('ALTER TABLE workers ADD COLUMN daily_salary INT DEFAULT 0');
+    console.log('[Auto-Migration] Added COLUMN daily_salary to workers');
+  } catch (e) {
+    if (e.code !== 'ER_DUP_COLUMN_NAME') {
+      console.warn('[Auto-Migration] Notice:', e.message);
+    }
+  }
+})();
+
 app.get('/api/health', async (req, res) => {
   try {
     await db.query('SELECT 1');

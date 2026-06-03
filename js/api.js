@@ -124,7 +124,7 @@ window.AlokaAPI = {
       id: w.id,
       name: w.name,
       stations: w.stations || [],
-      prepTime: w.prep_time_per_item,
+      dailySalary: w.daily_salary || 0,
       active: !!w.active
     }));
 

@@ -29,7 +29,7 @@ class OwnerPanel {
           <button class="owner-tab-btn ${this.activeTab === "menu" ? "active" : ""}" data-tab="menu">Menu & Margins</button>
           <button class="owner-tab-btn ${this.activeTab === "recipes" ? "active" : ""}" data-tab="recipes">Recipe Editor</button>
           <button class="owner-tab-btn ${this.activeTab === "stations" ? "active" : ""}" data-tab="stations">Station Management</button>
-          <button class="owner-tab-btn ${this.activeTab === "labor" ? "active" : ""}" data-tab="labor">Labor Shift Roster</button>
+          <button class="owner-tab-btn ${this.activeTab === "labor" ? "active" : ""}" data-tab="labor">Employee</button>
           <button class="owner-tab-btn ${this.activeTab === "inventory" ? "active" : ""}" data-tab="inventory">Batch Prep & Stock</button>
           <button class="owner-tab-btn ${this.activeTab === "expenditures" ? "active" : ""}" data-tab="expenditures">Purchase Ledger</button>
         </div>
@@ -769,20 +769,20 @@ class OwnerPanel {
   renderLaborTab(container, state) {
     container.innerHTML = `
       <div class="glass-card">
-        <h4 class="modal-section-title" style="margin-bottom:0.75rem;">Labor Roster & Speed Configuration</h4>
+        <h4 class="modal-section-title" style="margin-bottom:0.75rem;">Employee Roster & Wage Configuration</h4>
         <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:1rem;">
-          Configure staff check-in, station coverage (multiple allowed), and item preparation speeds.
+          Configure staff check-in, station coverage (multiple allowed), and daily salary rates.
         </p>
 
         <div class="owner-table-wrapper" style="border:none; margin-bottom:1.5rem;">
           <table class="owner-table">
             <thead>
               <tr>
-                <th>Worker Name</th>
-                <th>Assigned Station Coverage</th>
-                <th>Item Prep Time</th>
-                <th>Shift Checked-in</th>
-                <th>Actions</th>
+                <th style="text-align: left;">Employee Name</th>
+                <th style="text-align: left;">Assigned Station Coverage</th>
+                <th style="text-align: center;">Daily Salary</th>
+                <th style="text-align: center;">Shift Checked-in</th>
+                <th style="text-align: center;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -793,9 +793,7 @@ class OwnerPanel {
                   return `<span class="badge badge-normal" style="font-size: 0.7rem; text-transform: none; padding: 2px 8px; border-radius: 4px;">${station.name}</span>`;
                 }).filter(Boolean).join(" ");
 
-                const statusBadge = worker.active 
-                  ? `<span class="badge" style="background-color: var(--color-success-bg); color: var(--color-success); border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.75rem; padding: 2px 8px; border-radius: 4px;">Active</span>`
-                  : `<span class="badge" style="background-color: var(--color-critical-bg); color: var(--color-critical); border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.75rem; padding: 2px 8px; border-radius: 4px;">Inactive</span>`;
+                const checked = worker.active ? "checked" : "";
 
                 return `
                   <tr>
@@ -805,10 +803,15 @@ class OwnerPanel {
                         ${stationsList || `<span style="color: var(--text-muted); font-size: 0.8rem; font-style: italic;">No stations assigned</span>`}
                       </div>
                     </td>
-                    <td><span style="font-family: var(--font-mono); font-weight: 500;">${worker.prepTime} min</span></td>
-                    <td>${statusBadge}</td>
-                    <td>
-                      <button class="k-item-btn" onclick="ownerPanel.openEditWorkerModal('${worker.id}')" style="margin-top:0; font-size:0.75rem; padding: 4px 10px; background: var(--accent-color); border-color: var(--accent-color); color: #fff;">Edit</button>
+                    <td style="text-align: center;"><span style="font-family: var(--font-mono); font-weight: 500;">₹${worker.dailySalary || 0}</span></td>
+                    <td style="text-align: center;">
+                      <input type="checkbox" ${checked} onchange="ownerPanel.toggleWorkerShift('${worker.id}', this.checked)" style="width: 16px; height: 16px; accent-color: var(--accent-color); cursor: pointer;">
+                    </td>
+                    <td style="text-align: center;">
+                      <div style="display:inline-flex; gap:6px;">
+                        <button class="k-item-btn" onclick="ownerPanel.openEditWorkerModal('${worker.id}')" style="margin-top:0; font-size:0.75rem; padding: 4px 10px; background: var(--accent-color); border-color: var(--accent-color); color: #fff;">Edit</button>
+                        <button class="k-item-btn" onclick="ownerPanel.deleteWorker('${worker.id}', '${worker.name}')" style="margin-top:0; font-size:0.75rem; padding: 4px 10px; background: var(--color-critical-bg); border-color: rgba(239, 68, 68, 0.3); color: var(--color-critical);">Delete</button>
+                      </div>
                     </td>
                   </tr>
                 `;
@@ -819,11 +822,11 @@ class OwnerPanel {
         
         <!-- Add worker Form -->
         <div style="background:rgba(0,0,0,0.1); padding:1rem; border-radius:4px;">
-          <h5 class="modal-section-title" style="margin-bottom:0.75rem;">Add New Kitchen Staff</h5>
+          <h5 class="modal-section-title" style="margin-bottom:0.75rem;">Add New Employee</h5>
           <form id="worker-add-form" style="display:flex; flex-direction:column; gap:0.75rem;">
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
               <input type="text" class="pos-input-sm" id="worker-add-name" placeholder="Name (e.g. Raju)" style="flex:1; min-width:120px;" required>
-              <input type="number" class="pos-input-sm" id="worker-add-prep" placeholder="Prep Time (e.g. 3 min)" style="width:140px;" required>
+              <input type="number" class="pos-input-sm" id="worker-add-salary" placeholder="Daily Salary (e.g. ₹500)" style="width:180px;" required>
             </div>
             
             <div style="display:flex; flex-direction:column; gap:0.25rem;">
@@ -838,7 +841,7 @@ class OwnerPanel {
               </div>
             </div>
 
-            <button type="submit" class="pos-action-btn primary" style="padding:0.35rem 1.25rem; grid-column:auto; align-self:flex-start;">Add Staff</button>
+            <button type="submit" class="pos-action-btn primary" style="padding:0.35rem 1.25rem; grid-column:auto; align-self:flex-start;">Add Employee</button>
           </form>
         </div>
       </div>
@@ -847,7 +850,7 @@ class OwnerPanel {
     document.getElementById("worker-add-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const name = document.getElementById("worker-add-name").value.trim();
-      const prepTime = parseInt(document.getElementById("worker-add-prep").value) || 3;
+      const dailySalary = parseInt(document.getElementById("worker-add-salary").value) || 0;
       
       const stationChecks = document.querySelectorAll(".worker-add-station-check:checked");
       const stations = Array.from(stationChecks).map(c => c.value);
@@ -856,13 +859,13 @@ class OwnerPanel {
 
       if (window.AlokaAPI.isOnline()) {
         try {
-          await window.AlokaAPI.post('/workers', { name, stations, prep_time_per_item: prepTime });
+          await window.AlokaAPI.post('/workers', { name, stations, daily_salary: dailySalary });
           await window.AlokaAPI.loadAllState();
         } catch (err) {
           alert("Error adding worker: " + err.message);
         }
       } else {
-        window.AutoBrixStore.addWorker(name, stations, prepTime);
+        window.AutoBrixStore.addWorker(name, stations, dailySalary);
       }
       this.updateActiveTabContent();
     });
@@ -887,19 +890,19 @@ class OwnerPanel {
     overlay.innerHTML = `
       <div class="modal-container" style="max-width: 400px; padding: 0; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--border-radius-md); box-shadow: var(--shadow-lg);">
         <div class="modal-header" style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-          <h3 class="modal-title" style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary);">Edit Staff Member</h3>
+          <h3 class="modal-title" style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary);">Edit Employee</h3>
           <button class="modal-close-btn" id="btn-close-edit-modal" style="background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer;">&times;</button>
         </div>
         <form id="edit-worker-form">
           <div class="modal-body" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-              <label class="form-label-xs">Worker Name</label>
+              <label class="form-label-xs">Employee Name</label>
               <input type="text" class="pos-input-sm" id="edit-worker-name" value="${worker.name}" required style="width: 100%;">
             </div>
             
             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-              <label class="form-label-xs">Item Prep Time (Min)</label>
-              <input type="number" class="pos-input-sm" id="edit-worker-prep" value="${worker.prepTime}" min="1" required style="width: 100%;">
+              <label class="form-label-xs">Daily Salary (₹)</label>
+              <input type="number" class="pos-input-sm" id="edit-worker-salary" value="${worker.dailySalary || 0}" min="0" required style="width: 100%;">
             </div>
 
             <div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0;">
@@ -931,9 +934,12 @@ class OwnerPanel {
             </div>
           </div>
           
-          <div class="modal-footer" style="padding: 1rem 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 0.5rem;">
-            <button type="button" class="pos-action-btn secondary" id="btn-cancel-edit-modal" style="padding: 0.35rem 1rem; margin: 0; font-size: 0.85rem;">Cancel</button>
-            <button type="submit" class="pos-action-btn primary" style="padding: 0.35rem 1.25rem; margin: 0; font-size: 0.85rem;">Save Changes</button>
+          <div class="modal-footer" style="padding: 1rem 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+            <button type="button" class="pos-action-btn danger" id="btn-delete-worker" style="padding: 0.35rem 1rem; margin: 0; font-size: 0.85rem;">Remove Employee</button>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="pos-action-btn secondary" id="btn-cancel-edit-modal" style="padding: 0.35rem 1rem; margin: 0; font-size: 0.85rem;">Cancel</button>
+              <button type="submit" class="pos-action-btn primary" style="padding: 0.35rem 1.25rem; margin: 0; font-size: 0.85rem;">Save Changes</button>
+            </div>
           </div>
         </form>
       </div>
@@ -998,10 +1004,27 @@ class OwnerPanel {
     overlay.querySelector("#btn-close-edit-modal").addEventListener("click", closeModal);
     overlay.querySelector("#btn-cancel-edit-modal").addEventListener("click", closeModal);
 
+    overlay.querySelector("#btn-delete-worker").addEventListener("click", async () => {
+      if (confirm(`Are you sure you want to remove ${worker.name} from the employee roster?`)) {
+        if (window.AlokaAPI.isOnline()) {
+          try {
+            await window.AlokaAPI.del(`/workers/${worker.id}`);
+            await window.AlokaAPI.loadAllState();
+          } catch (err) {
+            alert("Error removing worker: " + err.message);
+          }
+        } else {
+          window.AutoBrixStore.removeWorker(worker.id);
+        }
+        closeModal();
+        this.updateActiveTabContent();
+      }
+    });
+
     overlay.querySelector("#edit-worker-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const updatedName = overlay.querySelector("#edit-worker-name").value.trim();
-      const updatedPrepTime = parseInt(overlay.querySelector("#edit-worker-prep").value) || 3;
+      const updatedSalary = parseInt(overlay.querySelector("#edit-worker-salary").value) || 0;
       const updatedActive = overlay.querySelector("#edit-worker-active").checked;
       const updatedStations = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
 
@@ -1012,7 +1035,7 @@ class OwnerPanel {
           await window.AlokaAPI.patch(`/workers/${worker.id}`, {
             name: updatedName,
             active: updatedActive,
-            prep_time_per_item: updatedPrepTime,
+            daily_salary: updatedSalary,
             stations: updatedStations
           });
           await window.AlokaAPI.loadAllState();
@@ -1020,11 +1043,42 @@ class OwnerPanel {
           alert("Error saving worker: " + err.message);
         }
       } else {
-        window.AutoBrixStore.updateWorkerShift(worker.id, updatedActive, updatedStations, updatedPrepTime, updatedName);
+        window.AutoBrixStore.updateWorkerShift(worker.id, updatedActive, updatedStations, updatedSalary, updatedName);
       }
       closeModal();
       this.updateActiveTabContent();
     });
+  }
+
+  async deleteWorker(workerId, workerName) {
+    if (confirm(`Are you sure you want to remove ${workerName} from the employee roster?`)) {
+      if (window.AlokaAPI.isOnline()) {
+        try {
+          await window.AlokaAPI.del(`/workers/${workerId}`);
+          await window.AlokaAPI.loadAllState();
+        } catch (err) {
+          alert("Error removing worker: " + err.message);
+        }
+      } else {
+        window.AutoBrixStore.removeWorker(workerId);
+      }
+      this.updateActiveTabContent();
+    }
+  }
+
+  async toggleWorkerShift(workerId, active) {
+    const state = window.AutoBrixStore.state;
+    const worker = state.config.workers.find(w => w.id === workerId);
+    if (!worker) return;
+
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        await window.AlokaAPI.patch(`/workers/${workerId}`, { active: active });
+        await window.AlokaAPI.loadAllState();
+      } catch (err) { alert(err.message); }
+    } else {
+      window.AutoBrixStore.updateWorkerShift(workerId, active, worker.stations, worker.dailySalary);
+    }
   }
 
   // ==========================================

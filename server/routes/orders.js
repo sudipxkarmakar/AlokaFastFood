@@ -77,21 +77,81 @@ router.get('/day-close', async (req, res) => {
 
 // POST close the day
 router.post('/day-close', async (req, res) => {
-  const { date, order_count, revenue, expenses, net_profit, source_breakdown, item_sales, inventory_snapshot } = req.body;
-  const reportId = 'REP-' + date;
   try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 1. Calculate staff wages for active workers
+    const [activeWorkers] = await db.query('SELECT SUM(daily_salary) as total_wages FROM workers WHERE active=1');
+    const staffWages = activeWorkers[0].total_wages || 0;
+    
+    // 2. Automatically log the staff wages as an expense for today
+    if (staffWages > 0) {
+      const expId = 'EXP-WAGE-' + Math.floor(1000 + Math.random() * 9000);
+      await db.query(
+        `INSERT INTO expenses (id, expense_date, item, quantity, unit, supplier, cost)
+         VALUES (?,?,?,1,'day','Employee Payroll',?)`,
+        [expId, today, 'Staff Wages (Checked-in)', staffWages]
+      );
+      await db.query("INSERT INTO audit_logs (action, payload) VALUES ('Log Expense', ?)", [`Auto-logged checked-in staff wages: ₹${staffWages}`]);
+    }
+
+    // 3. Calculate completed orders revenue and count
+    const [orders] = await db.query(
+      "SELECT * FROM orders WHERE fulfillment_status='COMPLETED' OR payment_status='PAID'"
+    );
+    let revenue = 0;
+    let orderCount = orders.length;
+    let sourceBreakdown = { DINE_IN: 0, TAKEAWAY: 0, SWIGGY: 0, ZOMATO: 0, PHONE_ORDER: 0 };
+    let itemSales = {};
+
+    orders.forEach(o => {
+      revenue += parseFloat(o.total || 0);
+      sourceBreakdown[o.source] = (sourceBreakdown[o.source] || 0) + parseFloat(o.total || 0);
+    });
+
+    const [items] = await db.query(
+      `SELECT oi.* FROM order_items oi 
+       JOIN orders o ON oi.order_id=o.id 
+       WHERE o.fulfillment_status='COMPLETED' OR o.payment_status='PAID'`
+    );
+    items.forEach(it => {
+      itemSales[it.menu_item_id] = (itemSales[it.menu_item_id] || 0) + it.quantity;
+    });
+
+    // 4. Calculate total expenses for today (including the staff wages we just logged)
+    const [expensesRow] = await db.query("SELECT SUM(cost) as total FROM expenses WHERE expense_date=?", [today]);
+    const expenses = expensesRow[0].total || 0;
+    const netProfit = revenue - expenses;
+
+    // 5. Get inventory snapshots (current stock levels)
+    const [rawInv] = await db.query("SELECT id, name, stock, reserved FROM raw_ingredients");
+    const [interInv] = await db.query("SELECT id, name, stock, reserved, item_type FROM intermediate_stock");
+    
+    const inventorySnapshot = { raw: {}, intermediate: {}, prepared: {} };
+    rawInv.forEach(r => { inventorySnapshot.raw[r.id] = { name: r.name, stock: r.stock }; });
+    interInv.forEach(i => {
+      const target = i.item_type === 'prepared' ? inventorySnapshot.prepared : inventorySnapshot.intermediate;
+      target[i.id] = { name: i.name, stock: i.stock };
+    });
+
+    // 6. Insert day history
+    const reportId = 'REP-' + today;
     await db.query(
       `INSERT INTO day_history (id, report_date, order_count, revenue, expenses, net_profit, source_breakdown, item_sales, inventory_snapshot)
        VALUES (?,?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE order_count=?, revenue=?, expenses=?, net_profit=?`,
-      [reportId, date, order_count, revenue, expenses, net_profit,
-       JSON.stringify(source_breakdown), JSON.stringify(item_sales), JSON.stringify(inventory_snapshot),
-       order_count, revenue, expenses, net_profit]
+      [reportId, today, orderCount, revenue, expenses, netProfit,
+       JSON.stringify(sourceBreakdown), JSON.stringify(itemSales), JSON.stringify(inventorySnapshot),
+       orderCount, revenue, expenses, netProfit]
     );
-    // Archive completed orders
+
+    // 7. Archive completed orders
     await db.query("UPDATE orders SET fulfillment_status='ARCHIVED' WHERE fulfillment_status='COMPLETED' OR payment_status='PAID'");
-    res.json({ success: true, reportId });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    
+    res.json({ success: true, reportId, revenue, expenses, net_profit: netProfit });
+  } catch (e) { 
+    res.status(500).json({ error: e.message }); 
+  }
 });
 
 // GET day history
