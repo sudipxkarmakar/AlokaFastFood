@@ -9,13 +9,22 @@ window.AlokaAPI = {
 
   async ping() {
     try {
-      const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000) });
-      this._online = r.ok;
-    } catch { this._online = false; }
+      const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) });
+      // Server is reachable if we get ANY HTTP response.
+      // Check if DB is also connected (our health endpoint returns {db:'connected'} when ok).
+      const body = await r.json().catch(() => ({}));
+      this._online = true;          // server is up
+      this._dbOk = (body.db === 'connected');
+    } catch {
+      this._online = false;
+      this._dbOk   = false;
+    }
     return this._online;
   },
 
   isOnline() { return this._online; },
+  isDbOk()   { return this._dbOk;   },
+
 
   async get(path) {
     const r = await fetch(`${API_BASE}${path}`);
@@ -180,36 +189,58 @@ window.AlokaAPI = {
     position:fixed; bottom:12px; right:12px; z-index:9999;
     padding:6px 12px; border-radius:20px; font-size:0.7rem; font-weight:700;
     letter-spacing:0.05em; backdrop-filter:blur(8px); transition:all 0.3s;
+    cursor:default;
   `;
   document.body.appendChild(statusEl);
 
-  const setStatus = (online) => {
-    statusEl.textContent = online ? '🟢 MySQL Connected' : '🟡 Offline (LocalStorage)';
-    statusEl.style.background = online ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)';
-    statusEl.style.color = online ? '#10b981' : '#f59e0b';
-    statusEl.style.border = online ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(245,158,11,0.4)';
+  const setStatus = (state, detail) => {
+    if (state === 'online') {
+      statusEl.textContent = '🟢 MySQL Connected';
+      statusEl.style.background = 'rgba(16,185,129,0.2)';
+      statusEl.style.color = '#10b981';
+      statusEl.style.border = '1px solid rgba(16,185,129,0.4)';
+      statusEl.title = '';
+    } else if (state === 'warn') {
+      statusEl.textContent = '🟠 Server OK — DB Error';
+      statusEl.style.background = 'rgba(249,115,22,0.2)';
+      statusEl.style.color = '#f97316';
+      statusEl.style.border = '1px solid rgba(249,115,22,0.4)';
+      statusEl.title = detail || '';
+    } else {
+      statusEl.textContent = '🟡 Offline (LocalStorage)';
+      statusEl.style.background = 'rgba(245,158,11,0.2)';
+      statusEl.style.color = '#f59e0b';
+      statusEl.style.border = '1px solid rgba(245,158,11,0.4)';
+      statusEl.title = detail || '';
+    }
   };
 
-  const online = await window.AlokaAPI.ping();
-  setStatus(online);
-
-  if (online) {
+  const tryConnect = async () => {
+    const online = await window.AlokaAPI.ping();
+    if (!online) {
+      setStatus('offline', 'Server not running at http://localhost:3001');
+      return false;
+    }
+    if (!window.AlokaAPI.isDbOk()) {
+      setStatus('warn', 'Server is up but MySQL is not connected.\nCheck that MySQL is running and the database "alokaFastFood" exists.');
+      return false;
+    }
+    setStatus('online');
     try {
       await window.AlokaAPI.loadAllState();
     } catch (e) {
       console.error('[AlokaAPI] Failed to load from MySQL:', e);
-      setStatus(false);
+      setStatus('warn', e.message);
     }
-  }
+    return true;
+  };
+
+  await tryConnect();
 
   // Retry every 30s if offline
   setInterval(async () => {
     if (!window.AlokaAPI.isOnline()) {
-      const reconnected = await window.AlokaAPI.ping();
-      setStatus(reconnected);
-      if (reconnected) {
-        try { await window.AlokaAPI.loadAllState(); } catch (e) { console.error(e); }
-      }
+      await tryConnect();
     }
   }, 30000);
 })();

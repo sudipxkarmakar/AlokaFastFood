@@ -22,9 +22,15 @@ app.use('/uploads', express.static(uploadsDir));
 // Serve the frontend from the parent directory
 app.use(express.static(path.join(__dirname, '..')));
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' });
+// Health check — also verifies DB connectivity
+const db = require('./db');
+app.get('/api/health', async (req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.json({ status: 'ok', db: 'connected', timestamp: new Date().toISOString(), version: '1.0.0' });
+  } catch (e) {
+    res.status(503).json({ status: 'error', db: 'disconnected', error: e.message });
+  }
 });
 
 // Routes
