@@ -183,15 +183,18 @@ window.AlokaAPI = {
 
 // Auto-init: ping server and load state if online
 (async () => {
-  const statusEl = document.createElement('div');
-  statusEl.id = 'db-status-badge';
-  statusEl.style.cssText = `
-    position:fixed; bottom:12px; right:12px; z-index:9999;
-    padding:6px 12px; border-radius:20px; font-size:0.7rem; font-weight:700;
-    letter-spacing:0.05em; backdrop-filter:blur(8px); transition:all 0.3s;
-    cursor:default;
-  `;
-  document.body.appendChild(statusEl);
+  let statusEl = document.getElementById('db-status-badge');
+  if (!statusEl) {
+    statusEl = document.createElement('div');
+    statusEl.id = 'db-status-badge';
+    statusEl.style.cssText = `
+      position:fixed; bottom:12px; right:12px; z-index:9999;
+      padding:6px 12px; border-radius:20px; font-size:0.7rem; font-weight:700;
+      letter-spacing:0.05em; backdrop-filter:blur(8px); transition:all 0.3s;
+      cursor:default;
+    `;
+    document.body.appendChild(statusEl);
+  }
 
   const setStatus = (state, detail) => {
     if (state === 'online') {

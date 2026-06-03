@@ -780,38 +780,35 @@ class OwnerPanel {
               <tr>
                 <th>Worker Name</th>
                 <th>Assigned Station Coverage</th>
-                <th>Item Prep Time (Min)</th>
+                <th>Item Prep Time</th>
                 <th>Shift Checked-in</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               ${state.config.workers.map(worker => {
-                const checked = worker.active ? "checked" : "";
-                
-                // Active stations checkbox list
-                const stationCheckboxes = Object.keys(state.config.stations).map(s => {
-                  const hasStation = worker.stations && worker.stations.includes(s);
-                  return `
-                    <label style="font-size:0.7rem; background:rgba(255,255,255,0.03); padding:2px 6px; border-radius:4px; display:inline-flex; align-items:center; gap:3px; cursor:pointer; border:1px solid rgba(255,255,255,0.08);">
-                      <input type="checkbox" ${hasStation ? "checked" : ""} onchange="ownerPanel.toggleWorkerStationCheck('${worker.id}', '${s}', this.checked)" style="margin:0; width:12px; height:12px;">
-                      ${state.config.stations[s].name}
-                    </label>
-                  `;
-                }).join("");
+                const stationsList = (worker.stations || []).map(s => {
+                  const station = state.config.stations[s];
+                  if (!station) return "";
+                  return `<span class="badge badge-normal" style="font-size: 0.7rem; text-transform: none; padding: 2px 8px; border-radius: 4px;">${station.name}</span>`;
+                }).filter(Boolean).join(" ");
+
+                const statusBadge = worker.active 
+                  ? `<span class="badge" style="background-color: var(--color-success-bg); color: var(--color-success); border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.75rem; padding: 2px 8px; border-radius: 4px;">Active</span>`
+                  : `<span class="badge" style="background-color: var(--color-critical-bg); color: var(--color-critical); border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.75rem; padding: 2px 8px; border-radius: 4px;">Inactive</span>`;
 
                 return `
                   <tr>
                     <td><strong>${worker.name}</strong></td>
                     <td>
                       <div style="display:flex; flex-wrap:wrap; gap:4px; max-width:400px;">
-                        ${stationCheckboxes}
+                        ${stationsList || `<span style="color: var(--text-muted); font-size: 0.8rem; font-style: italic;">No stations assigned</span>`}
                       </div>
                     </td>
+                    <td><span style="font-family: var(--font-mono); font-weight: 500;">${worker.prepTime} min</span></td>
+                    <td>${statusBadge}</td>
                     <td>
-                      <input type="number" class="owner-input-cell" value="${worker.prepTime}" onchange="ownerPanel.updateWorkerPrepTime('${worker.id}', this.value)" style="width:60px; padding:2px;">
-                    </td>
-                    <td>
-                      <input type="checkbox" ${checked} onchange="ownerPanel.toggleWorkerShift('${worker.id}', this.checked)">
+                      <button class="k-item-btn" onclick="ownerPanel.openEditWorkerModal('${worker.id}')" style="margin-top:0; font-size:0.75rem; padding: 4px 10px; background: var(--accent-color); border-color: var(--accent-color); color: #fff;">Edit</button>
                     </td>
                   </tr>
                 `;
@@ -871,57 +868,163 @@ class OwnerPanel {
     });
   }
 
-  async toggleWorkerStationCheck(workerId, stationId, checked) {
-    const state = window.AutoBrixStore.state;
-    const worker = state.config.workers.find(w => w.id === workerId);
-    if (!worker) return;
-    
-    let newStations = [...worker.stations];
-    if (checked) {
-      if (!newStations.includes(stationId)) newStations.push(stationId);
-    } else {
-      newStations = newStations.filter(s => s !== stationId);
-    }
-
-    if (window.AlokaAPI.isOnline()) {
-      try {
-        await window.AlokaAPI.patch(`/workers/${workerId}`, { stations: newStations });
-        await window.AlokaAPI.loadAllState();
-      } catch (err) { alert(err.message); }
-    } else {
-      window.AutoBrixStore.updateWorkerShift(workerId, worker.active, newStations, worker.prepTime);
-    }
-    this.updateActiveTabContent();
-  }
-
-  async updateWorkerPrepTime(workerId, prepTime) {
+  openEditWorkerModal(workerId) {
     const state = window.AutoBrixStore.state;
     const worker = state.config.workers.find(w => w.id === workerId);
     if (!worker) return;
 
-    if (window.AlokaAPI.isOnline()) {
-      try {
-        await window.AlokaAPI.patch(`/workers/${workerId}`, { prep_time_per_item: parseInt(prepTime) });
-        await window.AlokaAPI.loadAllState();
-      } catch (err) { alert(err.message); }
-    } else {
-      window.AutoBrixStore.updateWorkerShift(workerId, worker.active, worker.stations, parseInt(prepTime));
-    }
-  }
+    const existing = document.getElementById("edit-worker-modal-overlay");
+    if (existing) existing.remove();
 
-  async toggleWorkerShift(workerId, active) {
-    const state = window.AutoBrixStore.state;
-    const worker = state.config.workers.find(w => w.id === workerId);
-    if (!worker) return;
+    const overlay = document.createElement("div");
+    overlay.id = "edit-worker-modal-overlay";
+    overlay.className = "modal-overlay";
+    overlay.style.zIndex = "10000";
 
-    if (window.AlokaAPI.isOnline()) {
-      try {
-        await window.AlokaAPI.patch(`/workers/${workerId}`, { active: active });
-        await window.AlokaAPI.loadAllState();
-      } catch (err) { alert(err.message); }
-    } else {
-      window.AutoBrixStore.updateWorkerShift(workerId, active, worker.stations, worker.prepTime);
-    }
+    const allStations = state.config.stations;
+    const selectedStations = [...(worker.stations || [])];
+
+    overlay.innerHTML = `
+      <div class="modal-container" style="max-width: 400px; padding: 0; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--border-radius-md); box-shadow: var(--shadow-lg);">
+        <div class="modal-header" style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+          <h3 class="modal-title" style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary);">Edit Staff Member</h3>
+          <button class="modal-close-btn" id="btn-close-edit-modal" style="background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer;">&times;</button>
+        </div>
+        <form id="edit-worker-form">
+          <div class="modal-body" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <label class="form-label-xs">Worker Name</label>
+              <input type="text" class="pos-input-sm" id="edit-worker-name" value="${worker.name}" required style="width: 100%;">
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <label class="form-label-xs">Item Prep Time (Min)</label>
+              <input type="number" class="pos-input-sm" id="edit-worker-prep" value="${worker.prepTime}" min="1" required style="width: 100%;">
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0;">
+              <input type="checkbox" id="edit-worker-active" ${worker.active ? "checked" : ""} style="width: 16px; height: 16px; accent-color: var(--accent-color); cursor: pointer;">
+              <label for="edit-worker-active" style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary); cursor: pointer; user-select: none;">Shift Checked-in</label>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.25rem; position: relative;">
+              <label class="form-label-xs">Assigned Station Coverage</label>
+              
+              <div class="multiselect-container" style="position: relative; width: 100%;">
+                <div id="multiselect-trigger" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem; color: var(--text-primary); cursor: pointer; user-select: none;">
+                  <span id="multiselect-selected-text">Select Stations</span>
+                  <span style="font-size: 0.6rem; color: var(--text-muted); transition: transform 0.2s;" id="multiselect-arrow">▼</span>
+                </div>
+
+                <div id="multiselect-options-list" style="display: none; position: absolute; top: 105%; left: 0; right: 0; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; box-shadow: var(--shadow-md); max-height: 200px; overflow-y: auto; z-index: 10001; padding: 0.25rem 0;">
+                  ${Object.keys(allStations).map(s => {
+                    const isSelected = selectedStations.includes(s);
+                    return `
+                      <label style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 0.85rem; color: var(--text-secondary); cursor: pointer; user-select: none; transition: background 0.15s;" class="multiselect-option-row">
+                        <input type="checkbox" class="edit-station-check-option" value="${s}" ${isSelected ? "checked" : ""} style="accent-color: var(--accent-color); cursor: pointer;">
+                        <span>${allStations[s].name}</span>
+                      </label>
+                    `;
+                  }).join("")}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="modal-footer" style="padding: 1rem 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <button type="button" class="pos-action-btn secondary" id="btn-cancel-edit-modal" style="padding: 0.35rem 1rem; margin: 0; font-size: 0.85rem;">Cancel</button>
+            <button type="submit" class="pos-action-btn primary" style="padding: 0.35rem 1.25rem; margin: 0; font-size: 0.85rem;">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const trigger = overlay.querySelector("#multiselect-trigger");
+    const optionsList = overlay.querySelector("#multiselect-options-list");
+    const arrow = overlay.querySelector("#multiselect-arrow");
+    const checkboxes = overlay.querySelectorAll(".edit-station-check-option");
+    const selectedText = overlay.querySelector("#multiselect-selected-text");
+
+    const updateSelectedText = () => {
+      const checkedVals = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.parentNode.querySelector('span').textContent);
+      if (checkedVals.length === 0) {
+        selectedText.textContent = "Select Stations";
+        selectedText.style.color = "var(--text-muted)";
+      } else {
+        selectedText.textContent = checkedVals.join(", ");
+        selectedText.style.color = "var(--text-primary)";
+      }
+    };
+
+    updateSelectedText();
+
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = optionsList.style.display === "block";
+      optionsList.style.display = isOpen ? "none" : "block";
+      arrow.style.transform = isOpen ? "rotate(0deg)" : "rotate(180deg)";
+    });
+
+    document.addEventListener("click", function closeDropdown(e) {
+      if (!overlay.parentNode) {
+        document.removeEventListener("click", closeDropdown);
+        return;
+      }
+      if (!trigger.contains(e.target) && !optionsList.contains(e.target)) {
+        optionsList.style.display = "none";
+        arrow.style.transform = "rotate(0deg)";
+      }
+    });
+
+    checkboxes.forEach(cb => {
+      cb.addEventListener("change", () => {
+        updateSelectedText();
+      });
+      const row = cb.closest(".multiselect-option-row");
+      row.addEventListener("mouseenter", () => {
+        row.style.background = "rgba(255,255,255,0.04)";
+      });
+      row.addEventListener("mouseleave", () => {
+        row.style.background = "none";
+      });
+    });
+
+    const closeModal = () => {
+      overlay.remove();
+    };
+
+    overlay.querySelector("#btn-close-edit-modal").addEventListener("click", closeModal);
+    overlay.querySelector("#btn-cancel-edit-modal").addEventListener("click", closeModal);
+
+    overlay.querySelector("#edit-worker-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const updatedName = overlay.querySelector("#edit-worker-name").value.trim();
+      const updatedPrepTime = parseInt(overlay.querySelector("#edit-worker-prep").value) || 3;
+      const updatedActive = overlay.querySelector("#edit-worker-active").checked;
+      const updatedStations = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+
+      if (!updatedName) return;
+
+      if (window.AlokaAPI.isOnline()) {
+        try {
+          await window.AlokaAPI.patch(`/workers/${worker.id}`, {
+            name: updatedName,
+            active: updatedActive,
+            prep_time_per_item: updatedPrepTime,
+            stations: updatedStations
+          });
+          await window.AlokaAPI.loadAllState();
+        } catch (err) {
+          alert("Error saving worker: " + err.message);
+        }
+      } else {
+        window.AutoBrixStore.updateWorkerShift(worker.id, updatedActive, updatedStations, updatedPrepTime, updatedName);
+      }
+      closeModal();
+      this.updateActiveTabContent();
+    });
   }
 
   // ==========================================

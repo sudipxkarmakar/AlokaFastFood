@@ -941,12 +941,13 @@ class AutoBrixStore {
     });
   }
 
-  updateWorkerShift(workerId, isActive, stations = null, prepTime = null) {
+  updateWorkerShift(workerId, isActive, stations = null, prepTime = null, name = null) {
     this.updateState((state) => {
       const worker = state.config.workers.find(w => w.id === workerId);
       if (worker) {
         const oldActive = worker.active;
         const oldStations = worker.stations;
+        const oldName = worker.name;
         
         worker.active = isActive;
         if (stations !== null) {
@@ -955,8 +956,11 @@ class AutoBrixStore {
         if (prepTime !== null) {
           worker.prepTime = parseInt(prepTime);
         }
+        if (name !== null) {
+          worker.name = name;
+        }
 
-        this.logAudit("Labor Change", `Worker ${worker.name}: Shift state changed. Active: ${oldActive} -> ${isActive}, Stations: ${JSON.stringify(oldStations)} -> ${JSON.stringify(worker.stations)}`);
+        this.logAudit("Labor Change", `Worker ${worker.name}: Shift state changed. Name: ${oldName} -> ${worker.name}, Active: ${oldActive} -> ${isActive}, Stations: ${JSON.stringify(oldStations)} -> ${JSON.stringify(worker.stations)}`);
       }
     });
   }

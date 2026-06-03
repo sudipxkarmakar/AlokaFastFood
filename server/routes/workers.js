@@ -34,12 +34,13 @@ router.post('/', async (req, res) => {
 
 // PATCH update worker
 router.patch('/:id', async (req, res) => {
-  const { active, prep_time_per_item, stations } = req.body;
+  const { name, active, prep_time_per_item, stations } = req.body;
   try {
     const updates = [];
     const vals = [];
     if (active !== undefined) { updates.push('active=?'); vals.push(active ? 1 : 0); }
     if (prep_time_per_item !== undefined) { updates.push('prep_time_per_item=?'); vals.push(parseInt(prep_time_per_item)); }
+    if (name !== undefined) { updates.push('name=?'); vals.push(name.trim()); }
     if (updates.length) {
       vals.push(req.params.id);
       await db.query(`UPDATE workers SET ${updates.join(',')} WHERE id=?`, vals);
