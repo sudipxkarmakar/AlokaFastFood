@@ -170,4 +170,31 @@ router.get('/audit-logs', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// PATCH update order item status
+router.patch('/:id/items/:itemIndex/status', async (req, res) => {
+  const { status } = req.body;
+  const orderId = req.params.id;
+  const itemIndex = parseInt(req.params.itemIndex);
+  try {
+    const [items] = await db.query('SELECT id FROM order_items WHERE order_id=? ORDER BY id', [orderId]);
+    if (items[itemIndex]) {
+      await db.query('UPDATE order_items SET status=? WHERE id=?', [status, items[itemIndex].id]);
+      
+      if (status === 'COOKING') {
+        await db.query('UPDATE orders SET fulfillment_status=?, ts_cooking=COALESCE(ts_cooking, NOW()) WHERE id=?', ['COOKING', orderId]);
+      }
+      
+      const [allReadyRows] = await db.query(
+        'SELECT COUNT(*) as unready FROM order_items WHERE order_id=? AND status!=?',
+        [orderId, 'READY']
+      );
+      if (allReadyRows[0].unready === 0) {
+        await db.query('UPDATE orders SET fulfillment_status=?, ts_ready=COALESCE(ts_ready, NOW()) WHERE id=?', ['READY', orderId]);
+        await db.query("INSERT INTO audit_logs (action, payload) VALUES ('Order Ready', ?)", [`All items in Order #${orderId} are ready to serve.`]);
+      }
+    }
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

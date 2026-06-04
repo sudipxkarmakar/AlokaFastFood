@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
   prep_time INT DEFAULT 3,
   active TINYINT(1) DEFAULT 1,
   image_path VARCHAR(255) DEFAULT NULL,
+  food_type VARCHAR(20) DEFAULT 'non-veg',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE SET NULL
 );
@@ -231,15 +232,15 @@ INSERT IGNORE INTO worker_stations (worker_id, station_id) VALUES
 -- ============================================================
 -- MENU ITEMS SEED (with station references)
 -- ============================================================
-INSERT IGNORE INTO menu_items (id, name, station_id, prep_time, active) VALUES
-  ('chicken_roll',    'Chicken Roll',    'tawa',       3, 1),
-  ('egg_roll',        'Egg Roll',        'tawa',       3, 1),
-  ('chicken_chowmein','Chicken Chowmein','chilley',    4, 1),
-  ('chicken_pasta',   'Chicken Pasta',   'chilley',    4, 1),
-  ('mughlai_paratha', 'Mughlai Paratha', 'moghlai',    5, 1),
-  ('chicken_pakora',  'Chicken Pakora',  'deep_fry',   4, 1),
-  ('chicken_kosha',   'Chicken Kosha',   'kosha',      5, 1),
-  ('veg_chowmein',    'Veg Chowmein',    'chilley',    4, 1);
+INSERT IGNORE INTO menu_items (id, name, station_id, prep_time, active, food_type) VALUES
+  ('chicken_roll',    'Chicken Roll',    'tawa',       3, 1, 'non-veg'),
+  ('egg_roll',        'Egg Roll',        'tawa',       3, 1, 'egg'),
+  ('chicken_chowmein','Chicken Chowmein','chilley',    4, 1, 'non-veg'),
+  ('chicken_pasta',   'Chicken Pasta',   'chilley',    4, 1, 'non-veg'),
+  ('mughlai_paratha', 'Mughlai Paratha', 'moghlai',    5, 1, 'non-veg'),
+  ('chicken_pakora',  'Chicken Pakora',  'deep_fry',   4, 1, 'non-veg'),
+  ('chicken_kosha',   'Chicken Kosha',   'kosha',      5, 1, 'non-veg'),
+  ('veg_chowmein',    'Veg Chowmein',    'chilley',    4, 1, 'veg');
 
 INSERT IGNORE INTO menu_variants (id, menu_item_id, name, price, recipe_multiplier) VALUES
   ('chicken_roll_single',      'chicken_roll',     'Single',       90,  1.0),
@@ -250,8 +251,8 @@ INSERT IGNORE INTO menu_variants (id, menu_item_id, name, price, recipe_multipli
   ('chicken_pasta_full',       'chicken_pasta',    'Full',         140, 1.8),
   ('mughlai_paratha_single',   'mughlai_paratha',  'Single',       120, 1.0),
   ('chicken_pakora_single',    'chicken_pakora',   'Single',       100, 1.0),
-  ('chicken_kosha_half',       'chicken_kosha',    'Half Portion', 100, 1.0),
-  ('chicken_kosha_full',       'chicken_kosha',    'Full Portion', 180, 1.8),
+  ('chicken_kosha_half',       'chicken_kosha',    'Half', 100, 1.0),
+  ('chicken_kosha_full',       'chicken_kosha',    'Full', 180, 1.8),
   ('veg_chowmein_half',        'veg_chowmein',     'Half',         50,  1.0),
   ('veg_chowmein_full',        'veg_chowmein',     'Full',         90,  1.8);
 

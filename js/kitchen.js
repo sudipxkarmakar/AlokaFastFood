@@ -281,14 +281,22 @@ class KitchenDisplay {
     });
   }
 
-  cycleItemStatus(orderId, itemIndex, currentStatus) {
+  async cycleItemStatus(orderId, itemIndex, currentStatus) {
     let nextStatus = "COOKING";
     if (currentStatus === "COOKING") {
       nextStatus = "READY";
     }
 
-    // Call store method
-    window.AutoBrixStore.updateOrderItemStatus(orderId, itemIndex, nextStatus);
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        await window.AlokaAPI.patch(`/orders/${orderId}/items/${itemIndex}/status`, { status: nextStatus });
+        await window.AlokaAPI.loadAllState();
+      } catch (err) {
+        alert("Error updating item status: " + err.message);
+      }
+    } else {
+      window.AutoBrixStore.updateOrderItemStatus(orderId, itemIndex, nextStatus);
+    }
   }
 }
 

@@ -43,6 +43,31 @@ const db = require('./db');
       console.warn('[Auto-Migration] Notice:', e.message);
     }
   }
+  try {
+    await db.query("UPDATE menu_variants SET name = 'Half' WHERE name = 'Half Portion'");
+    await db.query("UPDATE menu_variants SET name = 'Full' WHERE name = 'Full Portion'");
+    console.log("[Auto-Migration] Updated menu_variants names to Half/Full");
+  } catch (e) {
+    console.warn('[Auto-Migration] Notice:', e.message);
+  }
+  try {
+    await db.query("ALTER TABLE menu_items ADD COLUMN food_type VARCHAR(20) DEFAULT 'non-veg'");
+    console.log("[Auto-Migration] Added COLUMN food_type to menu_items");
+    await db.query("UPDATE menu_items SET food_type = 'veg' WHERE id = 'veg_chowmein'");
+    await db.query("UPDATE menu_items SET food_type = 'egg' WHERE id = 'egg_roll'");
+  } catch (e) {
+    if (e.code !== 'ER_DUP_COLUMN_NAME') {
+      console.warn('[Auto-Migration] Notice:', e.message);
+    }
+  }
+  try {
+    await db.query("ALTER TABLE menu_items ADD COLUMN sort_order INT DEFAULT 0");
+    console.log("[Auto-Migration] Added COLUMN sort_order to menu_items");
+  } catch (e) {
+    if (e.code !== 'ER_DUP_COLUMN_NAME') {
+      console.warn('[Auto-Migration] Notice:', e.message);
+    }
+  }
 })();
 
 app.get('/api/health', async (req, res) => {

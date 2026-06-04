@@ -17,7 +17,7 @@ const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 // GET all menu items with variants and recipes
 router.get('/', async (req, res) => {
   try {
-    const [items] = await db.query('SELECT * FROM menu_items ORDER BY name');
+    const [items] = await db.query('SELECT * FROM menu_items ORDER BY sort_order, id');
     const [variants] = await db.query('SELECT * FROM menu_variants');
     const [recipes] = await db.query('SELECT * FROM menu_recipes');
 
@@ -48,13 +48,14 @@ router.post('/', upload.single('image'), async (req, res) => {
 // PATCH update menu item fields (price, station, prepTime, active)
 router.patch('/:id', async (req, res) => {
   const { id } = req.params;
-  const { station_id, prep_time, active } = req.body;
+  const { station_id, prep_time, active, food_type } = req.body;
   try {
     const updates = [];
     const vals = [];
     if (station_id !== undefined) { updates.push('station_id=?'); vals.push(station_id); }
     if (prep_time !== undefined) { updates.push('prep_time=?'); vals.push(parseInt(prep_time)); }
     if (active !== undefined) { updates.push('active=?'); vals.push(active ? 1 : 0); }
+    if (food_type !== undefined) { updates.push('food_type=?'); vals.push(food_type); }
     if (updates.length) {
       vals.push(id);
       await db.query(`UPDATE menu_items SET ${updates.join(',')} WHERE id=?`, vals);
@@ -70,6 +71,18 @@ router.patch('/:id/image', upload.single('image'), async (req, res) => {
   try {
     await db.query('UPDATE menu_items SET image_path=? WHERE id=?', [image_path, req.params.id]);
     res.json({ image_path });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST reorder menu items
+router.post('/reorder', async (req, res) => {
+  const { order } = req.body;
+  if (!Array.isArray(order)) return res.status(400).json({ error: 'order array required' });
+  try {
+    for (let i = 0; i < order.length; i++) {
+      await db.query('UPDATE menu_items SET sort_order=? WHERE id=?', [i, order[i]]);
+    }
+    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

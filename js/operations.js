@@ -307,17 +307,44 @@ class OperationsPanel {
   }
 
   // Quick operations actions
-  serveOrder(orderId) {
-    window.AutoBrixStore.completeOrder(orderId);
+  async serveOrder(orderId) {
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        await window.AlokaAPI.patch(`/orders/${orderId}/status`, { fulfillment_status: "COMPLETED" });
+        await window.AlokaAPI.loadAllState();
+      } catch (err) {
+        alert("Error serving order: " + err.message);
+      }
+    } else {
+      window.AutoBrixStore.completeOrder(orderId);
+    }
   }
 
-  collectPayment(orderId) {
-    window.AutoBrixStore.updatePaymentStatus(orderId, "PAID");
+  async collectPayment(orderId) {
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        await window.AlokaAPI.patch(`/orders/${orderId}/status`, { payment_status: "PAID" });
+        await window.AlokaAPI.loadAllState();
+      } catch (err) {
+        alert("Error collecting payment: " + err.message);
+      }
+    } else {
+      window.AutoBrixStore.updatePaymentStatus(orderId, "PAID");
+    }
   }
 
-  cancelOrder(orderId) {
+  async cancelOrder(orderId) {
     if (confirm(`Are you sure you want to cancel order #${orderId}? This will release reserved ingredients.`)) {
-      window.AutoBrixStore.cancelOrder(orderId);
+      if (window.AlokaAPI.isOnline()) {
+        try {
+          await window.AlokaAPI.patch(`/orders/${orderId}/status`, { fulfillment_status: "CANCELLED" });
+          await window.AlokaAPI.loadAllState();
+        } catch (err) {
+          alert("Error cancelling order: " + err.message);
+        }
+      } else {
+        window.AutoBrixStore.cancelOrder(orderId);
+      }
     }
   }
 }

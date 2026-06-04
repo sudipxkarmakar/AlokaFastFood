@@ -1512,3 +1512,81 @@ main {
     padding: 5mm;
   }
 }
+
+/* Hide number input spinners/arrows for owner panels */
+.owner-input-cell::-webkit-outer-spin-button,
+.owner-input-cell::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.owner-input-cell {
+  -moz-appearance: textfield;
+}
+
+/* Owner table row hover effect */
+.owner-table tbody tr {
+  transition: background var(--transition-fast) ease;
+}
+.owner-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Food type indicator badges */
+.food-type-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--bg-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+}
+.food-type-indicator.veg {
+  background-color: #10b981;
+}
+.food-type-indicator.non-veg {
+  background-color: #ef4444;
+}
+.food-type-indicator.egg {
+  background-color: #f59e0b;
+}
+
+/* Click-to-Reorder Popover Styles */
+.reorder-popover {
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--border-radius-sm);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  animation: popoverScaleIn 0.12s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top left;
+}
+
+@keyframes popoverScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.reorder-option {
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.reorder-option:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--text-primary) !important;
+}
+
+.reorder-option.disabled {
+  color: var(--text-muted) !important;
+  cursor: not-allowed !important;
+  opacity: 0.35 !important;
+}
+

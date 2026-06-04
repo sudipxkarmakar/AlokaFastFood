@@ -91,7 +91,7 @@ window.AlokaAPI = {
       this.get('/inventory/intermediate'),
       this.get('/inventory/batch-recipes'),
       this.get('/expenses'),
-      this.get('/orders?status=ACCEPTED'),
+      this.get('/orders'),
       this.get('/orders/audit-logs'),
       this.get('/orders/day-history'),
       this.get('/expenses/custom-items'),
@@ -102,7 +102,15 @@ window.AlokaAPI = {
     const menuMap = {};
     menuItems.forEach(item => {
       const variants = {};
-      (item.variants || []).forEach(v => { variants[v.id] = v; });
+      (item.variants || []).forEach(v => {
+        const key = v.name.toLowerCase();
+        variants[key] = {
+          id: v.id,
+          name: v.name,
+          price: parseFloat(v.price) || 0,
+          recipeMultiplier: parseFloat(v.recipe_multiplier) || 1.0
+        };
+      });
       const recipe = {};
       (item.recipe || []).forEach(r => { recipe[r.ingredient_id] = r.quantity; });
       menuMap[item.id] = {
@@ -112,6 +120,8 @@ window.AlokaAPI = {
         prepTime: item.prep_time,
         active: !!item.active,
         image: item.image_path || null,
+        foodType: item.food_type || 'non-veg',
+        sortOrder: item.sort_order || 0,
         variants,
         recipe
       };
@@ -166,6 +176,37 @@ window.AlokaAPI = {
     store.state.inventory.intermediate = interMap;
     store.state.inventory.prepared = prepMap;
     store.state.expenses = expenses;
+    store.state.orders = orders.map(o => ({
+      id: o.id,
+      customerName: o.customer_name || "Walk-In",
+      source: o.source || "DINE_IN",
+      priority: o.priority || "NORMAL",
+      subtotal: +o.subtotal || 0,
+      tax: +o.tax || 0,
+      total: +o.total || 0,
+      commission: +o.commission || 0,
+      netRevenue: +o.net_revenue || 0,
+      eta: o.eta || 0,
+      fulfillmentStatus: o.fulfillment_status || "ACCEPTED",
+      paymentStatus: o.payment_status || "UNPAID",
+      timestamp: o.created_at || new Date().toISOString(),
+      timestamps: {
+        accepted: o.ts_accepted ? new Date(o.ts_accepted).toISOString() : null,
+        cooking: o.ts_cooking ? new Date(o.ts_cooking).toISOString() : null,
+        ready: o.ts_ready ? new Date(o.ts_ready).toISOString() : null,
+        completed: o.ts_completed ? new Date(o.ts_completed).toISOString() : null
+      },
+      items: (o.items || []).map(it => ({
+        id: it.menu_item_id,
+        name: it.menu_item_name,
+        variant: it.variant_id,
+        variantName: it.variant_name,
+        quantity: it.quantity,
+        price: +it.unit_price,
+        modifiers: typeof it.modifiers === 'string' ? JSON.parse(it.modifiers) : (it.modifiers || []),
+        status: it.status
+      }))
+    }));
     store.state.auditLogs = auditLogs.map(l => ({
       timestamp: l.log_timestamp, user: l.actor, action: l.action, payload: l.payload
     }));

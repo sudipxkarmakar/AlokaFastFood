@@ -725,6 +725,36 @@ class POSPanel {
     // Perform atomic transaction reservation
     const success = window.AutoBrixStore.reserveInventoryAtomically(orderData);
     if (success) {
+      if (window.AlokaAPI.isOnline()) {
+        const itemsPayload = orderData.items.map(it => ({
+          id: it.id,
+          name: it.name,
+          variant: it.variant,
+          variantName: it.variant === 'single' ? 'Single' : (it.variant === 'half' ? 'Half' : 'Full'),
+          quantity: it.quantity,
+          unitPrice: it.price,
+          modifiers: it.modifiers
+        }));
+        window.AlokaAPI.post('/orders', {
+          id: orderData.id,
+          customer_name: orderData.customerName,
+          source: orderData.source,
+          priority: orderData.priority,
+          subtotal: orderData.subtotal,
+          tax: orderData.tax,
+          total: orderData.total,
+          commission: orderData.commission,
+          net_revenue: orderData.netRevenue,
+          eta: orderData.eta,
+          payment_status: orderData.paymentStatus,
+          items: itemsPayload
+        }).then(() => {
+          window.AlokaAPI.loadAllState();
+        }).catch(err => {
+          console.error("Online order save failed:", err);
+          alert("Order recorded locally, but failed to sync online: " + err.message);
+        });
+      }
       this.printBillReceipt(orderData);
       
       // Clean up POS

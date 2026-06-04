@@ -71,6 +71,8 @@ const MENU_DEFAULT = {
     station: "tawa",
     prepTime: 3,
     active: true,
+    foodType: "non-veg",
+    sortOrder: 1,
     variants: {
       single: { name: "Single", price: 90, recipeMultiplier: 1.0 }
     },
@@ -82,6 +84,8 @@ const MENU_DEFAULT = {
     station: "tawa",
     prepTime: 3,
     active: true,
+    foodType: "egg",
+    sortOrder: 2,
     variants: {
       single: { name: "Single", price: 60, recipeMultiplier: 1.0 }
     },
@@ -93,6 +97,8 @@ const MENU_DEFAULT = {
     station: "chilley",
     prepTime: 4,
     active: true,
+    foodType: "non-veg",
+    sortOrder: 3,
     variants: {
       half: { name: "Half", price: 70, recipeMultiplier: 1.0 },
       full: { name: "Full", price: 120, recipeMultiplier: 1.8 }
@@ -105,6 +111,8 @@ const MENU_DEFAULT = {
     station: "chilley",
     prepTime: 4,
     active: true,
+    foodType: "non-veg",
+    sortOrder: 4,
     variants: {
       half: { name: "Half", price: 80, recipeMultiplier: 1.0 },
       full: { name: "Full", price: 140, recipeMultiplier: 1.8 }
@@ -117,6 +125,8 @@ const MENU_DEFAULT = {
     station: "moghlai",
     prepTime: 5,
     active: true,
+    foodType: "non-veg",
+    sortOrder: 5,
     variants: {
       single: { name: "Single", price: 120, recipeMultiplier: 1.0 }
     },
@@ -128,6 +138,8 @@ const MENU_DEFAULT = {
     station: "deep_fry",
     prepTime: 4,
     active: true,
+    foodType: "non-veg",
+    sortOrder: 6,
     variants: {
       single: { name: "Single", price: 100, recipeMultiplier: 1.0 }
     },
@@ -139,9 +151,11 @@ const MENU_DEFAULT = {
     station: "kosha",
     prepTime: 5,
     active: true,
+    foodType: "non-veg",
+    sortOrder: 7,
     variants: {
-      half: { name: "Half Portion", price: 100, recipeMultiplier: 1.0 },
-      full: { name: "Full Portion", price: 180, recipeMultiplier: 1.8 }
+      half: { name: "Half", price: 100, recipeMultiplier: 1.0 },
+      full: { name: "Full", price: 180, recipeMultiplier: 1.8 }
     },
     recipe: { chicken_kosha_gravy: 1 }
   },
@@ -151,6 +165,8 @@ const MENU_DEFAULT = {
     station: "chilley",
     prepTime: 4,
     active: true,
+    foodType: "veg",
+    sortOrder: 8,
     variants: {
       half: { name: "Half", price: 50, recipeMultiplier: 1.0 },
       full: { name: "Full", price: 90, recipeMultiplier: 1.8 }
@@ -1039,6 +1055,7 @@ class AutoBrixStore {
 
   addMenuItem(itemData) {
     this.updateState((state) => {
+      const order = Object.keys(state.config.menuItems).length + 1;
       state.config.menuItems[itemData.id] = {
         id: itemData.id,
         name: itemData.name,
@@ -1046,10 +1063,20 @@ class AutoBrixStore {
         prepTime: parseInt(itemData.prepTime) || 3,
         active: true,
         image: itemData.image || null,
+        foodType: itemData.foodType || "non-veg",
+        sortOrder: itemData.sortOrder || order,
         variants: itemData.variants || {},
         recipe: itemData.recipe || {}
       };
       this.logAudit("Config Change", `Added new menu item: ${itemData.name}`);
+    });
+  }
+
+  removeMenuItem(id) {
+    this.updateState((state) => {
+      const name = state.config.menuItems[id]?.name || id;
+      delete state.config.menuItems[id];
+      this.logAudit("Config Change", `Removed menu item: ${name} (${id})`);
     });
   }
 }
