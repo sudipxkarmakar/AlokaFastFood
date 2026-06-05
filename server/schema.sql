@@ -82,7 +82,9 @@ INSERT IGNORE INTO raw_ingredients (id, name, stock, reserved, min_stock, purcha
   ('pasta',       'Raw Pasta',           10000, 0, 2000,  'kg', 'g',   1000, 80,   'Fortune Retail'),
   ('cheese',      'Cheese Block',        5000,  0, 1000,  'kg', 'g',   1000, 400,  'Amul Store'),
   ('spices',      'Mix Spices',          2000,  0, 500,   'kg', 'g',   1000, 300,  'Sunrise Spices'),
-  ('sauce',       'Sauces & Condiments', 5000,  0, 1000,  'kg', 'g',   1000, 80,   'Kissan Depot');
+  ('sauce',       'Sauces & Condiments', 5000,  0, 1000,  'kg', 'g',   1000, 80,   'Kissan Depot'),
+  ('ghugni_peas', 'Ghugni Peas',         10000, 0, 2000,  'kg', 'g',   1000, 60,   'Sabji Mandi'),
+  ('chole_chana', 'Chole Chana',         10000, 0, 2000,  'kg', 'g',   1000, 80,   'Sabji Mandi');
 
 -- ============================================================
 -- INTERMEDIATE & PREPARED STOCK
@@ -106,7 +108,9 @@ INSERT IGNORE INTO intermediate_stock (id, name, stock, reserved, min_stock, uni
   ('paratha_base',        'Paratha Base',            150,  0, 30,   'pcs',     'prepared'),
   ('mughlai_dough',       'Mughlai Dough',           40,   0, 10,   'pcs',     'prepared'),
   ('chowmein_base',       'Chowmein Base',           50,   0, 10,   'portions','prepared'),
-  ('pasta_base',          'Pasta Base',              30,   0, 10,   'portions','prepared');
+  ('pasta_base',          'Pasta Base',              30,   0, 10,   'portions','prepared'),
+  ('ghugni_gravy',        'Ghugni Gravy',            5000, 0, 1000, 'g',       'intermediate'),
+  ('chole_gravy',         'Chole Gravy',             5000, 0, 1000, 'g',       'intermediate');
 
 -- ============================================================
 -- BATCH RECIPES
@@ -147,7 +151,9 @@ INSERT IGNORE INTO batch_recipes (id, name, unit, expected_yield_ratio, processi
   ('paratha_base',        'Paratha Base',            'pcs',     1.00, 'direct'),
   ('mughlai_dough',       'Mughlai Dough',           'pcs',     1.00, 'direct'),
   ('chowmein_base',       'Chowmein Base',           'portions',1.00, 'direct'),
-  ('pasta_base',          'Pasta Base',              'portions',1.00, 'direct');
+  ('pasta_base',          'Pasta Base',              'portions',1.00, 'direct'),
+  ('ghugni_gravy',        'Ghugni Gravy',            'g',       1.00, 'direct'),
+  ('chole_gravy',         'Chole Gravy',             'g',       1.00, 'direct');
 
 INSERT IGNORE INTO batch_recipe_ingredients (batch_recipe_id, raw_ingredient_id, ratio_per_unit, unit) VALUES
   ('chicken_keema',       'raw_chicken', 1.25,  'g'),
@@ -172,7 +178,15 @@ INSERT IGNORE INTO batch_recipe_ingredients (batch_recipe_id, raw_ingredient_id,
   ('chowmein_base',       'noodles',     80.0,  'g'),
   ('chowmein_base',       'oil',         10.0,  'ml'),
   ('pasta_base',          'pasta',       80.0,  'g'),
-  ('pasta_base',          'oil',         10.0,  'ml');
+  ('pasta_base',          'oil',         10.0,  'ml'),
+  ('ghugni_gravy',        'ghugni_peas', 0.5,   'g'),
+  ('ghugni_gravy',        'onion',       0.1,   'g'),
+  ('ghugni_gravy',        'oil',         0.05,  'ml'),
+  ('ghugni_gravy',        'spices',      0.02,  'g'),
+  ('chole_gravy',         'chole_chana', 0.5,   'g'),
+  ('chole_gravy',         'onion',       0.1,   'g'),
+  ('chole_gravy',         'oil',         0.05,  'ml'),
+  ('chole_gravy',         'spices',      0.02,  'g');
 
 INSERT IGNORE INTO batch_processing_stages (batch_recipe_id, stage_order, stage_name, station_id, duration_min) VALUES
   ('pakora_mixture', 1, 'Marination', 'prep',     30),
@@ -240,7 +254,23 @@ INSERT IGNORE INTO menu_items (id, name, station_id, prep_time, active, food_typ
   ('mughlai_paratha', 'Mughlai Paratha', 'moghlai',    5, 1, 'non-veg'),
   ('chicken_pakora',  'Chicken Pakora',  'deep_fry',   4, 1, 'non-veg'),
   ('chicken_kosha',   'Chicken Kosha',   'kosha',      5, 1, 'non-veg'),
-  ('veg_chowmein',    'Veg Chowmein',    'chilley',    4, 1, 'veg');
+  ('veg_chowmein',    'Veg Chowmein',    'chilley',    4, 1, 'veg'),
+  ('veg_pasta',       'Veg Pasta',       'chilley',    4, 1, 'veg'),
+  ('egg_pasta',       'Egg Pasta',       'chilley',    4, 1, 'egg'),
+  ('paneer_pasta',    'Paneer Pasta',    'chilley',    4, 1, 'veg'),
+  ('egg_chicken_pasta','Egg Chicken Pasta','chilley',  4, 1, 'non-veg'),
+  ('egg_paneer_pasta','Egg Paneer Pasta','chilley',    4, 1, 'non-veg'),
+  ('egg_chowmein',    'Egg Chowmein',    'chilley',    4, 1, 'egg'),
+  ('paneer_chowmein', 'Paneer Chowmein', 'chilley',    4, 1, 'veg'),
+  ('egg_chicken_chowmein','Egg Chicken Chowmein','chilley',4, 1, 'non-veg'),
+  ('egg_paneer_chowmein','Egg Paneer Chowmein','chilley',4, 1, 'non-veg'),
+  ('veg_roll',        'Veg Roll',        'tawa',       3, 1, 'veg'),
+  ('paneer_roll',     'Paneer Roll',     'tawa',       3, 1, 'veg'),
+  ('egg_chicken_roll','Egg Chicken Roll','tawa',       3, 1, 'non-veg'),
+  ('egg_paneer_roll', 'Egg Paneer Roll', 'tawa',       3, 1, 'non-veg'),
+  ('chicken_paratha', 'Chicken Paratha', 'tawa',       4, 1, 'non-veg'),
+  ('gogni_paratha',   'Gogni Paratha',   'tawa',       4, 1, 'veg'),
+  ('chola_bhatura',   'Chola Bhatura',   'moghlai',    4, 1, 'veg');
 
 INSERT IGNORE INTO menu_variants (id, menu_item_id, name, price, recipe_multiplier) VALUES
   ('chicken_roll_single',      'chicken_roll',     'Single',       90,  1.0),
@@ -250,11 +280,36 @@ INSERT IGNORE INTO menu_variants (id, menu_item_id, name, price, recipe_multipli
   ('chicken_pasta_half',       'chicken_pasta',    'Half',         80,  1.0),
   ('chicken_pasta_full',       'chicken_pasta',    'Full',         140, 1.8),
   ('mughlai_paratha_single',   'mughlai_paratha',  'Single',       120, 1.0),
-  ('chicken_pakora_single',    'chicken_pakora',   'Single',       100, 1.0),
+  ('chicken_pakora_single',    'chicken_pakora',   'Single',       100,  1.0),
   ('chicken_kosha_half',       'chicken_kosha',    'Half', 100, 1.0),
   ('chicken_kosha_full',       'chicken_kosha',    'Full', 180, 1.8),
   ('veg_chowmein_half',        'veg_chowmein',     'Half',         50,  1.0),
-  ('veg_chowmein_full',        'veg_chowmein',     'Full',         90,  1.8);
+  ('veg_chowmein_full',        'veg_chowmein',     'Full',         90,  1.8),
+  ('veg_pasta_half',           'veg_pasta',        'Half',         50,  1.0),
+  ('veg_pasta_full',           'veg_pasta',        'Full',         90,  1.8),
+  ('egg_pasta_half',           'egg_pasta',        'Half',         60,  1.0),
+  ('egg_pasta_full',           'egg_pasta',        'Full',         100, 1.8),
+  ('paneer_pasta_half',        'paneer_pasta',     'Half',         80,  1.0),
+  ('paneer_pasta_full',        'paneer_pasta',     'Full',         140, 1.8),
+  ('egg_chicken_pasta_half',   'egg_chicken_pasta','Half',         90,  1.0),
+  ('egg_chicken_pasta_full',   'egg_chicken_pasta','Full',         150, 1.8),
+  ('egg_paneer_pasta_half',    'egg_paneer_pasta', 'Half',         90,  1.0),
+  ('egg_paneer_pasta_full',    'egg_paneer_pasta', 'Full',         150, 1.8),
+  ('egg_chowmein_half',        'egg_chowmein',     'Half',         60,  1.0),
+  ('egg_chowmein_full',        'egg_chowmein',     'Full',         100, 1.8),
+  ('paneer_chowmein_half',     'paneer_chowmein',  'Half',         80,  1.0),
+  ('paneer_chowmein_full',     'paneer_chowmein',  'Full',         140, 1.8),
+  ('egg_chicken_chowmein_half','egg_chicken_chowmein','Half',      80,  1.0),
+  ('egg_chicken_chowmein_full','egg_chicken_chowmein','Full',      130, 1.8),
+  ('egg_paneer_chowmein_half', 'egg_paneer_chowmein','Half',       90,  1.0),
+  ('egg_paneer_chowmein_full', 'egg_paneer_chowmein','Full',       150, 1.8),
+  ('veg_roll_single',          'veg_roll',         'Single',       50,  1.0),
+  ('paneer_roll_single',       'paneer_roll',      'Single',       80,  1.0),
+  ('egg_chicken_roll_single',  'egg_chicken_roll', 'Single',       100, 1.0),
+  ('egg_paneer_roll_single',   'egg_paneer_roll',  'Single',       90,  1.0),
+  ('chicken_paratha_single',   'chicken_paratha',  'Single',       100, 1.0),
+  ('gogni_paratha_single',     'gogni_paratha',    'Single',       60,  1.0),
+  ('chola_bhatura_single',     'chola_bhatura',    'Single',       80,  1.0);
 
 -- ============================================================
 -- ORDERS

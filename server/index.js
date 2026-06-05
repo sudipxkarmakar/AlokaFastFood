@@ -68,6 +68,186 @@ const db = require('./db');
       console.warn('[Auto-Migration] Notice:', e.message);
     }
   }
+  try {
+    await db.query(
+      `INSERT IGNORE INTO menu_variants (id, menu_item_id, name, price, recipe_multiplier)
+       VALUES ('egg_roll_double_egg', 'egg_roll', 'Double Egg', 80.00, 1.0)`
+    );
+    console.log("[Auto-Migration] Added Double Egg variant for Egg Roll");
+  } catch (e) {
+    console.warn('[Auto-Migration] Egg Roll variant:', e.message);
+  }
+
+  try {
+    // 1. Double Egg Chowmein
+    await db.query("INSERT IGNORE INTO menu_items (id, name, station_id, prep_time, active, food_type, sort_order) VALUES ('double_egg_chowmein', 'Double Egg Chowmein', 'chilley', 4, 1, 'egg', 7)");
+    await db.query("INSERT IGNORE INTO menu_variants (id, menu_item_id, name, price, recipe_multiplier) VALUES ('double_egg_chowmein_half', 'double_egg_chowmein', 'Half', 40.00, 1.0)");
+    await db.query("INSERT IGNORE INTO menu_variants (id, menu_item_id, name, price, recipe_multiplier) VALUES ('double_egg_chowmein_full', 'double_egg_chowmein', 'Full', 55.00, 1.8)");
+    
+    // Seed recipe for Double Egg Chowmein
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_chowmein', 'chowmein_base', 'prepared', 1.0, 'portions')");
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_chowmein', 'egg', 'raw', 2.0, 'pcs')");
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_chowmein', 'onion', 'raw', 20.0, 'g')");
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_chowmein', 'capsicum', 'raw', 20.0, 'g')");
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_chowmein', 'sauce', 'raw', 10.0, 'g')");
+    console.log("[Auto-Migration] Added Double Egg Chowmein with recipe");
+  } catch (e) {
+    console.warn('[Auto-Migration] Double Egg Chowmein:', e.message);
+  }
+
+  try {
+    // 2. Double Egg Pasta
+    await db.query("INSERT IGNORE INTO menu_items (id, name, station_id, prep_time, active, food_type, sort_order) VALUES ('double_egg_pasta', 'Double Egg Pasta', 'chilley', 4, 1, 'egg', 1)");
+    await db.query("INSERT IGNORE INTO menu_variants (id, menu_item_id, name, price, recipe_multiplier) VALUES ('double_egg_pasta_half', 'double_egg_pasta', 'Half', 40.00, 1.0)");
+    await db.query("INSERT IGNORE INTO menu_variants (id, menu_item_id, name, price, recipe_multiplier) VALUES ('double_egg_pasta_full', 'double_egg_pasta', 'Full', 60.00, 1.8)");
+    
+    // Seed recipe for Double Egg Pasta
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_pasta', 'pasta_base', 'prepared', 1.0, 'portions')");
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_pasta', 'egg', 'raw', 2.0, 'pcs')");
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_pasta', 'onion', 'raw', 10.0, 'g')");
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_pasta', 'capsicum', 'raw', 10.0, 'g')");
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_pasta', 'sauce', 'raw', 10.0, 'g')");
+    console.log("[Auto-Migration] Added Double Egg Pasta with recipe");
+  } catch (e) {
+    console.warn('[Auto-Migration] Double Egg Pasta:', e.message);
+  }
+
+  try {
+    // 3. Double Egg Roll
+    await db.query("INSERT IGNORE INTO menu_items (id, name, station_id, prep_time, active, food_type, sort_order) VALUES ('double_egg_roll', 'Double Egg Roll', 'tawa', 3, 1, 'egg', 13)");
+    await db.query("INSERT IGNORE INTO menu_variants (id, menu_item_id, name, price, recipe_multiplier) VALUES ('double_egg_roll_single', 'double_egg_roll', 'Single', 80.00, 1.0)");
+    
+    // Seed recipe for Double Egg Roll
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_roll', 'paratha_base', 'prepared', 1.0, 'pcs')");
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_roll', 'egg', 'raw', 2.0, 'pcs')");
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_roll', 'onion', 'raw', 20.0, 'g')");
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('double_egg_roll', 'sauce', 'raw', 10.0, 'g')");
+    console.log("[Auto-Migration] Added Double Egg Roll with recipe");
+  } catch (e) {
+    console.warn('[Auto-Migration] Double Egg Roll:', e.message);
+  }
+
+  try {
+    // Seed new raw/intermediate items
+    await db.query("INSERT IGNORE INTO raw_ingredients (id, name, stock, reserved, min_stock, purchase_unit, stock_unit, conversion_factor, cost_per_purchase_unit, supplier) VALUES ('ghugni_peas', 'Ghugni Peas', 10000, 0, 2000, 'kg', 'g', 1000, 60, 'Sabji Mandi')");
+    await db.query("INSERT IGNORE INTO raw_ingredients (id, name, stock, reserved, min_stock, purchase_unit, stock_unit, conversion_factor, cost_per_purchase_unit, supplier) VALUES ('chole_chana', 'Chole Chana', 10000, 0, 2000, 'kg', 'g', 1000, 80, 'Sabji Mandi')");
+    await db.query("INSERT IGNORE INTO intermediate_stock (id, name, stock, reserved, min_stock, unit, item_type) VALUES ('ghugni_gravy', 'Ghugni Gravy', 5000, 0, 1000, 'g', 'intermediate')");
+    await db.query("INSERT IGNORE INTO intermediate_stock (id, name, stock, reserved, min_stock, unit, item_type) VALUES ('chole_gravy', 'Chole Gravy', 5000, 0, 1000, 'g', 'intermediate')");
+    await db.query("INSERT IGNORE INTO batch_recipes (id, name, unit, expected_yield_ratio, processing_type) VALUES ('ghugni_gravy', 'Ghugni Gravy', 'g', 1.0, 'direct')");
+    await db.query("INSERT IGNORE INTO batch_recipes (id, name, unit, expected_yield_ratio, processing_type) VALUES ('chole_gravy', 'Chole Gravy', 'g', 1.0, 'direct')");
+    await db.query("INSERT IGNORE INTO batch_recipe_ingredients (batch_recipe_id, raw_ingredient_id, ratio_per_unit, unit) VALUES ('ghugni_gravy', 'ghugni_peas', 0.5, 'g')");
+    await db.query("INSERT IGNORE INTO batch_recipe_ingredients (batch_recipe_id, raw_ingredient_id, ratio_per_unit, unit) VALUES ('ghugni_gravy', 'onion', 0.1, 'g')");
+    await db.query("INSERT IGNORE INTO batch_recipe_ingredients (batch_recipe_id, raw_ingredient_id, ratio_per_unit, unit) VALUES ('ghugni_gravy', 'oil', 0.05, 'ml')");
+    await db.query("INSERT IGNORE INTO batch_recipe_ingredients (batch_recipe_id, raw_ingredient_id, ratio_per_unit, unit) VALUES ('ghugni_gravy', 'spices', 0.02, 'g')");
+    await db.query("INSERT IGNORE INTO batch_recipe_ingredients (batch_recipe_id, raw_ingredient_id, ratio_per_unit, unit) VALUES ('chole_gravy', 'chole_chana', 0.5, 'g')");
+    await db.query("INSERT IGNORE INTO batch_recipe_ingredients (batch_recipe_id, raw_ingredient_id, ratio_per_unit, unit) VALUES ('chole_gravy', 'onion', 0.1, 'g')");
+    await db.query("INSERT IGNORE INTO batch_recipe_ingredients (batch_recipe_id, raw_ingredient_id, ratio_per_unit, unit) VALUES ('chole_gravy', 'oil', 0.05, 'ml')");
+    await db.query("INSERT IGNORE INTO batch_recipe_ingredients (batch_recipe_id, raw_ingredient_id, ratio_per_unit, unit) VALUES ('chole_gravy', 'spices', 0.02, 'g')");
+
+    const newItems = [
+      {
+        id: 'veg_pasta', name: 'Veg Pasta', station: 'chilley', prep: 4, type: 'veg', order: 25,
+        variants: [{ name: 'Half', price: 50.00, mult: 1.0 }, { name: 'Full', price: 90.00, mult: 1.8 }],
+        recipe: [{ ing: 'pasta_base', qty: 1.0, type: 'prepared', unit: 'portions' }, { ing: 'onion', qty: 10.0, type: 'raw', unit: 'g' }, { ing: 'capsicum', qty: 10.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'egg_pasta', name: 'Egg Pasta', station: 'chilley', prep: 4, type: 'egg', order: 26,
+        variants: [{ name: 'Half', price: 60.00, mult: 1.0 }, { name: 'Full', price: 100.00, mult: 1.8 }],
+        recipe: [{ ing: 'pasta_base', qty: 1.0, type: 'prepared', unit: 'portions' }, { ing: 'egg', qty: 1.0, type: 'raw', unit: 'pcs' }, { ing: 'onion', qty: 10.0, type: 'raw', unit: 'g' }, { ing: 'capsicum', qty: 10.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'paneer_pasta', name: 'Paneer Pasta', station: 'chilley', prep: 4, type: 'veg', order: 27,
+        variants: [{ name: 'Half', price: 80.00, mult: 1.0 }, { name: 'Full', price: 140.00, mult: 1.8 }],
+        recipe: [{ ing: 'pasta_base', qty: 1.0, type: 'prepared', unit: 'portions' }, { ing: 'paneer_keema', qty: 60.0, type: 'intermediate', unit: 'g' }, { ing: 'onion', qty: 10.0, type: 'raw', unit: 'g' }, { ing: 'capsicum', qty: 10.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'egg_chicken_pasta', name: 'Egg Chicken Pasta', station: 'chilley', prep: 4, type: 'non-veg', order: 28,
+        variants: [{ name: 'Half', price: 90.00, mult: 1.0 }, { name: 'Full', price: 150.00, mult: 1.8 }],
+        recipe: [{ ing: 'pasta_base', qty: 1.0, type: 'prepared', unit: 'portions' }, { ing: 'egg', qty: 1.0, type: 'raw', unit: 'pcs' }, { ing: 'chicken_keema', qty: 60.0, type: 'intermediate', unit: 'g' }, { ing: 'onion', qty: 10.0, type: 'raw', unit: 'g' }, { ing: 'capsicum', qty: 10.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'egg_paneer_pasta', name: 'Egg Paneer Pasta', station: 'chilley', prep: 4, type: 'non-veg', order: 29,
+        variants: [{ name: 'Half', price: 90.00, mult: 1.0 }, { name: 'Full', price: 150.00, mult: 1.8 }],
+        recipe: [{ ing: 'pasta_base', qty: 1.0, type: 'prepared', unit: 'portions' }, { ing: 'egg', qty: 1.0, type: 'raw', unit: 'pcs' }, { ing: 'paneer_keema', qty: 60.0, type: 'intermediate', unit: 'g' }, { ing: 'onion', qty: 10.0, type: 'raw', unit: 'g' }, { ing: 'capsicum', qty: 10.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'egg_chowmein', name: 'Egg Chowmein', station: 'chilley', prep: 4, type: 'egg', order: 30,
+        variants: [{ name: 'Half', price: 60.00, mult: 1.0 }, { name: 'Full', price: 100.00, mult: 1.8 }],
+        recipe: [{ ing: 'chowmein_base', qty: 1.0, type: 'prepared', unit: 'portions' }, { ing: 'egg', qty: 1.0, type: 'raw', unit: 'pcs' }, { ing: 'onion', qty: 20.0, type: 'raw', unit: 'g' }, { ing: 'capsicum', qty: 20.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'paneer_chowmein', name: 'Paneer Chowmein', station: 'chilley', prep: 4, type: 'veg', order: 31,
+        variants: [{ name: 'Half', price: 80.00, mult: 1.0 }, { name: 'Full', price: 140.00, mult: 1.8 }],
+        recipe: [{ ing: 'chowmein_base', qty: 1.0, type: 'prepared', unit: 'portions' }, { ing: 'paneer_keema', qty: 60.0, type: 'intermediate', unit: 'g' }, { ing: 'onion', qty: 20.0, type: 'raw', unit: 'g' }, { ing: 'capsicum', qty: 20.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'egg_chicken_chowmein', name: 'Egg Chicken Chowmein', station: 'chilley', prep: 4, type: 'non-veg', order: 32,
+        variants: [{ name: 'Half', price: 80.00, mult: 1.0 }, { name: 'Full', price: 130.00, mult: 1.8 }],
+        recipe: [{ ing: 'chowmein_base', qty: 1.0, type: 'prepared', unit: 'portions' }, { ing: 'egg', qty: 1.0, type: 'raw', unit: 'pcs' }, { ing: 'chicken_keema', qty: 60.0, type: 'intermediate', unit: 'g' }, { ing: 'onion', qty: 20.0, type: 'raw', unit: 'g' }, { ing: 'capsicum', qty: 20.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'egg_paneer_chowmein', name: 'Egg Paneer Chowmein', station: 'chilley', prep: 4, type: 'non-veg', order: 33,
+        variants: [{ name: 'Half', price: 90.00, mult: 1.0 }, { name: 'Full', price: 150.00, mult: 1.8 }],
+        recipe: [{ ing: 'chowmein_base', qty: 1.0, type: 'prepared', unit: 'portions' }, { ing: 'egg', qty: 1.0, type: 'raw', unit: 'pcs' }, { ing: 'paneer_keema', qty: 60.0, type: 'intermediate', unit: 'g' }, { ing: 'onion', qty: 20.0, type: 'raw', unit: 'g' }, { ing: 'capsicum', qty: 20.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'veg_roll', name: 'Veg Roll', station: 'tawa', prep: 3, type: 'veg', order: 34,
+        variants: [{ name: 'Single', price: 50.00, mult: 1.0 }],
+        recipe: [{ ing: 'paratha_base', qty: 1.0, type: 'prepared', unit: 'pcs' }, { ing: 'onion', qty: 20.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'paneer_roll', name: 'Paneer Roll', station: 'tawa', prep: 3, type: 'veg', order: 35,
+        variants: [{ name: 'Single', price: 80.00, mult: 1.0 }],
+        recipe: [{ ing: 'paratha_base', qty: 1.0, type: 'prepared', unit: 'pcs' }, { ing: 'paneer_keema', qty: 80.0, type: 'intermediate', unit: 'g' }, { ing: 'onion', qty: 20.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'egg_chicken_roll', name: 'Egg Chicken Roll', station: 'tawa', prep: 3, type: 'non-veg', order: 36,
+        variants: [{ name: 'Single', price: 100.00, mult: 1.0 }],
+        recipe: [{ ing: 'paratha_base', qty: 1.0, type: 'prepared', unit: 'pcs' }, { ing: 'egg', qty: 1.0, type: 'raw', unit: 'pcs' }, { ing: 'chicken_keema', qty: 80.0, type: 'intermediate', unit: 'g' }, { ing: 'onion', qty: 20.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'egg_paneer_roll', name: 'Egg Paneer Roll', station: 'tawa', prep: 3, type: 'non-veg', order: 37,
+        variants: [{ name: 'Single', price: 90.00, mult: 1.0 }],
+        recipe: [{ ing: 'paratha_base', qty: 1.0, type: 'prepared', unit: 'pcs' }, { ing: 'egg', qty: 1.0, type: 'raw', unit: 'pcs' }, { ing: 'paneer_keema', qty: 80.0, type: 'intermediate', unit: 'g' }, { ing: 'onion', qty: 20.0, type: 'raw', unit: 'g' }, { ing: 'sauce', qty: 10.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'chicken_paratha', name: 'Chicken Paratha', station: 'tawa', prep: 4, type: 'non-veg', order: 38,
+        variants: [{ name: 'Single', price: 100.00, mult: 1.0 }],
+        recipe: [{ ing: 'paratha_base', qty: 1.0, type: 'prepared', unit: 'pcs' }, { ing: 'chicken_keema', qty: 80.0, type: 'intermediate', unit: 'g' }, { ing: 'onion', qty: 20.0, type: 'raw', unit: 'g' }]
+      },
+      {
+        id: 'gogni_paratha', name: 'Gogni Paratha', station: 'tawa', prep: 4, type: 'veg', order: 39,
+        variants: [{ name: 'Single', price: 60.00, mult: 1.0 }],
+        recipe: [{ ing: 'paratha_base', qty: 1.0, type: 'prepared', unit: 'pcs' }, { ing: 'ghugni_gravy', qty: 150.0, type: 'intermediate', unit: 'g' }]
+      },
+      {
+        id: 'chola_bhatura', name: 'Chola Bhatura', station: 'moghlai', prep: 4, type: 'veg', order: 40,
+        variants: [{ name: 'Single', price: 80.00, mult: 1.0 }],
+        recipe: [{ ing: 'flour', qty: 100.0, type: 'raw', unit: 'g' }, { ing: 'oil', qty: 30.0, type: 'raw', unit: 'ml' }, { ing: 'chole_gravy', qty: 150.0, type: 'intermediate', unit: 'g' }]
+      }
+    ];
+
+    for (const item of newItems) {
+      await db.query("INSERT IGNORE INTO menu_items (id, name, station_id, prep_time, active, food_type, sort_order) VALUES (?, ?, ?, ?, 1, ?, ?)", [item.id, item.name, item.station, item.prep, item.type, item.order]);
+      for (const variant of item.variants) {
+        const variantId = `${item.id}_${variant.name.toLowerCase()}`;
+        await db.query("INSERT IGNORE INTO menu_variants (id, menu_item_id, name, price, recipe_multiplier) VALUES (?, ?, ?, ?, ?)", [variantId, item.id, variant.name, variant.price, variant.mult]);
+      }
+      for (const ingredient of item.recipe) {
+        await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES (?, ?, ?, ?, ?)", [item.id, ingredient.ing, ingredient.type, ingredient.qty, ingredient.unit]);
+      }
+    }
+    console.log("[Auto-Migration] Seeded all new combinations and paratha varieties");
+  } catch (e) {
+    console.warn('[Auto-Migration] Error seeding new combinations:', e.message);
+  }
+
+  try {
+    // Clean up unwanted chicken/paneer double egg items if they exist
+    await db.query("DELETE FROM menu_items WHERE id IN ('double_egg_paneer_chowmein', 'double_egg_chicken_chowmein', 'double_egg_paneer_pasta', 'double_egg_chicken_pasta', 'double_egg_paneer_roll', 'double_egg_chicken_roll')");
+  } catch (e) {
+    console.warn('[Auto-Migration] Cleanup Double Egg Combos:', e.message);
+  }
 })();
 
 app.get('/api/health', async (req, res) => {

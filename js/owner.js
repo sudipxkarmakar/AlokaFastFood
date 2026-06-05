@@ -240,155 +240,199 @@ class OwnerPanel {
     });
   }
 
+  getItemCategory(item) {
+    const name = item.name.toLowerCase();
+    const id = item.id.toLowerCase();
+    if (name.includes("chowmein") || id.includes("chowmein") || name.includes("chamine") || id.includes("chamine") || name.includes("charming") || id.includes("charming")) return "chowmein";
+    if (name.includes("pasta") || id.includes("pasta")) return "pasta";
+    if (name.includes("roll") || id.includes("roll")) return "roll";
+    if (name.includes("mughlai") || id.includes("mughlai") || name.includes("moghlai") || id.includes("moghlai")) return "mughlai";
+    if (name.includes("pakora") || id.includes("pakora") || name.includes("pagoda") || id.includes("pagoda")) return "pakora";
+    if (name.includes("chicken paratha") || id.includes("chicken_paratha")) return "chicken_paratha";
+    if (name.includes("gogni") || id.includes("gogni") || name.includes("sabzi paratha") || id.includes("sabzi_paratha") || name.includes("ghugni") || id.includes("ghugni")) return "gogni_paratha";
+    if (name.includes("chola") || id.includes("chola") || name.includes("bhatura") || id.includes("bhatura")) return "chola_bhatura";
+    return "others";
+  }
+
   // ==========================================
   // TAB: Menu Management & Pricing
   // ==========================================
   renderMenuTab(container, state) {
-    container.innerHTML = `
-      <div class="glass-card">
-        <h4 class="modal-section-title" style="margin-bottom:0.75rem;">Menu Configurator</h4>
-        <div class="owner-table-wrapper" style="border:none;">
+    const categories = [
+      { id: "chowmein", name: "Chowmein" },
+      { id: "pasta", name: "Pasta" },
+      { id: "roll", name: "Roll" },
+      { id: "mughlai", name: "Mughlai" },
+      { id: "pakora", name: "Chicken Pakora" },
+      { id: "chicken_paratha", name: "Chicken Paratha" },
+      { id: "gogni_paratha", name: "Sabzi Paratha (Ghugni Paratha)" },
+      { id: "chola_bhatura", name: "Chola Bhatura" },
+      { id: "others", name: "Others / Mains" }
+    ];
+
+    const categorySectionsHTML = categories.map(cat => `
+      <div class="category-section" style="margin-bottom: 2.5rem; padding: 1.5rem;">
+        <h3 class="category-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+          <span>${cat.name}</span>
+          <span style="font-size:0.75rem; color:var(--text-muted); background:rgba(255,255,255,0.05); padding:3px 10px; border-radius:12px; font-weight:normal; letter-spacing:0.02em;">Drag handle ⠿ to sort</span>
+        </h3>
+        <div class="owner-table-wrapper" style="border:none; background:transparent;">
           <table class="owner-table">
             <thead>
               <tr>
-                <th style="width: 40px;"></th>
-                <th>Thumbnail</th>
-                <th>Menu Item</th>
-                <th>Station</th>
-                <th>Prep Time (Min)</th>
-                <th>Variant</th>
-                <th>Price (₹)</th>
-                <th>Food Cost</th>
-                <th>Gross Margin</th>
-                <th>Margin %</th>
-                <th>Active</th>
-                <th style="text-align:center;">Actions</th>
+                <th style="width: 40px; text-align:center;"></th>
+                <th style="width: 60px; text-align:center;">Image</th>
+                <th style="min-width: 150px;">Menu Item</th>
+                <th style="width: 110px;">Station</th>
+                <th style="width: 90px; text-align:center;">Prep (Min)</th>
+                <th style="width: 100px;">Variant</th>
+                <th style="width: 95px; text-align:center;">Price (₹)</th>
+                <th style="width: 110px; text-align:right;">Food Cost</th>
+                <th style="width: 110px; text-align:right;">Gross Margin</th>
+                <th style="width: 90px; text-align:center;">Margin %</th>
+                <th style="width: 90px; text-align:center;">Live Stock</th>
+                <th style="width: 70px; text-align:center;">Active</th>
+                <th style="width: 100px; text-align:center;">Actions</th>
               </tr>
             </thead>
-            <tbody id="menu-rows-container"></tbody>
+            <tbody class="menu-rows-category-container" data-category="${cat.id}" id="menu-rows-${cat.id}"></tbody>
           </table>
+        </div>
+      </div>
+    `).join("");
+
+    container.innerHTML = `
+      <div class="glass-card" style="display:flex; flex-direction:column; gap:1.5rem; padding:2rem; margin-bottom:2rem;">
+        <h4 class="modal-section-title" style="margin-bottom:0.5rem; font-size:1.4rem; font-weight:700; letter-spacing:-0.02em;">Menu Configurator</h4>
+        <div class="categories-list-container">
+          ${categorySectionsHTML}
         </div>
       </div>
 
       <!-- Add New Item Form / Generator Section -->
-      <div class="glass-card" style="margin-top:1.5rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:0.75rem; margin-bottom:1rem;">
-          <h4 class="modal-section-title" style="margin-bottom:0;">Menu Item Creator</h4>
-          <div class="nav-buttons" style="gap:4px; display:inline-flex;">
-            <button class="nav-btn ${this.menuFormTab !== 'generator' ? 'active' : ''}" id="btn-tab-single-item" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; margin:0;">Single Item</button>
-            <button class="nav-btn ${this.menuFormTab === 'generator' ? 'active' : ''}" id="btn-tab-smart-generator" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; margin:0;">✨ Smart Generator</button>
+      <div class="glass-card" style="margin-top:2rem; padding:2rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:1rem; margin-bottom:1.5rem;">
+          <h4 class="modal-section-title" style="margin-bottom:0; font-size:1.2rem; font-weight:700;">Menu Item Creator</h4>
+          <div class="nav-buttons" style="gap:6px; display:inline-flex; background:rgba(0,0,0,0.2); padding:3px; border-radius:8px;">
+            <button class="nav-btn ${this.menuFormTab !== 'generator' ? 'active' : ''}" id="btn-tab-single-item" style="padding:6px 12px; font-size:0.75rem; border-radius:6px; margin:0; height:28px;">Single Item</button>
+            <button class="nav-btn ${this.menuFormTab === 'generator' ? 'active' : ''}" id="btn-tab-smart-generator" style="padding:6px 12px; font-size:0.75rem; border-radius:6px; margin:0; height:28px;">✨ Smart Generator</button>
           </div>
         </div>
 
         ${this.menuFormTab !== 'generator' ? `
-        <form id="menu-add-form" style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end;">
-          <div style="flex:1; min-width:160px; display:flex; flex-direction:column; gap:0.25rem;">
-            <label class="form-label-xs">Item Name</label>
-            <input type="text" class="pos-input-sm" id="menu-add-name" placeholder="e.g. Chicken Shawarma" required>
+        <form id="menu-add-form" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:1.25rem; align-items:end;">
+          <div style="grid-column: span 2; display:flex; flex-direction:column; gap:0.4rem;">
+            <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Item Name</label>
+            <input type="text" class="owner-input-cell" id="menu-add-name" placeholder="e.g. Chicken Shawarma" required style="height:36px; padding:6px 12px;">
           </div>
-          <div style="width:100px; display:flex; flex-direction:column; gap:0.25rem;">
-            <label class="form-label-xs">Prep Time (Min)</label>
-            <input type="number" class="pos-input-sm" id="menu-add-preptime" value="3" min="1" required>
+          <div style="display:flex; flex-direction:column; gap:0.4rem;">
+            <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Prep Time (Min)</label>
+            <input type="number" class="owner-input-cell" id="menu-add-preptime" value="3" min="1" required style="height:36px; text-align:center;">
           </div>
-          <div style="width:150px; display:flex; flex-direction:column; gap:0.25rem;">
-            <label class="form-label-xs">Assigned Station</label>
-            <select class="pos-select-sm" id="menu-add-station" required style="width:100%;">
+          <div style="display:flex; flex-direction:column; gap:0.4rem;">
+            <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Assigned Station</label>
+            <select class="pos-select-sm" id="menu-add-station" required style="height:36px; padding:0 12px;">
               ${Object.keys(state.config.stations).map(s => `<option value="${s}">${state.config.stations[s].name}</option>`).join("")}
             </select>
           </div>
-          <div style="width:120px; display:flex; flex-direction:column; gap:0.25rem;">
-            <label class="form-label-xs">Variant Name</label>
-            <select class="pos-select-sm" id="menu-add-variant" style="width: 100%;">
+          <div style="display:flex; flex-direction:column; gap:0.4rem;">
+            <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Variant Name</label>
+            <select class="pos-select-sm" id="menu-add-variant" style="height:36px; padding:0 12px;">
               <option value="Single">Single</option>
               <option value="Half">Half</option>
               <option value="Full">Full</option>
             </select>
           </div>
-          <div style="width:120px; display:flex; flex-direction:column; gap:0.25rem;">
-            <label class="form-label-xs">Food Type</label>
-            <select class="pos-select-sm" id="menu-add-foodtype" style="width: 100%;">
+          <div style="display:flex; flex-direction:column; gap:0.4rem;">
+            <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Food Type</label>
+            <select class="pos-select-sm" id="menu-add-foodtype" style="height:36px; padding:0 12px;">
               <option value="non-veg">Non-Veg</option>
               <option value="veg">Veg</option>
               <option value="egg">Egg</option>
             </select>
           </div>
-          <div style="width:100px; display:flex; flex-direction:column; gap:0.25rem;">
-            <label class="form-label-xs">Price (₹)</label>
-            <input type="number" class="pos-input-sm" id="menu-add-price" placeholder="Price" min="0" required>
+          <div style="display:flex; flex-direction:column; gap:0.4rem;">
+            <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Price (₹)</label>
+            <input type="number" class="owner-input-cell" id="menu-add-price" placeholder="Price" min="0" required style="height:36px; text-align:center;">
           </div>
-          <div style="flex:1; min-width:200px; display:flex; flex-direction:column; gap:0.25rem;">
-            <label class="form-label-xs">Preview Image</label>
-            <input type="file" id="menu-add-image" accept="image/*" class="pos-input-sm" style="padding:4px;">
+          <div style="grid-column: span 2; display:flex; flex-direction:column; gap:0.4rem;">
+            <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Preview Image</label>
+            <input type="file" id="menu-add-image" accept="image/*" class="owner-input-cell" style="padding:6px; height:36px; font-size:0.75rem;">
           </div>
-          <button type="submit" class="pos-action-btn primary" style="padding:0.35rem 1.25rem; grid-column:auto;">Add Menu Item</button>
+          <button type="submit" class="pos-action-btn primary" style="padding:0; margin:0; width:100%; height:36px; border-radius:6px; font-weight:600;">Add Menu Item</button>
         </form>
         ` : `
-        <form id="menu-generator-form" style="display:flex; flex-direction:column; gap:1.25rem;">
-          <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end;">
-            <div style="flex:1; min-width:200px; display:flex; flex-direction:column; gap:0.25rem;">
-              <label class="form-label-xs">Base Item Name (e.g. Chowmein, Roll, Pasta)</label>
-              <div style="display:flex; gap:6px; align-items:center;">
-                <input type="text" class="pos-input-sm" id="gen-base-name" placeholder="Enter base name..." required style="flex:1;">
-                <button type="button" class="pos-action-btn secondary" style="padding:3px 6px; font-size:0.65rem; margin:0;" id="btn-fill-chowmein">Chowmein</button>
-                <button type="button" class="pos-action-btn secondary" style="padding:3px 6px; font-size:0.65rem; margin:0;" id="btn-fill-roll">Roll</button>
-                <button type="button" class="pos-action-btn secondary" style="padding:3px 6px; font-size:0.65rem; margin:0;" id="btn-fill-pasta">Pasta</button>
+        <form id="menu-generator-form" style="display:flex; flex-direction:column; gap:1.5rem;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:1.25rem; align-items:end;">
+            <div style="grid-column: span 2; display:flex; flex-direction:column; gap:0.4rem;">
+              <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Base Item Name (e.g. Chowmein, Roll, Pasta)</label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input type="text" class="owner-input-cell" id="gen-base-name" placeholder="Enter base name..." required style="flex:1; height:36px; padding:6px 12px;">
+                <button type="button" class="pos-action-btn secondary" style="padding:0 12px; font-size:0.75rem; margin:0; height:36px; border-radius:6px; font-weight:600;" id="btn-fill-chowmein">Chowmein</button>
+                <button type="button" class="pos-action-btn secondary" style="padding:0 12px; font-size:0.75rem; margin:0; height:36px; border-radius:6px; font-weight:600;" id="btn-fill-roll">Roll</button>
+                <button type="button" class="pos-action-btn secondary" style="padding:0 12px; font-size:0.75rem; margin:0; height:36px; border-radius:6px; font-weight:600;" id="btn-fill-pasta">Pasta</button>
               </div>
             </div>
 
-            <div style="width:100px; display:flex; flex-direction:column; gap:0.25rem;">
-              <label class="form-label-xs">Prep Time (Min)</label>
-              <input type="number" class="pos-input-sm" id="gen-preptime" value="3" min="1" required>
+            <div style="display:flex; flex-direction:column; gap:0.4rem;">
+              <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Prep Time (Min)</label>
+              <input type="number" class="owner-input-cell" id="gen-preptime" value="3" min="1" required style="height:36px; text-align:center;">
             </div>
 
-            <div style="width:150px; display:flex; flex-direction:column; gap:0.25rem;">
-              <label class="form-label-xs">Assigned Station</label>
-              <select class="pos-select-sm" id="gen-station" required style="width:100%;">
+            <div style="display:flex; flex-direction:column; gap:0.4rem;">
+              <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Assigned Station</label>
+              <select class="pos-select-sm" id="gen-station" required style="height:36px; padding:0 12px; width:100%;">
                 ${Object.keys(state.config.stations).map(s => `<option value="${s}">${state.config.stations[s].name}</option>`).join("")}
               </select>
             </div>
           </div>
 
-          <div style="display:flex; flex-direction:column; gap:0.25rem;">
-            <span class="form-label-xs">Portion Configurations:</span>
-            <div style="display:flex; gap:1.25rem; padding:0.5rem 0.75rem; background:rgba(0,0,0,0.15); border-radius:4px; align-self:flex-start;">
-              <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:500;">
-                <input type="radio" name="gen-portion-type" value="half_full" checked style="cursor:pointer; accent-color:var(--accent-color);">
-                Half / Full Portion
-              </label>
-              <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:500;">
-                <input type="radio" name="gen-portion-type" value="single" style="cursor:pointer; accent-color:var(--accent-color);">
-                Single Piece / Portion
-              </label>
+          <div style="display:grid; grid-template-columns: 1fr 2fr; gap:1.5rem; align-items:start;">
+            <div style="display:flex; flex-direction:column; gap:0.5rem;">
+              <span class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Portion Configurations:</span>
+              <div style="display:flex; flex-direction:column; gap:10px; padding:1rem; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); border-radius:8px;">
+                <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
+                  <input type="radio" name="gen-portion-type" value="half_full" checked style="cursor:pointer; accent-color:var(--accent-color); width:16px; height:16px;">
+                  Half / Full Portion
+                </label>
+                <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
+                  <input type="radio" name="gen-portion-type" value="single" style="cursor:pointer; accent-color:var(--accent-color); width:16px; height:16px;">
+                  Single Piece / Portion
+                </label>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:0.5rem;">
+              <span class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Select Categories to Generate:</span>
+              <div id="gen-category-checkboxes" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:10px; padding:1rem; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.05); border-radius:8px;">
+                <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
+                  <input type="checkbox" class="gen-cat-check" value="veg" checked style="accent-color:var(--accent-color); width:14px; height:14px;"> Veg (Plain)
+                </label>
+                <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
+                  <input type="checkbox" class="gen-cat-check" value="egg" checked style="accent-color:var(--accent-color); width:14px; height:14px;"> Egg
+                </label>
+                <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
+                  <input type="checkbox" class="gen-cat-check" value="double_egg" checked style="accent-color:var(--accent-color); width:14px; height:14px;"> Double Egg
+                </label>
+                <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
+                  <input type="checkbox" class="gen-cat-check" value="chicken" checked style="accent-color:var(--accent-color); width:14px; height:14px;"> Chicken
+                </label>
+                <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
+                  <input type="checkbox" class="gen-cat-check" value="paneer" checked style="accent-color:var(--accent-color); width:14px; height:14px;"> Paneer
+                </label>
+                <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
+                  <input type="checkbox" class="gen-cat-check" value="egg_chicken" style="accent-color:var(--accent-color); width:14px; height:14px;"> Egg-Chicken
+                </label>
+                <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
+                  <input type="checkbox" class="gen-cat-check" value="egg_paneer" style="accent-color:var(--accent-color); width:14px; height:14px;"> Egg-Paneer
+                </label>
+              </div>
             </div>
           </div>
 
-          <div style="display:flex; flex-direction:column; gap:0.25rem;">
-            <span class="form-label-xs">Select Categories to Generate:</span>
-            <div id="gen-category-checkboxes" style="display:flex; flex-wrap:wrap; gap:12px; padding:0.6rem 0.8rem; background:rgba(0,0,0,0.15); border-radius:4px;">
-              <label style="font-size:0.75rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:500;">
-                <input type="checkbox" class="gen-cat-check" value="veg" checked style="accent-color:var(--accent-color);"> Veg (Plain)
-              </label>
-              <label style="font-size:0.75rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:500;">
-                <input type="checkbox" class="gen-cat-check" value="egg" checked style="accent-color:var(--accent-color);"> Egg
-              </label>
-              <label style="font-size:0.75rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:500;">
-                <input type="checkbox" class="gen-cat-check" value="chicken" checked style="accent-color:var(--accent-color);"> Chicken
-              </label>
-              <label style="font-size:0.75rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:500;">
-                <input type="checkbox" class="gen-cat-check" value="paneer" checked style="accent-color:var(--accent-color);"> Paneer
-              </label>
-              <label style="font-size:0.75rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:500;">
-                <input type="checkbox" class="gen-cat-check" value="egg_chicken" style="accent-color:var(--accent-color);"> Egg-Chicken (Combo)
-              </label>
-              <label style="font-size:0.75rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:500;">
-                <input type="checkbox" class="gen-cat-check" value="egg_paneer" style="accent-color:var(--accent-color);"> Egg-Paneer (Combo)
-              </label>
-            </div>
-          </div>
-
-          <div style="display:flex; flex-direction:column; gap:0.25rem;">
-            <span class="form-label-xs">Interactive Pricing Table:</span>
-            <div class="owner-table-wrapper" style="border:1px solid var(--border-color); max-height:220px; overflow-y:auto; border-radius:4px; background:rgba(0,0,0,0.155);">
+          <div style="display:flex; flex-direction:column; gap:0.5rem;">
+            <span class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Interactive Pricing Table:</span>
+            <div class="owner-table-wrapper" style="border:1px solid rgba(255,255,255,0.06); max-height:220px; overflow-y:auto; border-radius:8px; background:rgba(0,0,0,0.25);">
               <table class="owner-table" style="margin:0;">
                 <thead>
                   <tr style="background:rgba(255,255,255,0.02);">
@@ -405,121 +449,163 @@ class OwnerPanel {
             </div>
           </div>
 
-          <button type="submit" class="pos-action-btn primary" style="padding:0.4rem 1.5rem; grid-column:auto; align-self:flex-start; margin:0;">Generate Catalog Items</button>
+          <button type="submit" class="pos-action-btn primary" style="padding:0 24px; margin:0; align-self:flex-start; height:38px; border-radius:6px; font-weight:600;">Generate Catalog Items</button>
         </form>
         `}
       </div>
     `;
 
-    const tbody = document.getElementById("menu-rows-container");
-    tbody.innerHTML = Object.values(state.config.menuItems)
-      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-      .map(item => {
+    categories.forEach(cat => {
+      const tbody = document.getElementById(`menu-rows-${cat.id}`);
+      if (!tbody) return;
+
+      const catItems = Object.values(state.config.menuItems)
+        .filter(item => this.getItemCategory(item) === cat.id)
+        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+      if (catItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No items in this category.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = catItems.map(item => {
         const imageUrl = item.image ? (item.image.startsWith('http') || item.image.startsWith('data:') ? item.image : `http://localhost:3001${item.image}`) : '';
-        
-        const hasHalfAndFull = item.variants.half && item.variants.full;
+        const hasHalfAndFull = item.variants && item.variants.half && item.variants.full;
         
         if (hasHalfAndFull) {
           const marginHalf = window.AutoBrixStore.calculateMenuItemMargin(item.id, 'half');
           const marginFull = window.AutoBrixStore.calculateMenuItemMargin(item.id, 'full');
+          const availableHalf = window.AutoBrixStore.getMenuItemAvailableStock(item.id, 'half');
+          const availableFull = window.AutoBrixStore.getMenuItemAvailableStock(item.id, 'full');
           
           const marginHalfClass = marginHalf.marginPct >= 40 ? "good" : "poor";
           const marginFullClass = marginFull.marginPct >= 40 ? "good" : "poor";
           
           return `
             <tr draggable="true" data-id="${item.id}" class="draggable-row">
-              <td class="drag-handle" style="cursor: grab; text-align: center; color: var(--text-muted); font-size: 1.1rem; user-select: none;">⠿</td>
-              <td style="cursor: pointer; position: relative;" onclick="ownerPanel.openImageActionsModal('${item.id}')" title="Click to manage image">
-                <div style="position: relative; width: 40px; height: 40px;">
+              <td class="drag-handle" style="cursor: grab; text-align: center; color: var(--text-muted); font-size: 1.1rem; user-select: none; vertical-align: middle;">⠿</td>
+              <td style="cursor: pointer; position: relative; text-align: center; vertical-align: middle;" onclick="ownerPanel.openImageActionsModal('${item.id}')" title="Click to manage image">
+                <div style="position: relative; width: 40px; height: 40px; margin: 0 auto;">
                   ${item.image 
-                    ? `<img src="${imageUrl}" style="width:40px; height:40px; border-radius:4px; object-fit:cover; border:1px solid rgba(255,255,255,0.1);">` 
-                    : `<div style="width:40px; height:40px; border-radius:4px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:var(--text-muted);">No Img</div>`}
-                  <div class="food-type-indicator ${item.foodType || 'non-veg'}" style="position: absolute; top: -2px; right: -2px; z-index: 1;"></div>
+                    ? `<img src="${imageUrl}" style="width:40px; height:40px; border-radius:6px; object-fit:cover; border:1px solid rgba(255,255,255,0.08);">` 
+                    : `<div style="width:40px; height:40px; border-radius:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; font-size:0.65rem; color:var(--text-muted); font-weight:600;">No Img</div>`}
+                  <div class="food-type-indicator ${item.foodType || 'non-veg'}" style="position: absolute; top: -3px; right: -3px; z-index: 1;"></div>
                 </div>
               </td>
-              <td><strong>${item.name}</strong></td>
-              <td>
-                <select class="pos-select-sm" onchange="ownerPanel.updateItemStation('${item.id}', this.value)" style="padding:2px 4px; font-size:0.8rem; width:100%;">
+              <td style="vertical-align: middle;"><strong>${item.name}</strong></td>
+              <td style="vertical-align: middle;">
+                <select class="pos-select-sm" onchange="ownerPanel.updateItemStation('${item.id}', this.value)" style="width:100%; height:28px; font-size:0.8rem; padding:0 6px;">
                   ${Object.keys(state.config.stations).map(s => `<option value="${s}" ${item.station === s ? "selected" : ""}>${state.config.stations[s].name}</option>`).join("")}
                 </select>
               </td>
-              <td>
-                <input type="text" class="owner-input-cell" value="${item.prepTime}" onchange="ownerPanel.updateItemPrepTime('${item.id}', this.value)" style="width:50px; padding:2px; text-align: center;">
+              <td style="vertical-align: middle; text-align:center;">
+                <input type="number" class="owner-input-cell" value="${item.prepTime}" onchange="ownerPanel.updateItemPrepTime('${item.id}', this.value)" style="width:50px; text-align: center; height:28px; padding:2px;">
               </td>
-              <td><span class="badge badge-normal" style="font-size:0.7rem;">Half / Full</span></td>
-              <td>
-                <div style="display:flex; align-items:center; gap:4px; white-space: nowrap;">
-                  <input type="text" class="owner-input-cell" value="${item.variants.half.price}" onchange="ownerPanel.updateItemPrice('${item.id}', 'half', this.value)" style="width:50px; text-align:center;">
-                  <span style="color:var(--text-muted);">/</span>
-                  <input type="text" class="owner-input-cell" value="${item.variants.full.price}" onchange="ownerPanel.updateItemPrice('${item.id}', 'full', this.value)" style="width:50px; text-align:center;">
+              <td style="vertical-align: middle;"><span class="badge badge-normal" style="font-size:0.65rem; letter-spacing:0.02em; padding:2px 6px;">Half / Full</span></td>
+              <td style="vertical-align: middle;">
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <div class="variant-price-wrapper" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">
+                    <span style="font-size:0.65rem; font-weight:700; color:var(--text-muted); width:10px;">H</span>
+                    <input type="number" class="owner-input-cell" value="${item.variants.half.price}" onchange="ownerPanel.updateItemPrice('${item.id}', 'half', this.value)" style="width:45px; border:none; background:transparent; padding:0; text-align:center; font-family:var(--font-mono); font-size:0.8rem; outline:none; color:#fff;">
+                  </div>
+                  <div class="variant-price-wrapper" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">
+                    <span style="font-size:0.65rem; font-weight:700; color:var(--text-muted); width:10px;">F</span>
+                    <input type="number" class="owner-input-cell" value="${item.variants.full.price}" onchange="ownerPanel.updateItemPrice('${item.id}', 'full', this.value)" style="width:45px; border:none; background:transparent; padding:0; text-align:center; font-family:var(--font-mono); font-size:0.8rem; outline:none; color:#fff;">
+                  </div>
                 </div>
               </td>
-              <td style="font-family:var(--font-mono); font-size:0.8rem; white-space: nowrap;">
-                ₹${marginHalf.cost.toFixed(2)} <span style="color:var(--text-muted);">/</span> ₹${marginFull.cost.toFixed(2)}
+              <td style="vertical-align: middle; text-align:right;">
+                <div style="display:flex; flex-direction:column; gap:4px; font-family:var(--font-mono); font-size:0.8rem; line-height:1.2;">
+                  <div><span style="color:var(--text-muted); font-size:0.65rem; padding-right:4px;">H:</span>₹${marginHalf.cost.toFixed(2)}</div>
+                  <div><span style="color:var(--text-muted); font-size:0.65rem; padding-right:4px;">F:</span>₹${marginFull.cost.toFixed(2)}</div>
+                </div>
               </td>
-              <td style="font-family:var(--font-mono); font-size:0.8rem; white-space: nowrap; color:var(--color-success); font-weight:600;">
-                ₹${marginHalf.margin.toFixed(2)} <span style="color:var(--text-muted);">/</span> ₹${marginFull.margin.toFixed(2)}
+              <td style="vertical-align: middle; text-align:right;">
+                <div style="display:flex; flex-direction:column; gap:4px; font-family:var(--font-mono); font-size:0.8rem; line-height:1.2; font-weight:600;">
+                  <div style="color:var(--color-success);"><span style="color:var(--text-muted); font-size:0.65rem; font-weight:normal; padding-right:4px;">H:</span>₹${marginHalf.margin.toFixed(2)}</div>
+                  <div style="color:var(--color-success);"><span style="color:var(--text-muted); font-size:0.65rem; font-weight:normal; padding-right:4px;">F:</span>₹${marginFull.margin.toFixed(2)}</div>
+                </div>
               </td>
-              <td style="white-space: nowrap;">
-                <span class="margin-badge ${marginHalfClass}">${marginHalf.marginPct}%</span>
-                <span style="color:var(--text-muted);">/</span>
-                <span class="margin-badge ${marginFullClass}">${marginFull.marginPct}%</span>
+              <td style="vertical-align: middle; text-align:center;">
+                <div style="display:flex; flex-direction:column; gap:6px; align-items:center;">
+                  <span class="margin-badge ${marginHalfClass}" style="font-size:0.65rem; font-weight:700; width:45px; text-align:center; display:inline-block; padding:2px 0;">${marginHalf.marginPct}%</span>
+                  <span class="margin-badge ${marginFullClass}" style="font-size:0.65rem; font-weight:700; width:45px; text-align:center; display:inline-block; padding:2px 0;">${marginFull.marginPct}%</span>
+                </div>
               </td>
-              <td>
-                <input type="checkbox" ${item.active ? "checked" : ""} onchange="ownerPanel.toggleItemActive('${item.id}', this.checked)">
+              <td style="vertical-align: middle; text-align:center;">
+                <div style="display:flex; flex-direction:column; gap:6px; align-items:center;">
+                  <span class="stock-badge ${availableHalf > 10 ? 'in-stock' : availableHalf > 0 ? 'low-stock' : 'no-stock'}" style="font-size:0.65rem; font-weight:700; padding:2px 6px; width:45px; text-align:center; display:inline-block;">
+                    ${availableHalf}
+                  </span>
+                  <span class="stock-badge ${availableFull > 10 ? 'in-stock' : availableFull > 0 ? 'low-stock' : 'no-stock'}" style="font-size:0.65rem; font-weight:700; padding:2px 6px; width:45px; text-align:center; display:inline-block;">
+                    ${availableFull}
+                  </span>
+                </div>
               </td>
-              <td style="text-align:center;">
-                <button class="k-item-btn" onclick="ownerPanel.deleteMenuItem('${item.id}')" style="color:var(--color-critical); padding:4px 8px; margin:0; font-size:0.75rem; background:var(--color-critical-bg); border-color:rgba(239,68,68,0.35);">Delete</button>
+              <td style="vertical-align: middle; text-align:center;">
+                <input type="checkbox" ${item.active ? "checked" : ""} onchange="ownerPanel.toggleItemActive('${item.id}', this.checked)" style="width:16px; height:16px; accent-color:var(--accent-color); cursor:pointer;">
+              </td>
+              <td style="vertical-align: middle; text-align:center;">
+                <button class="k-item-btn" onclick="ownerPanel.deleteMenuItem('${item.id}')" style="color:var(--color-critical); padding:4px 10px; margin:0; font-size:0.75rem; background:var(--color-critical-bg); border-color:rgba(239,68,68,0.2); border-radius:6px; font-weight:600;">Delete</button>
               </td>
             </tr>
           `;
         } else {
-          return Object.entries(item.variants).map(([vId, v]) => {
+          return Object.entries(item.variants || {}).map(([vId, v]) => {
             const marginInfo = window.AutoBrixStore.calculateMenuItemMargin(item.id, vId);
+            const availableSingle = window.AutoBrixStore.getMenuItemAvailableStock(item.id, vId);
             
             let marginClass = "good";
             if (marginInfo.marginPct < 40) marginClass = "poor";
             
             return `
               <tr draggable="true" data-id="${item.id}" class="draggable-row">
-                <td class="drag-handle" style="cursor: grab; text-align: center; color: var(--text-muted); font-size: 1.1rem; user-select: none;">⠿</td>
-                <td style="cursor: pointer; position: relative;" onclick="ownerPanel.openImageActionsModal('${item.id}')" title="Click to manage image">
-                  <div style="position: relative; width: 40px; height: 40px;">
+                <td class="drag-handle" style="cursor: grab; text-align: center; color: var(--text-muted); font-size: 1.1rem; user-select: none; vertical-align: middle;">⠿</td>
+                <td style="cursor: pointer; position: relative; text-align: center; vertical-align: middle;" onclick="ownerPanel.openImageActionsModal('${item.id}')" title="Click to manage image">
+                  <div style="position: relative; width: 40px; height: 40px; margin: 0 auto;">
                     ${item.image 
-                      ? `<img src="${imageUrl}" style="width:40px; height:40px; border-radius:4px; object-fit:cover; border:1px solid rgba(255,255,255,0.1);">` 
-                      : `<div style="width:40px; height:40px; border-radius:4px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:var(--text-muted);">No Img</div>`}
-                    <div class="food-type-indicator ${item.foodType || 'non-veg'}" style="position: absolute; top: -2px; right: -2px; z-index: 1;"></div>
+                      ? `<img src="${imageUrl}" style="width:40px; height:40px; border-radius:6px; object-fit:cover; border:1px solid rgba(255,255,255,0.08);">` 
+                      : `<div style="width:40px; height:40px; border-radius:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; font-size:0.65rem; color:var(--text-muted); font-weight:600;">No Img</div>`}
+                    <div class="food-type-indicator ${item.foodType || 'non-veg'}" style="position: absolute; top: -3px; right: -3px; z-index: 1;"></div>
                   </div>
                 </td>
-                <td><strong>${item.name}</strong></td>
-                <td>
-                  <select class="pos-select-sm" onchange="ownerPanel.updateItemStation('${item.id}', this.value)" style="padding:2px 4px; font-size:0.8rem; width:100%;">
+                <td style="vertical-align: middle;"><strong>${item.name}</strong></td>
+                <td style="vertical-align: middle;">
+                  <select class="pos-select-sm" onchange="ownerPanel.updateItemStation('${item.id}', this.value)" style="width:100%; height:28px; font-size:0.8rem; padding:0 6px;">
                     ${Object.keys(state.config.stations).map(s => `<option value="${s}" ${item.station === s ? "selected" : ""}>${state.config.stations[s].name}</option>`).join("")}
                   </select>
                 </td>
-                <td>
-                  <input type="text" class="owner-input-cell" value="${item.prepTime}" onchange="ownerPanel.updateItemPrepTime('${item.id}', this.value)" style="width:50px; padding:2px; text-align: center;">
+                <td style="vertical-align: middle; text-align:center;">
+                  <input type="number" class="owner-input-cell" value="${item.prepTime}" onchange="ownerPanel.updateItemPrepTime('${item.id}', this.value)" style="width:50px; padding:2px; text-align: center; height:28px;">
                 </td>
-                <td><span class="badge badge-normal" style="font-size:0.7rem;">${v.name}</span></td>
-                <td>
-                  <input type="text" class="owner-input-cell" value="${v.price}" onchange="ownerPanel.updateItemPrice('${item.id}', '${vId}', this.value)" style="text-align: center;">
+                <td style="vertical-align: middle;"><span class="badge badge-normal" style="font-size:0.65rem; padding:2px 6px; text-transform: capitalize;">${v.name || vId}</span></td>
+                <td style="vertical-align: middle;">
+                  <div class="variant-price-wrapper" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">
+                    <input type="number" class="owner-input-cell" value="${v.price}" onchange="ownerPanel.updateItemPrice('${item.id}', '${vId}', this.value)" style="width:60px; border:none; background:transparent; padding:0; text-align:center; font-family:var(--font-mono); font-size:0.8rem; outline:none; color:#fff;">
+                  </div>
                 </td>
-                <td style="font-family:var(--font-mono);">₹${marginInfo.cost.toFixed(2)}</td>
-                <td style="font-family:var(--font-mono); color:var(--color-success); font-weight:600;">₹${marginInfo.margin.toFixed(2)}</td>
-                <td>
-                  <span class="margin-badge ${marginClass}">${marginInfo.marginPct}%</span>
+                <td style="vertical-align: middle; text-align:right; font-family:var(--font-mono); font-size:0.8rem; color:var(--text-secondary);">₹${marginInfo.cost.toFixed(2)}</td>
+                <td style="vertical-align: middle; text-align:right; font-family:var(--font-mono); font-size:0.8rem; color:var(--color-success); font-weight:600;">₹${marginInfo.margin.toFixed(2)}</td>
+                <td style="vertical-align: middle; text-align:center;">
+                  <span class="margin-badge ${marginClass}" style="font-size:0.65rem; font-weight:700; width:45px; text-align:center; display:inline-block; padding:2px 0;">${marginInfo.marginPct}%</span>
                 </td>
-                <td>
-                  <input type="checkbox" ${item.active ? "checked" : ""} onchange="ownerPanel.toggleItemActive('${item.id}', this.checked)">
+                <td style="vertical-align: middle; text-align:center;">
+                  <span class="stock-badge ${availableSingle > 10 ? 'in-stock' : availableSingle > 0 ? 'low-stock' : 'no-stock'}" style="font-size:0.65rem; font-weight:700; padding:2px 6px; width:45px; text-align:center; display:inline-block;">
+                    ${availableSingle}
+                  </span>
                 </td>
-                <td style="text-align:center;">
-                  <button class="k-item-btn" onclick="ownerPanel.deleteMenuItem('${item.id}')" style="color:var(--color-critical); padding:4px 8px; margin:0; font-size:0.75rem; background:var(--color-critical-bg); border-color:rgba(239,68,68,0.35);">Delete</button>
+                <td style="vertical-align: middle; text-align:center;">
+                  <input type="checkbox" ${item.active ? "checked" : ""} onchange="ownerPanel.toggleItemActive('${item.id}', this.checked)" style="width:16px; height:16px; accent-color:var(--accent-color); cursor:pointer;">
+                </td>
+                <td style="vertical-align: middle; text-align:center;">
+                  <button class="k-item-btn" onclick="ownerPanel.deleteMenuItem('${item.id}')" style="color:var(--color-critical); padding:4px 10px; margin:0; font-size:0.75rem; background:var(--color-critical-bg); border-color:rgba(239,68,68,0.2); border-radius:6px; font-weight:600;">Delete</button>
                 </td>
               </tr>
             `;
           }).join("");
         }
       }).join("");
+    });
 
     this.bindMenuDragAndDrop();
 
@@ -773,6 +859,7 @@ class OwnerPanel {
     const catLabels = {
       veg: "Veg",
       egg: "Egg",
+      double_egg: "Double Egg",
       chicken: "Chicken",
       paneer: "Paneer",
       egg_chicken: "Egg Chicken",
@@ -823,6 +910,7 @@ class OwnerPanel {
     const catLabels = {
       veg: "Veg",
       egg: "Egg",
+      double_egg: "Double Egg",
       chicken: "Chicken",
       paneer: "Paneer",
       egg_chicken: "Egg Chicken",
@@ -831,9 +919,50 @@ class OwnerPanel {
 
     const getFoodType = (cat) => {
       if (cat === 'veg') return 'veg';
-      if (cat === 'egg') return 'egg';
+      if (cat === 'egg' || cat === 'double_egg') return 'egg';
       if (cat === 'paneer' || cat === 'egg_paneer') return 'veg';
       return 'non-veg';
+    };
+
+    const getDefaultRecipe = (baseName, cat) => {
+      const base = baseName.toLowerCase();
+      const recipe = {};
+      
+      if (base.includes("chowmein")) {
+        recipe.chowmein_base = 1.0;
+        recipe.onion = 20.0;
+        recipe.capsicum = 20.0;
+        recipe.sauce = 10.0;
+      } else if (base.includes("pasta")) {
+        recipe.pasta_base = 1.0;
+        recipe.onion = 10.0;
+        recipe.capsicum = 10.0;
+        recipe.sauce = 10.0;
+      } else if (base.includes("roll")) {
+        recipe.paratha_base = 1.0;
+        recipe.onion = 20.0;
+        recipe.sauce = 10.0;
+      } else {
+        return {};
+      }
+      
+      if (cat === "egg") {
+        recipe.egg = 1.0;
+      } else if (cat === "double_egg") {
+        recipe.egg = 2.0;
+      } else if (cat === "chicken") {
+        recipe.chicken_keema = base.includes("roll") ? 80.0 : 60.0;
+      } else if (cat === "paneer") {
+        recipe.paneer_keema = base.includes("roll") ? 80.0 : 60.0;
+      } else if (cat === "egg_chicken") {
+        recipe.egg = 1.0;
+        recipe.chicken_keema = base.includes("roll") ? 80.0 : 60.0;
+      } else if (cat === "egg_paneer") {
+        recipe.egg = 1.0;
+        recipe.paneer_keema = base.includes("roll") ? 80.0 : 60.0;
+      }
+      
+      return recipe;
     };
 
     for (const row of rows) {
@@ -923,6 +1052,24 @@ class OwnerPanel {
               });
             }
           }
+
+          if (!item.existing) {
+            // Seed default recipe for the generated menu item online
+            const recipe = getDefaultRecipe(baseName, item.cat);
+            for (const [ingId, qty] of Object.entries(recipe)) {
+              const ingType = ['paratha_base', 'mughlai_dough', 'chowmein_base', 'pasta_base'].includes(ingId) ? 'prepared' : 'raw';
+              const unit = ['chowmein_base', 'pasta_base'].includes(ingId) ? 'portions' : (ingId === 'egg' || ingId === 'paratha_base' ? 'pcs' : 'g');
+              try {
+                await window.AlokaAPI.put(`/menu/${item.id}/recipe/${ingId}`, {
+                  quantity: qty,
+                  ingredient_type: ingType,
+                  unit: unit
+                });
+              } catch (err) {
+                console.warn(`Failed to seed recipe ingredient ${ingId} for ${item.id}:`, err);
+              }
+            }
+          }
         }
 
         await window.AlokaAPI.loadAllState();
@@ -951,7 +1098,7 @@ class OwnerPanel {
             foodType: item.foodType,
             sortOrder: Object.keys(s.config.menuItems).length + 1,
             variants: variantsObj,
-            recipe: {}
+            recipe: getDefaultRecipe(baseName, item.cat)
           };
         });
       });
@@ -1105,168 +1252,172 @@ class OwnerPanel {
   }
 
   bindMenuDragAndDrop() {
-    const tbody = document.getElementById("menu-rows-container");
-    if (!tbody) return;
+    const tbodies = document.querySelectorAll(".menu-rows-category-container");
+    tbodies.forEach(tbody => {
+      if (!tbody) return;
 
-    let draggedRow = null;
+      let draggedRow = null;
 
-    tbody.querySelectorAll(".draggable-row").forEach((row, currentIndex, allRows) => {
-      // Drag-and-drop listeners
-      row.addEventListener("dragstart", (e) => {
-        draggedRow = row;
-        row.classList.add("dragging");
-        e.dataTransfer.effectAllowed = "move";
-      });
+      tbody.querySelectorAll(".draggable-row").forEach((row) => {
+        // Drag-and-drop listeners
+        row.addEventListener("dragstart", (e) => {
+          draggedRow = row;
+          row.classList.add("dragging");
+          e.dataTransfer.effectAllowed = "move";
+        });
 
-      row.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        const target = e.target.closest(".draggable-row");
-        if (target && target !== draggedRow) {
-          const rect = target.getBoundingClientRect();
-          const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
-          tbody.insertBefore(draggedRow, next ? target.nextSibling : target);
-        }
-      });
-
-      row.addEventListener("dragend", async () => {
-        row.classList.remove("dragging");
-        
-        const newOrder = Array.from(tbody.querySelectorAll(".draggable-row")).map(r => r.dataset.id);
-        const uniqueOrder = Array.from(new Set(newOrder));
-
-        if (window.AlokaAPI.isOnline()) {
-          try {
-            await window.AlokaAPI.post('/menu/reorder', { order: uniqueOrder });
-            await window.AlokaAPI.loadAllState();
-          } catch (err) {
-            alert("Error saving reorder: " + err.message);
+        row.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          const target = e.target.closest(".draggable-row");
+          if (target && target !== draggedRow && target.parentNode === tbody) {
+            const rect = target.getBoundingClientRect();
+            const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+            tbody.insertBefore(draggedRow, next ? target.nextSibling : target);
           }
-        } else {
-          window.AutoBrixStore.updateState(state => {
-            uniqueOrder.forEach((id, idx) => {
-              if (state.config.menuItems[id]) {
-                state.config.menuItems[id].sortOrder = idx;
+        });
+
+        row.addEventListener("dragend", async () => {
+          row.classList.remove("dragging");
+          
+          const allDraggable = Array.from(document.querySelectorAll(".menu-rows-category-container .draggable-row"));
+          const newOrder = allDraggable.map(r => r.dataset.id);
+          const uniqueOrder = Array.from(new Set(newOrder));
+
+          if (window.AlokaAPI.isOnline()) {
+            try {
+              await window.AlokaAPI.post('/menu/reorder', { order: uniqueOrder });
+              await window.AlokaAPI.loadAllState();
+            } catch (err) {
+              alert("Error saving reorder: " + err.message);
+            }
+          } else {
+            window.AutoBrixStore.updateState(state => {
+              uniqueOrder.forEach((id, idx) => {
+                if (state.config.menuItems[id]) {
+                  state.config.menuItems[id].sortOrder = idx;
+                }
+              });
+            });
+          }
+          this.updateActiveTabContent();
+        });
+
+        // Click to reorder popover logic on drag-handle click
+        const handle = row.querySelector(".drag-handle");
+        if (handle) {
+          handle.addEventListener("click", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+
+            // Remove any existing popovers
+            const existing = document.getElementById("reorder-action-popover");
+            if (existing) existing.remove();
+
+            const currentRows = Array.from(tbody.querySelectorAll(".draggable-row"));
+            const curIndex = currentRows.indexOf(row);
+            const totalRows = currentRows.length;
+            
+            const isFirst = (curIndex === 0);
+            const isLast = (curIndex === totalRows - 1);
+
+            const popover = document.createElement("div");
+            popover.id = "reorder-action-popover";
+            popover.className = "reorder-popover glass-card";
+            popover.style.cssText = `
+              position: fixed;
+              top: ${e.clientY + 8}px;
+              left: ${e.clientX + 8}px;
+              z-index: 10002;
+              padding: 4px 0;
+              min-width: 140px;
+              background: var(--bg-surface);
+              border: 1px solid var(--border-color);
+              border-radius: var(--border-radius-sm);
+              box-shadow: var(--shadow-lg);
+            `;
+
+            popover.innerHTML = `
+              <div class="reorder-option ${isFirst ? 'disabled' : ''}" id="reorder-top" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 500; cursor: ${isFirst ? 'not-allowed' : 'pointer'}; opacity: ${isFirst ? '0.4' : '1'};">🔝 Move to Top</div>
+              <div class="reorder-option ${isFirst ? 'disabled' : ''}" id="reorder-up" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 500; cursor: ${isFirst ? 'not-allowed' : 'pointer'}; opacity: ${isFirst ? '0.4' : '1'};">⬆️ Move Up</div>
+              <div class="reorder-option ${isLast ? 'disabled' : ''}" id="reorder-down" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 500; cursor: ${isLast ? 'not-allowed' : 'pointer'}; opacity: ${isLast ? '0.4' : '1'};">⬇️ Move Down</div>
+              <div class="reorder-option ${isLast ? 'disabled' : ''}" id="reorder-bottom" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 500; cursor: ${isLast ? 'not-allowed' : 'pointer'}; opacity: ${isLast ? '0.4' : '1'};">🔚 Move to Bottom</div>
+              <div style="height: 1px; background: var(--border-color); margin: 4px 0;"></div>
+              <div class="reorder-option" id="reorder-to-index" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 500; cursor: pointer;">🔢 Move to Row...</div>
+            `;
+
+            document.body.appendChild(popover);
+
+            const closePopover = () => {
+              popover.remove();
+              document.removeEventListener("click", globalClick);
+            };
+
+            const globalClick = (ev) => {
+              if (!popover.contains(ev.target)) {
+                closePopover();
               }
+            };
+
+            setTimeout(() => {
+              document.addEventListener("click", globalClick);
+            }, 50);
+
+            const executeMove = async (targetIndex) => {
+              closePopover();
+              if (targetIndex < 0 || targetIndex >= totalRows || targetIndex === curIndex) return;
+
+              const reorderedRows = [...currentRows];
+              reorderedRows.splice(curIndex, 1);
+              reorderedRows.splice(targetIndex, 0, row);
+
+              // Re-append to tbody to visually swap
+              reorderedRows.forEach(r => tbody.appendChild(r));
+
+              const allDraggable = Array.from(document.querySelectorAll(".menu-rows-category-container .draggable-row"));
+              const newOrder = allDraggable.map(r => r.dataset.id);
+              const uniqueOrder = Array.from(new Set(newOrder));
+
+              if (window.AlokaAPI.isOnline()) {
+                try {
+                  await window.AlokaAPI.post('/menu/reorder', { order: uniqueOrder });
+                  await window.AlokaAPI.loadAllState();
+                } catch (err) {
+                  alert("Error saving reorder: " + err.message);
+                }
+              } else {
+                window.AutoBrixStore.updateState(state => {
+                  uniqueOrder.forEach((id, idx) => {
+                    if (state.config.menuItems[id]) {
+                      state.config.menuItems[id].sortOrder = idx;
+                    }
+                  });
+                });
+              }
+              this.updateActiveTabContent();
+            };
+
+            // Option click handlers
+            if (!isFirst) {
+              popover.querySelector("#reorder-top").addEventListener("click", () => executeMove(0));
+              popover.querySelector("#reorder-up").addEventListener("click", () => executeMove(curIndex - 1));
+            }
+            if (!isLast) {
+              popover.querySelector("#reorder-down").addEventListener("click", () => executeMove(curIndex + 1));
+              popover.querySelector("#reorder-bottom").addEventListener("click", () => executeMove(totalRows - 1));
+            }
+            popover.querySelector("#reorder-to-index").addEventListener("click", () => {
+              const targetRowStr = prompt(`Enter target row number (1 to ${totalRows}):`, curIndex + 1);
+              if (targetRowStr === null) return;
+              const targetNum = parseInt(targetRowStr);
+              if (isNaN(targetNum) || targetNum < 1 || targetNum > totalRows) {
+                alert("Invalid row number!");
+                return;
+              }
+              executeMove(targetNum - 1);
             });
           });
         }
-        this.updateActiveTabContent();
       });
-
-      // Click to reorder popover logic on drag-handle click
-      const handle = row.querySelector(".drag-handle");
-      if (handle) {
-        handle.addEventListener("click", (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-
-          // Remove any existing popovers
-          const existing = document.getElementById("reorder-action-popover");
-          if (existing) existing.remove();
-
-          const currentRows = Array.from(tbody.querySelectorAll(".draggable-row"));
-          const curIndex = currentRows.indexOf(row);
-          const totalRows = currentRows.length;
-          
-          const isFirst = (curIndex === 0);
-          const isLast = (curIndex === totalRows - 1);
-
-          const popover = document.createElement("div");
-          popover.id = "reorder-action-popover";
-          popover.className = "reorder-popover glass-card";
-          popover.style.cssText = `
-            position: fixed;
-            top: ${e.clientY + 8}px;
-            left: ${e.clientX + 8}px;
-            z-index: 10002;
-            padding: 4px 0;
-            min-width: 140px;
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: var(--border-radius-sm);
-            box-shadow: var(--shadow-lg);
-          `;
-
-          popover.innerHTML = `
-            <div class="reorder-option ${isFirst ? 'disabled' : ''}" id="reorder-top" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 500; cursor: ${isFirst ? 'not-allowed' : 'pointer'}; opacity: ${isFirst ? '0.4' : '1'};">🔝 Move to Top</div>
-            <div class="reorder-option ${isFirst ? 'disabled' : ''}" id="reorder-up" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 500; cursor: ${isFirst ? 'not-allowed' : 'pointer'}; opacity: ${isFirst ? '0.4' : '1'};">⬆️ Move Up</div>
-            <div class="reorder-option ${isLast ? 'disabled' : ''}" id="reorder-down" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 500; cursor: ${isLast ? 'not-allowed' : 'pointer'}; opacity: ${isLast ? '0.4' : '1'};">⬇️ Move Down</div>
-            <div class="reorder-option ${isLast ? 'disabled' : ''}" id="reorder-bottom" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 500; cursor: ${isLast ? 'not-allowed' : 'pointer'}; opacity: ${isLast ? '0.4' : '1'};">🔚 Move to Bottom</div>
-            <div style="height: 1px; background: var(--border-color); margin: 4px 0;"></div>
-            <div class="reorder-option" id="reorder-to-index" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 500; cursor: pointer;">🔢 Move to Row...</div>
-          `;
-
-          document.body.appendChild(popover);
-
-          const closePopover = () => {
-            popover.remove();
-            document.removeEventListener("click", globalClick);
-          };
-
-          const globalClick = (ev) => {
-            if (!popover.contains(ev.target)) {
-              closePopover();
-            }
-          };
-
-          setTimeout(() => {
-            document.addEventListener("click", globalClick);
-          }, 50);
-
-          const executeMove = async (targetIndex) => {
-            closePopover();
-            if (targetIndex < 0 || targetIndex >= totalRows || targetIndex === curIndex) return;
-
-            const reorderedRows = [...currentRows];
-            reorderedRows.splice(curIndex, 1);
-            reorderedRows.splice(targetIndex, 0, row);
-
-            // Re-append to tbody to visually swap
-            reorderedRows.forEach(r => tbody.appendChild(r));
-
-            const newOrder = reorderedRows.map(r => r.dataset.id);
-            const uniqueOrder = Array.from(new Set(newOrder));
-
-            if (window.AlokaAPI.isOnline()) {
-              try {
-                await window.AlokaAPI.post('/menu/reorder', { order: uniqueOrder });
-                await window.AlokaAPI.loadAllState();
-              } catch (err) {
-                alert("Error saving reorder: " + err.message);
-              }
-            } else {
-              window.AutoBrixStore.updateState(state => {
-                uniqueOrder.forEach((id, idx) => {
-                  if (state.config.menuItems[id]) {
-                    state.config.menuItems[id].sortOrder = idx;
-                  }
-                });
-              });
-            }
-            this.updateActiveTabContent();
-          };
-
-          // Option click handlers
-          if (!isFirst) {
-            popover.querySelector("#reorder-top").addEventListener("click", () => executeMove(0));
-            popover.querySelector("#reorder-up").addEventListener("click", () => executeMove(curIndex - 1));
-          }
-          if (!isLast) {
-            popover.querySelector("#reorder-down").addEventListener("click", () => executeMove(curIndex + 1));
-            popover.querySelector("#reorder-bottom").addEventListener("click", () => executeMove(totalRows - 1));
-          }
-          popover.querySelector("#reorder-to-index").addEventListener("click", () => {
-            const targetRowStr = prompt(`Enter target row number (1 to ${totalRows}):`, curIndex + 1);
-            if (targetRowStr === null) return;
-            const targetNum = parseInt(targetRowStr);
-            if (isNaN(targetNum) || targetNum < 1 || targetNum > totalRows) {
-              alert("Invalid row number!");
-              return;
-            }
-            executeMove(targetNum - 1);
-          });
-        });
-      }
     });
   }
 

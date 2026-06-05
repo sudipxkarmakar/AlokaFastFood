@@ -61,6 +61,18 @@ const BATCH_RECIPES_DEFAULT = {
     unit: "portions",
     rawIngredients: { pasta: 80, oil: 10 },
     expectedYieldRatio: 1.0
+  },
+  ghugni_gravy: {
+    name: "Ghugni Gravy",
+    unit: "g",
+    rawIngredients: { ghugni_peas: 0.5, onion: 0.1, oil: 0.05, spices: 0.02 },
+    expectedYieldRatio: 1.0
+  },
+  chole_gravy: {
+    name: "Chole Gravy",
+    unit: "g",
+    rawIngredients: { chole_chana: 0.5, onion: 0.1, oil: 0.05, spices: 0.02 },
+    expectedYieldRatio: 1.0
   }
 };
 
@@ -87,7 +99,8 @@ const MENU_DEFAULT = {
     foodType: "egg",
     sortOrder: 2,
     variants: {
-      single: { name: "Single", price: 60, recipeMultiplier: 1.0 }
+      single: { name: "Single", price: 60, recipeMultiplier: 1.0 },
+      "double egg": { name: "Double Egg", price: 80, recipeMultiplier: 1.0 }
     },
     recipe: { paratha_base: 1, egg: 1, onion: 20, sauce: 10 }
   },
@@ -172,6 +185,264 @@ const MENU_DEFAULT = {
       full: { name: "Full", price: 90, recipeMultiplier: 1.8 }
     },
     recipe: { chowmein_base: 1, onion: 20, capsicum: 20, sauce: 10 }
+  },
+  double_egg_chowmein: {
+    id: "double_egg_chowmein",
+    name: "Double Egg Chowmein",
+    station: "chilley",
+    prepTime: 4,
+    active: true,
+    foodType: "egg",
+    sortOrder: 9,
+    variants: {
+      half: { name: "Half", price: 40, recipeMultiplier: 1.0 },
+      full: { name: "Full", price: 55, recipeMultiplier: 1.8 }
+    },
+    recipe: { chowmein_base: 1, egg: 2, onion: 20, capsicum: 20, sauce: 10 }
+  },
+  double_egg_pasta: {
+    id: "double_egg_pasta",
+    name: "Double Egg Pasta",
+    station: "chilley",
+    prepTime: 4,
+    active: true,
+    foodType: "egg",
+    sortOrder: 10,
+    variants: {
+      half: { name: "Half", price: 40, recipeMultiplier: 1.0 },
+      full: { name: "Full", price: 60, recipeMultiplier: 1.8 }
+    },
+    recipe: { pasta_base: 1, egg: 2, onion: 10, capsicum: 10, sauce: 10 }
+  },
+  double_egg_roll: {
+    id: "double_egg_roll",
+    name: "Double Egg Roll",
+    station: "tawa",
+    prepTime: 3,
+    active: true,
+    foodType: "egg",
+    sortOrder: 11,
+    variants: {
+      single: { name: "Single", price: 80, recipeMultiplier: 1.0 }
+    },
+    recipe: { paratha_base: 1, egg: 2, onion: 20, sauce: 10 }
+  },
+  veg_pasta: {
+    id: "veg_pasta",
+    name: "Veg Pasta",
+    station: "chilley",
+    prepTime: 4,
+    active: true,
+    foodType: "veg",
+    sortOrder: 12,
+    variants: {
+      half: { name: "Half", price: 50, recipeMultiplier: 1.0 },
+      full: { name: "Full", price: 90, recipeMultiplier: 1.8 }
+    },
+    recipe: { pasta_base: 1, onion: 10, capsicum: 10, sauce: 10 }
+  },
+  egg_pasta: {
+    id: "egg_pasta",
+    name: "Egg Pasta",
+    station: "chilley",
+    prepTime: 4,
+    active: true,
+    foodType: "egg",
+    sortOrder: 13,
+    variants: {
+      half: { name: "Half", price: 60, recipeMultiplier: 1.0 },
+      full: { name: "Full", price: 100, recipeMultiplier: 1.8 }
+    },
+    recipe: { pasta_base: 1, egg: 1, onion: 10, capsicum: 10, sauce: 10 }
+  },
+  paneer_pasta: {
+    id: "paneer_pasta",
+    name: "Paneer Pasta",
+    station: "chilley",
+    prepTime: 4,
+    active: true,
+    foodType: "veg",
+    sortOrder: 14,
+    variants: {
+      half: { name: "Half", price: 80, recipeMultiplier: 1.0 },
+      full: { name: "Full", price: 140, recipeMultiplier: 1.8 }
+    },
+    recipe: { pasta_base: 1, paneer_keema: 60, onion: 10, capsicum: 10, sauce: 10 }
+  },
+  egg_chicken_pasta: {
+    id: "egg_chicken_pasta",
+    name: "Egg Chicken Pasta",
+    station: "chilley",
+    prepTime: 4,
+    active: true,
+    foodType: "non-veg",
+    sortOrder: 15,
+    variants: {
+      half: { name: "Half", price: 90, recipeMultiplier: 1.0 },
+      full: { name: "Full", price: 150, recipeMultiplier: 1.8 }
+    },
+    recipe: { pasta_base: 1, egg: 1, chicken_keema: 60, onion: 10, capsicum: 10, sauce: 10 }
+  },
+  egg_paneer_pasta: {
+    id: "egg_paneer_pasta",
+    name: "Egg Paneer Pasta",
+    station: "chilley",
+    prepTime: 4,
+    active: true,
+    foodType: "non-veg",
+    sortOrder: 16,
+    variants: {
+      half: { name: "Half", price: 90, recipeMultiplier: 1.0 },
+      full: { name: "Full", price: 150, recipeMultiplier: 1.8 }
+    },
+    recipe: { pasta_base: 1, egg: 1, paneer_keema: 60, onion: 10, capsicum: 10, sauce: 10 }
+  },
+  egg_chowmein: {
+    id: "egg_chowmein",
+    name: "Egg Chowmein",
+    station: "chilley",
+    prepTime: 4,
+    active: true,
+    foodType: "egg",
+    sortOrder: 17,
+    variants: {
+      half: { name: "Half", price: 60, recipeMultiplier: 1.0 },
+      full: { name: "Full", price: 100, recipeMultiplier: 1.8 }
+    },
+    recipe: { chowmein_base: 1, egg: 1, onion: 20, capsicum: 20, sauce: 10 }
+  },
+  paneer_chowmein: {
+    id: "paneer_chowmein",
+    name: "Paneer Chowmein",
+    station: "chilley",
+    prepTime: 4,
+    active: true,
+    foodType: "veg",
+    sortOrder: 18,
+    variants: {
+      half: { name: "Half", price: 80, recipeMultiplier: 1.0 },
+      full: { name: "Full", price: 140, recipeMultiplier: 1.8 }
+    },
+    recipe: { chowmein_base: 1, paneer_keema: 60, onion: 20, capsicum: 20, sauce: 10 }
+  },
+  egg_chicken_chowmein: {
+    id: "egg_chicken_chowmein",
+    name: "Egg Chicken Chowmein",
+    station: "chilley",
+    prepTime: 4,
+    active: true,
+    foodType: "non-veg",
+    sortOrder: 19,
+    variants: {
+      half: { name: "Half", price: 80, recipeMultiplier: 1.0 },
+      full: { name: "Full", price: 130, recipeMultiplier: 1.8 }
+    },
+    recipe: { chowmein_base: 1, egg: 1, chicken_keema: 60, onion: 20, capsicum: 20, sauce: 10 }
+  },
+  egg_paneer_chowmein: {
+    id: "egg_paneer_chowmein",
+    name: "Egg Paneer Chowmein",
+    station: "chilley",
+    prepTime: 4,
+    active: true,
+    foodType: "non-veg",
+    sortOrder: 20,
+    variants: {
+      half: { name: "Half", price: 90, recipeMultiplier: 1.0 },
+      full: { name: "Full", price: 150, recipeMultiplier: 1.8 }
+    },
+    recipe: { chowmein_base: 1, egg: 1, paneer_keema: 60, onion: 20, capsicum: 20, sauce: 10 }
+  },
+  veg_roll: {
+    id: "veg_roll",
+    name: "Veg Roll",
+    station: "tawa",
+    prepTime: 3,
+    active: true,
+    foodType: "veg",
+    sortOrder: 21,
+    variants: {
+      single: { name: "Single", price: 50, recipeMultiplier: 1.0 }
+    },
+    recipe: { paratha_base: 1, onion: 20, sauce: 10 }
+  },
+  paneer_roll: {
+    id: "paneer_roll",
+    name: "Paneer Roll",
+    station: "tawa",
+    prepTime: 3,
+    active: true,
+    foodType: "veg",
+    sortOrder: 22,
+    variants: {
+      single: { name: "Single", price: 80, recipeMultiplier: 1.0 }
+    },
+    recipe: { paratha_base: 1, paneer_keema: 80, onion: 20, sauce: 10 }
+  },
+  egg_chicken_roll: {
+    id: "egg_chicken_roll",
+    name: "Egg Chicken Roll",
+    station: "tawa",
+    prepTime: 3,
+    active: true,
+    foodType: "non-veg",
+    sortOrder: 23,
+    variants: {
+      single: { name: "Single", price: 100, recipeMultiplier: 1.0 }
+    },
+    recipe: { paratha_base: 1, egg: 1, chicken_keema: 80, onion: 20, sauce: 10 }
+  },
+  egg_paneer_roll: {
+    id: "egg_paneer_roll",
+    name: "Egg Paneer Roll",
+    station: "tawa",
+    prepTime: 3,
+    active: true,
+    foodType: "non-veg",
+    sortOrder: 24,
+    variants: {
+      single: { name: "Single", price: 90, recipeMultiplier: 1.0 }
+    },
+    recipe: { paratha_base: 1, egg: 1, paneer_keema: 80, onion: 20, sauce: 10 }
+  },
+  chicken_paratha: {
+    id: "chicken_paratha",
+    name: "Chicken Paratha",
+    station: "tawa",
+    prepTime: 4,
+    active: true,
+    foodType: "non-veg",
+    sortOrder: 25,
+    variants: {
+      single: { name: "Single", price: 100, recipeMultiplier: 1.0 }
+    },
+    recipe: { paratha_base: 1, chicken_keema: 80, onion: 20 }
+  },
+  gogni_paratha: {
+    id: "gogni_paratha",
+    name: "Gogni Paratha",
+    station: "tawa",
+    prepTime: 4,
+    active: true,
+    foodType: "veg",
+    sortOrder: 26,
+    variants: {
+      single: { name: "Single", price: 60, recipeMultiplier: 1.0 }
+    },
+    recipe: { paratha_base: 1, ghugni_gravy: 150 }
+  },
+  chola_bhatura: {
+    id: "chola_bhatura",
+    name: "Chola Bhatura",
+    station: "moghlai",
+    prepTime: 4,
+    active: true,
+    foodType: "veg",
+    sortOrder: 27,
+    variants: {
+      single: { name: "Single", price: 80, recipeMultiplier: 1.0 }
+    },
+    recipe: { flour: 100, oil: 30, chole_gravy: 150 }
   }
 };
 
@@ -204,14 +475,18 @@ const RAW_DEFAULT = {
   pasta: { name: "Raw Pasta", stock: 10000, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 80, supplier: "Fortune Retail" },
   cheese: { name: "Cheese Block", stock: 5000, reserved: 0, minStock: 1000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 400, supplier: "Amul Store" },
   spices: { name: "Mix Spices", stock: 2000, reserved: 0, minStock: 500, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 300, supplier: "Sunrise Spices" },
-  sauce: { name: "Sauces & Condiments", stock: 5000, reserved: 0, minStock: 1000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 80, supplier: "Kissan Depot" }
+  sauce: { name: "Sauces & Condiments", stock: 5000, reserved: 0, minStock: 1000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 80, supplier: "Kissan Depot" },
+  ghugni_peas: { name: "Ghugni Peas", stock: 10000, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 60, supplier: "Sabji Mandi" },
+  chole_chana: { name: "Chole Chana", stock: 10000, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 80, supplier: "Sabji Mandi" }
 };
 
 const INTERMEDIATE_DEFAULT = {
   chicken_keema: { name: "Chicken Keema", stock: 8000, reserved: 0, minStock: 1500, unit: "g" },
   paneer_keema: { name: "Paneer Keema", stock: 3000, reserved: 0, minStock: 1000, unit: "g" },
   chicken_kosha_gravy: { name: "Chicken Kosha Gravy", stock: 20, reserved: 0, minStock: 5, unit: "portions" },
-  pakora_mixture: { name: "Chicken Pakora Mixture", stock: 4000, reserved: 0, minStock: 1000, unit: "g" }
+  pakora_mixture: { name: "Chicken Pakora Mixture", stock: 4000, reserved: 0, minStock: 1000, unit: "g" },
+  ghugni_gravy: { name: "Ghugni Gravy", stock: 5000, reserved: 0, minStock: 1000, unit: "g" },
+  chole_gravy: { name: "Chole Gravy", stock: 5000, reserved: 0, minStock: 1000, unit: "g" }
 };
 
 const PREPARED_DEFAULT = {
