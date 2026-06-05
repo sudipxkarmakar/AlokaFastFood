@@ -248,9 +248,12 @@ class OwnerPanel {
     if (name.includes("roll") || id.includes("roll")) return "roll";
     if (name.includes("mughlai") || id.includes("mughlai") || name.includes("moghlai") || id.includes("moghlai")) return "mughlai";
     if (name.includes("pakora") || id.includes("pakora") || name.includes("pagoda") || id.includes("pagoda")) return "pakora";
-    if (name.includes("chicken paratha") || id.includes("chicken_paratha")) return "chicken_paratha";
-    if (name.includes("gogni") || id.includes("gogni") || name.includes("sabzi paratha") || id.includes("sabzi_paratha") || name.includes("ghugni") || id.includes("ghugni")) return "gogni_paratha";
-    if (name.includes("chola") || id.includes("chola") || name.includes("bhatura") || id.includes("bhatura")) return "chola_bhatura";
+    if (name.includes("chicken paratha") || id.includes("chicken_paratha") ||
+        name.includes("gogni") || id.includes("gogni") || name.includes("sabzi paratha") || id.includes("sabzi_paratha") || name.includes("ghugni") || id.includes("ghugni") ||
+        name.includes("chola") || id.includes("chola") || name.includes("bhatura") || id.includes("bhatura")) {
+      return "combos";
+    }
+    if (name.includes("pepsi") || id.includes("pepsi") || name.includes("7up") || id.includes("7up") || name.includes("mirinda") || id.includes("mirinda") || name.includes("dew") || id.includes("dew") || name.includes("water") || id.includes("water") || name.includes("beverage") || id.includes("beverage")) return "beverage";
     return "others";
   }
 
@@ -264,15 +267,14 @@ class OwnerPanel {
       { id: "roll", name: "Roll" },
       { id: "mughlai", name: "Mughlai" },
       { id: "pakora", name: "Chicken Pakora" },
-      { id: "chicken_paratha", name: "Chicken Paratha" },
-      { id: "gogni_paratha", name: "Sabzi Paratha (Ghugni Paratha)" },
-      { id: "chola_bhatura", name: "Chola Bhatura" },
+      { id: "combos", name: "Combos" },
+      { id: "beverage", name: "Beverages" },
       { id: "others", name: "Others / Mains" }
     ];
 
     const categorySectionsHTML = categories.map(cat => `
-      <div class="category-section" style="margin-bottom: 2.5rem; padding: 1.5rem;">
-        <h3 class="category-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+      <div class="category-section" style="margin-bottom: 0.8rem; padding: 0.75rem;">
+        <h3 class="category-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
           <span>${cat.name}</span>
           <span style="font-size:0.75rem; color:var(--text-muted); background:rgba(255,255,255,0.05); padding:3px 10px; border-radius:12px; font-weight:normal; letter-spacing:0.02em;">Drag handle ⠿ to sort</span>
         </h3>
@@ -302,42 +304,35 @@ class OwnerPanel {
     `).join("");
 
     container.innerHTML = `
-      <div class="glass-card" style="display:flex; flex-direction:column; gap:1.5rem; padding:2rem; margin-bottom:2rem;">
-        <h4 class="modal-section-title" style="margin-bottom:0.5rem; font-size:1.4rem; font-weight:700; letter-spacing:-0.02em;">Menu Configurator</h4>
-        <div class="categories-list-container">
-          ${categorySectionsHTML}
-        </div>
-      </div>
-
       <!-- Add New Item Form / Generator Section -->
-      <div class="glass-card" style="margin-top:2rem; padding:2rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:1rem; margin-bottom:1.5rem;">
-          <h4 class="modal-section-title" style="margin-bottom:0; font-size:1.2rem; font-weight:700;">Menu Item Creator</h4>
+      <div class="glass-card" style="margin-bottom:1rem; padding:1rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:0.5rem; margin-bottom:0.75rem;">
+          <h4 class="modal-section-title" style="margin-bottom:0; font-size:1.1rem; font-weight:700;">Menu Item Creator</h4>
           <div class="nav-buttons" style="gap:6px; display:inline-flex; background:rgba(0,0,0,0.2); padding:3px; border-radius:8px;">
-            <button class="nav-btn ${this.menuFormTab !== 'generator' ? 'active' : ''}" id="btn-tab-single-item" style="padding:6px 12px; font-size:0.75rem; border-radius:6px; margin:0; height:28px;">Single Item</button>
+            <button class="nav-btn ${this.menuFormTab === 'single' ? 'active' : ''}" id="btn-tab-single-item" style="padding:6px 12px; font-size:0.75rem; border-radius:6px; margin:0; height:28px;">Single Item</button>
             <button class="nav-btn ${this.menuFormTab === 'generator' ? 'active' : ''}" id="btn-tab-smart-generator" style="padding:6px 12px; font-size:0.75rem; border-radius:6px; margin:0; height:28px;">✨ Smart Generator</button>
           </div>
         </div>
 
-        ${this.menuFormTab !== 'generator' ? `
-        <form id="menu-add-form" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:1.25rem; align-items:end;">
+        ${this.menuFormTab === 'single' ? `
+        <form id="menu-add-form" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:0.75rem; align-items:end;">
           <div style="grid-column: span 2; display:flex; flex-direction:column; gap:0.4rem;">
             <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Item Name</label>
-            <input type="text" class="owner-input-cell" id="menu-add-name" placeholder="e.g. Chicken Shawarma" required style="height:36px; padding:6px 12px;">
+            <input type="text" class="owner-input-cell" id="menu-add-name" placeholder="e.g. Chicken Shawarma" required style="height:32px; padding:4px 10px;">
           </div>
           <div style="display:flex; flex-direction:column; gap:0.4rem;">
             <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Prep Time (Min)</label>
-            <input type="number" class="owner-input-cell" id="menu-add-preptime" value="3" min="1" required style="height:36px; text-align:center;">
+            <input type="number" class="owner-input-cell" id="menu-add-preptime" value="3" min="1" required style="height:32px; text-align:center;">
           </div>
           <div style="display:flex; flex-direction:column; gap:0.4rem;">
             <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Assigned Station</label>
-            <select class="pos-select-sm" id="menu-add-station" required style="height:36px; padding:0 12px;">
+            <select class="pos-select-sm" id="menu-add-station" required style="height:32px; padding:0 10px; font-size:0.8rem;">
               ${Object.keys(state.config.stations).map(s => `<option value="${s}">${state.config.stations[s].name}</option>`).join("")}
             </select>
           </div>
           <div style="display:flex; flex-direction:column; gap:0.4rem;">
             <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Variant Name</label>
-            <select class="pos-select-sm" id="menu-add-variant" style="height:36px; padding:0 12px;">
+            <select class="pos-select-sm" id="menu-add-variant" style="height:32px; padding:0 10px; font-size:0.8rem;">
               <option value="Single">Single</option>
               <option value="Half">Half</option>
               <option value="Full">Full</option>
@@ -345,7 +340,7 @@ class OwnerPanel {
           </div>
           <div style="display:flex; flex-direction:column; gap:0.4rem;">
             <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Food Type</label>
-            <select class="pos-select-sm" id="menu-add-foodtype" style="height:36px; padding:0 12px;">
+            <select class="pos-select-sm" id="menu-add-foodtype" style="height:32px; padding:0 10px; font-size:0.8rem;">
               <option value="non-veg">Non-Veg</option>
               <option value="veg">Veg</option>
               <option value="egg">Egg</option>
@@ -353,44 +348,44 @@ class OwnerPanel {
           </div>
           <div style="display:flex; flex-direction:column; gap:0.4rem;">
             <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Price (₹)</label>
-            <input type="number" class="owner-input-cell" id="menu-add-price" placeholder="Price" min="0" required style="height:36px; text-align:center;">
+            <input type="number" class="owner-input-cell" id="menu-add-price" placeholder="Price" min="0" required style="height:32px; text-align:center;">
           </div>
           <div style="grid-column: span 2; display:flex; flex-direction:column; gap:0.4rem;">
             <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Preview Image</label>
-            <input type="file" id="menu-add-image" accept="image/*" class="owner-input-cell" style="padding:6px; height:36px; font-size:0.75rem;">
+            <input type="file" id="menu-add-image" accept="image/*" class="owner-input-cell" style="padding:4px; height:32px; font-size:0.75rem;">
           </div>
-          <button type="submit" class="pos-action-btn primary" style="padding:0; margin:0; width:100%; height:36px; border-radius:6px; font-weight:600;">Add Menu Item</button>
+          <button type="submit" class="pos-action-btn primary" style="padding:0; margin:0; width:100%; height:32px; border-radius:6px; font-weight:600;">Add Menu Item</button>
         </form>
         ` : `
-        <form id="menu-generator-form" style="display:flex; flex-direction:column; gap:1.5rem;">
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:1.25rem; align-items:end;">
+        <form id="menu-generator-form" style="display:flex; flex-direction:column; gap:0.75rem;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem; align-items:end;">
             <div style="grid-column: span 2; display:flex; flex-direction:column; gap:0.4rem;">
               <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Base Item Name (e.g. Chowmein, Roll, Pasta)</label>
               <div style="display:flex; gap:8px; align-items:center;">
-                <input type="text" class="owner-input-cell" id="gen-base-name" placeholder="Enter base name..." required style="flex:1; height:36px; padding:6px 12px;">
-                <button type="button" class="pos-action-btn secondary" style="padding:0 12px; font-size:0.75rem; margin:0; height:36px; border-radius:6px; font-weight:600;" id="btn-fill-chowmein">Chowmein</button>
-                <button type="button" class="pos-action-btn secondary" style="padding:0 12px; font-size:0.75rem; margin:0; height:36px; border-radius:6px; font-weight:600;" id="btn-fill-roll">Roll</button>
-                <button type="button" class="pos-action-btn secondary" style="padding:0 12px; font-size:0.75rem; margin:0; height:36px; border-radius:6px; font-weight:600;" id="btn-fill-pasta">Pasta</button>
+                <input type="text" class="owner-input-cell" id="gen-base-name" placeholder="Enter base name..." required style="flex:1; height:32px; padding:4px 10px;">
+                <button type="button" class="pos-action-btn secondary" style="padding:0 12px; font-size:0.75rem; margin:0; height:32px; border-radius:6px; font-weight:600;" id="btn-fill-chowmein">Chowmein</button>
+                <button type="button" class="pos-action-btn secondary" style="padding:0 12px; font-size:0.75rem; margin:0; height:32px; border-radius:6px; font-weight:600;" id="btn-fill-roll">Roll</button>
+                <button type="button" class="pos-action-btn secondary" style="padding:0 12px; font-size:0.75rem; margin:0; height:32px; border-radius:6px; font-weight:600;" id="btn-fill-pasta">Pasta</button>
               </div>
             </div>
 
             <div style="display:flex; flex-direction:column; gap:0.4rem;">
               <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Prep Time (Min)</label>
-              <input type="number" class="owner-input-cell" id="gen-preptime" value="3" min="1" required style="height:36px; text-align:center;">
+              <input type="number" class="owner-input-cell" id="gen-preptime" value="3" min="1" required style="height:32px; text-align:center;">
             </div>
 
             <div style="display:flex; flex-direction:column; gap:0.4rem;">
               <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Assigned Station</label>
-              <select class="pos-select-sm" id="gen-station" required style="height:36px; padding:0 12px; width:100%;">
+              <select class="pos-select-sm" id="gen-station" required style="height:32px; padding:0 10px; width:100%; font-size:0.8rem;">
                 ${Object.keys(state.config.stations).map(s => `<option value="${s}">${state.config.stations[s].name}</option>`).join("")}
               </select>
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns: 1fr 2fr; gap:1.5rem; align-items:start;">
+          <div style="display:grid; grid-template-columns: 1fr 2fr; gap:0.75rem; align-items:start;">
             <div style="display:flex; flex-direction:column; gap:0.5rem;">
               <span class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Portion Configurations:</span>
-              <div style="display:flex; flex-direction:column; gap:10px; padding:1rem; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); border-radius:8px;">
+              <div style="display:flex; flex-direction:column; gap:6px; padding:0.5rem; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); border-radius:8px;">
                 <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
                   <input type="radio" name="gen-portion-type" value="half_full" checked style="cursor:pointer; accent-color:var(--accent-color); width:16px; height:16px;">
                   Half / Full Portion
@@ -404,7 +399,7 @@ class OwnerPanel {
 
             <div style="display:flex; flex-direction:column; gap:0.5rem;">
               <span class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Select Categories to Generate:</span>
-              <div id="gen-category-checkboxes" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:10px; padding:1rem; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.05); border-radius:8px;">
+              <div id="gen-category-checkboxes" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:6px; padding:0.5rem; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.05); border-radius:8px;">
                 <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
                   <input type="checkbox" class="gen-cat-check" value="veg" checked style="accent-color:var(--accent-color); width:14px; height:14px;"> Veg (Plain)
                 </label>
@@ -449,9 +444,17 @@ class OwnerPanel {
             </div>
           </div>
 
-          <button type="submit" class="pos-action-btn primary" style="padding:0 24px; margin:0; align-self:flex-start; height:38px; border-radius:6px; font-weight:600;">Generate Catalog Items</button>
+          <button type="submit" class="pos-action-btn primary" style="padding:0 24px; margin:0; align-self:flex-start; height:32px; border-radius:6px; font-weight:600;">Generate Catalog Items</button>
         </form>
         `}
+      </div>
+
+      <!-- Menu Configurator Section -->
+      <div class="glass-card" style="display:flex; flex-direction:column; gap:0.75rem; padding:1rem; margin-bottom:1.5rem;">
+        <h4 class="modal-section-title" style="margin-bottom:0.25rem; font-size:1.1rem; font-weight:700; letter-spacing:-0.02em;">Menu Configurator</h4>
+        <div class="categories-list-container">
+          ${categorySectionsHTML}
+        </div>
       </div>
     `;
 
@@ -612,6 +615,7 @@ class OwnerPanel {
     // Sub-tab switcher listeners
     const btnSingle = document.getElementById("btn-tab-single-item");
     const btnGen = document.getElementById("btn-tab-smart-generator");
+    const btnBev = document.getElementById("btn-tab-beverage-creator");
 
     if (btnSingle) {
       btnSingle.addEventListener("click", () => {
@@ -626,6 +630,14 @@ class OwnerPanel {
         this.updateActiveTabContent();
         // Trigger initial pricing table update
         setTimeout(() => this.updateGenPricingGrid(), 20);
+      });
+    }
+
+    if (btnBev) {
+      btnBev.addEventListener("click", () => {
+        this.menuFormTab = "beverage";
+        this.updateActiveTabContent();
+        setTimeout(() => this.updateBevPricingGrid(), 20);
       });
     }
 
@@ -748,6 +760,43 @@ class OwnerPanel {
       });
 
       this.updateGenPricingGrid();
+    }
+
+    // Beverage Form Listener
+    const bevForm = document.getElementById("menu-beverage-form");
+    if (bevForm) {
+      const brandSelect = document.getElementById("bev-brand");
+      const supplierInput = document.getElementById("bev-default-supplier");
+
+      if (brandSelect) {
+        brandSelect.addEventListener("change", () => {
+          if (brandSelect.value === "water") {
+            supplierInput.value = "Kinley/Bisleri Distributor";
+          } else {
+            supplierInput.value = "Pepsi Co.";
+          }
+          this.updateBevPricingGrid();
+        });
+      }
+
+      if (supplierInput) {
+        supplierInput.addEventListener("input", () => this.updateBevPricingGrid());
+      }
+
+      bevForm.querySelectorAll(".bev-container-check").forEach(cb => {
+        cb.addEventListener("change", () => this.updateBevPricingGrid());
+      });
+
+      bevForm.querySelectorAll(".bev-size-check").forEach(cb => {
+        cb.addEventListener("change", () => this.updateBevPricingGrid());
+      });
+
+      bevForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        this.handleBeverageGeneration();
+      });
+
+      this.updateBevPricingGrid();
     }
   }
 
@@ -1104,6 +1153,247 @@ class OwnerPanel {
       });
       window.AutoBrixStore.logAudit("Config Change", `Bulk generated ${itemsToCreate.length} item(s)`);
       alert(`Locally generated ${itemsToCreate.length} catalog item(s)!`);
+    }
+
+    this.menuFormTab = "single";
+    this.updateActiveTabContent();
+  }
+
+  updateBevPricingGrid() {
+    const brandSelect = document.getElementById("bev-brand");
+    const gridContainer = document.getElementById("bev-pricing-rows");
+    const defaultSupplierInput = document.getElementById("bev-default-supplier");
+    if (!brandSelect || !gridContainer) return;
+
+    const brandVal = brandSelect.value;
+    const brandName = brandSelect.options[brandSelect.selectedIndex].text;
+    const defaultSupplier = defaultSupplierInput ? defaultSupplierInput.value.trim() : "Pepsi Co.";
+
+    const containers = Array.from(this.container.querySelectorAll(".bev-container-check:checked")).map(cb => cb.value);
+    const sizes = Array.from(this.container.querySelectorAll(".bev-size-check:checked")).map(cb => cb.value);
+
+    const containerLabels = {
+      plastic: "Plastic Bottle",
+      glass: "Glass Bottle",
+      can: "Can"
+    };
+
+    const combinations = [];
+    containers.forEach(container => {
+      sizes.forEach(size => {
+        combinations.push({ container, size });
+      });
+    });
+
+    if (combinations.length === 0) {
+      gridContainer.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1rem;">Select at least one container type and size.</td></tr>`;
+      return;
+    }
+
+    gridContainer.innerHTML = combinations.map(comb => {
+      const containerLabel = containerLabels[comb.container] || comb.container;
+      const variantName = `${comb.size} ${containerLabel}`;
+      const itemName = `${brandName} ${variantName}`;
+      
+      let defaultSalePrice = 40;
+      let defaultCost = 30;
+      if (comb.size === "250ml") { defaultSalePrice = 20; defaultCost = 15; }
+      else if (comb.size === "300ml") { defaultSalePrice = 25; defaultCost = 19; }
+      else if (comb.size === "750ml") { defaultSalePrice = 60; defaultCost = 45; }
+      else if (comb.size === "1L") { defaultSalePrice = 80; defaultCost = 60; }
+      else if (comb.size === "2L") { defaultSalePrice = 120; defaultCost = 90; }
+
+      if (brandVal === "water") {
+        if (comb.size === "250ml") { defaultSalePrice = 10; defaultCost = 7; }
+        else if (comb.size === "500ml") { defaultSalePrice = 15; defaultCost = 10; }
+        else if (comb.size === "1L") { defaultSalePrice = 20; defaultCost = 14; }
+        else if (comb.size === "2L") { defaultSalePrice = 35; defaultCost = 25; }
+      }
+
+      return `
+        <tr data-container="${comb.container}" data-size="${comb.size}">
+          <td><strong>${itemName}</strong></td>
+          <td style="text-align:center;">
+            <input type="number" class="owner-input-cell bev-price-input" value="${defaultSalePrice}" style="width:80px; text-align:center;" required min="0">
+          </td>
+          <td style="text-align:center;">
+            <input type="number" class="owner-input-cell bev-cost-input" value="${defaultCost}" style="width:80px; text-align:center;" required min="0">
+          </td>
+          <td style="text-align:center;">
+            <input type="number" class="owner-input-cell bev-stock-input" value="48" style="width:70px; text-align:center;" required min="0">
+          </td>
+          <td style="text-align:center;">
+            <input type="number" class="owner-input-cell bev-minstock-input" value="12" style="width:70px; text-align:center;" required min="0">
+          </td>
+          <td style="text-align:center;">
+            <input type="text" class="owner-input-cell bev-supplier-input" value="${defaultSupplier}" style="width:130px; text-align:center;" required>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  async handleBeverageGeneration() {
+    const state = window.AutoBrixStore.state;
+    const brandSelect = document.getElementById("bev-brand");
+    if (!brandSelect) return;
+
+    const brandVal = brandSelect.value;
+    const brandName = brandSelect.options[brandSelect.selectedIndex].text;
+
+    const menuItemId = brandVal;
+    const menuItemName = brandVal === 'water' ? 'Water Bottle' : brandName;
+
+    const rows = Array.from(document.querySelectorAll("#bev-pricing-rows tr"));
+    if (!rows.length || rows[0].innerText.includes("Select at least one")) {
+      alert("Please select container type(s) and size(s) first!");
+      return;
+    }
+
+    const itemsToCreate = [];
+    const containerLabels = {
+      plastic: "Plastic Bottle",
+      glass: "Glass Bottle",
+      can: "Can"
+    };
+
+    for (const row of rows) {
+      const container = row.dataset.container;
+      const size = row.dataset.size;
+      const containerLabel = containerLabels[container] || container;
+      const variantName = `${size} ${containerLabel}`;
+      const name = `${menuItemName} ${variantName}`;
+      
+      const salePrice = parseFloat(row.querySelector(".bev-price-input").value) || 0;
+      const purchaseCost = parseFloat(row.querySelector(".bev-cost-input").value) || 0;
+      const stock = parseFloat(row.querySelector(".bev-stock-input").value) || 0;
+      const minStock = parseFloat(row.querySelector(".bev-minstock-input").value) || 0;
+      const supplier = row.querySelector(".bev-supplier-input").value.trim() || "Pepsi Distributor";
+
+      const variantId = `${size.toLowerCase()}_${container.toLowerCase()}`;
+      const rawId = `${menuItemId}_${variantId}`;
+
+      itemsToCreate.push({
+        variantId,
+        variantName,
+        rawId,
+        name,
+        salePrice,
+        purchaseCost,
+        stock,
+        minStock,
+        supplier
+      });
+    }
+
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        const existingItem = state.config.menuItems[menuItemId];
+        if (!existingItem) {
+          const formData = new FormData();
+          formData.append("id", menuItemId);
+          formData.append("name", menuItemName);
+          formData.append("station_id", "reception");
+          formData.append("prep_time", "1");
+          formData.append("active", "1");
+          await window.AlokaAPI.postForm('/menu', formData);
+
+          await window.AlokaAPI.patch(`/menu/${menuItemId}`, { food_type: 'veg' });
+        }
+
+        for (const item of itemsToCreate) {
+          const existingRaw = state.inventory.raw[item.rawId];
+          if (existingRaw) {
+            await window.AlokaAPI.patch(`/inventory/raw/${item.rawId}`, {
+              cost_per_purchase_unit: item.purchaseCost,
+              stock: item.stock,
+              min_stock: item.minStock,
+              supplier: item.supplier
+            });
+          } else {
+            await window.AlokaAPI.post('/inventory/raw', {
+              id: item.rawId,
+              name: item.name,
+              stock: item.stock,
+              min_stock: item.minStock,
+              purchase_unit: 'pcs',
+              stock_unit: 'pcs',
+              conversion_factor: 1.0,
+              cost_per_purchase_unit: item.purchaseCost,
+              supplier: item.supplier
+            });
+          }
+
+          const dbVariantId = `${menuItemId}_${item.variantId}`;
+          if (existingItem && existingItem.variants[item.variantId]) {
+            await window.AlokaAPI.patch(`/menu/${menuItemId}/variants/${dbVariantId}`, {
+              price: item.salePrice
+            });
+          } else {
+            await window.AlokaAPI.post(`/menu/${menuItemId}/variants`, {
+              variantId: dbVariantId,
+              name: item.variantName,
+              price: item.salePrice,
+              recipe_multiplier: 1.0
+            });
+          }
+
+          await window.AlokaAPI.put(`/menu/${menuItemId}/recipe/${item.rawId}`, {
+            quantity: 1.0,
+            ingredient_type: 'raw',
+            unit: 'pcs'
+          });
+        }
+
+        await window.AlokaAPI.loadAllState();
+        alert(`Successfully created/updated ${itemsToCreate.length} beverage variant(s) online!`);
+      } catch (err) {
+        alert("Error creating beverages: " + err.message);
+      }
+    } else {
+      window.AutoBrixStore.updateState(s => {
+        let existingItem = s.config.menuItems[menuItemId];
+        if (!existingItem) {
+          s.config.menuItems[menuItemId] = {
+            id: menuItemId,
+            name: menuItemName,
+            station: 'reception',
+            prepTime: 1,
+            active: true,
+            image: null,
+            foodType: 'veg',
+            sortOrder: Object.keys(s.config.menuItems).length + 1,
+            variants: {},
+            recipe: {}
+          };
+          existingItem = s.config.menuItems[menuItemId];
+        }
+
+        itemsToCreate.forEach(item => {
+          existingItem.variants[item.variantId] = {
+            id: `${menuItemId}_${item.variantId}`,
+            name: item.variantName,
+            price: item.salePrice,
+            recipeMultiplier: 1.0
+          };
+
+          s.inventory.raw[item.rawId] = {
+            name: item.name,
+            stock: item.stock,
+            reserved: 0,
+            minStock: item.minStock,
+            purchaseUnit: 'pcs',
+            stockUnit: 'pcs',
+            conversionFactor: 1.0,
+            costPerPurchaseUnit: item.purchaseCost,
+            supplier: item.supplier
+          };
+
+          existingItem.recipe[item.rawId] = 1.0;
+        });
+      });
+      window.AutoBrixStore.logAudit("Config Change", `Bulk generated ${itemsToCreate.length} beverage(s)`);
+      alert(`Locally created ${itemsToCreate.length} beverage variant(s)!`);
     }
 
     this.menuFormTab = "single";

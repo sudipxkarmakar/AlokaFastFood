@@ -661,9 +661,15 @@ class AutoBrixStore {
 
     let totalCost = 0;
 
-    // Base Recipe Cost
-    for (const [ing, baseQty] of Object.entries(item.recipe)) {
-      totalCost += this.calculateIngredientCost(ing, baseQty * multiplier);
+    const isBeverage = itemId.includes("pepsi") || itemId.includes("7up") || itemId.includes("mirinda") || itemId.includes("dew") || itemId.includes("water") || itemId.includes("beverage");
+    if (isBeverage) {
+      const ingId = `${itemId}_${variantId}`;
+      totalCost = this.calculateIngredientCost(ingId, 1.0);
+    } else {
+      // Base Recipe Cost
+      for (const [ing, baseQty] of Object.entries(item.recipe)) {
+        totalCost += this.calculateIngredientCost(ing, baseQty * multiplier);
+      }
     }
 
     // Modifiers Cost
@@ -713,8 +719,14 @@ class AutoBrixStore {
 
     // Calculate aggregated requirements per item ordered
     const requirements = {};
-    for (const [ing, baseQty] of Object.entries(item.recipe)) {
-      requirements[ing] = (requirements[ing] || 0) + (baseQty * multiplier);
+    const isBeverage = itemId.includes("pepsi") || itemId.includes("7up") || itemId.includes("mirinda") || itemId.includes("dew") || itemId.includes("water") || itemId.includes("beverage");
+    if (isBeverage) {
+      const ingId = `${itemId}_${variantId}`;
+      requirements[ingId] = 1.0;
+    } else {
+      for (const [ing, baseQty] of Object.entries(item.recipe)) {
+        requirements[ing] = (requirements[ing] || 0) + (baseQty * multiplier);
+      }
     }
     for (const modId of modifierIds) {
       const mod = this.state.config.modifiers[modId];
@@ -836,8 +848,14 @@ class AutoBrixStore {
         const multiplier = menuInfo.variants[item.variant].recipeMultiplier;
         
         // Base recipe ingredients
-        for (const [ing, baseQty] of Object.entries(menuInfo.recipe)) {
-          required[ing] = (required[ing] || 0) + (baseQty * multiplier * qty);
+        const isBeverage = item.id.includes("pepsi") || item.id.includes("7up") || item.id.includes("mirinda") || item.id.includes("dew") || item.id.includes("water") || item.id.includes("beverage");
+        if (isBeverage) {
+          const ingId = `${item.id}_${item.variant}`;
+          required[ingId] = (required[ingId] || 0) + qty;
+        } else {
+          for (const [ing, baseQty] of Object.entries(menuInfo.recipe)) {
+            required[ing] = (required[ing] || 0) + (baseQty * multiplier * qty);
+          }
         }
 
         // Modifiers ingredients
@@ -924,10 +942,18 @@ class AutoBrixStore {
           const multiplier = menuInfo.variants[item.variant].recipeMultiplier;
 
           // Release base recipe
-          for (const [ing, baseQty] of Object.entries(menuInfo.recipe)) {
+          const isBeverage = item.id.includes("pepsi") || item.id.includes("7up") || item.id.includes("mirinda") || item.id.includes("dew") || item.id.includes("water") || item.id.includes("beverage");
+          if (isBeverage) {
+            const ing = `${item.id}_${item.variant}`;
             const isRaw = state.inventory.raw[ing] !== undefined;
             const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);
-            if (inv) inv.reserved = Math.max(0, inv.reserved - (baseQty * multiplier * qty));
+            if (inv) inv.reserved = Math.max(0, inv.reserved - qty);
+          } else {
+            for (const [ing, baseQty] of Object.entries(menuInfo.recipe)) {
+              const isRaw = state.inventory.raw[ing] !== undefined;
+              const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);
+              if (inv) inv.reserved = Math.max(0, inv.reserved - (baseQty * multiplier * qty));
+            }
           }
 
           // Release modifiers
@@ -965,13 +991,24 @@ class AutoBrixStore {
         const multiplier = menuInfo.variants[item.variant].recipeMultiplier;
 
         // Base recipe
-        for (const [ing, baseQty] of Object.entries(menuInfo.recipe)) {
+        const isBeverage = item.id.includes("pepsi") || item.id.includes("7up") || item.id.includes("mirinda") || item.id.includes("dew") || item.id.includes("water") || item.id.includes("beverage");
+        if (isBeverage) {
+          const ing = `${item.id}_${item.variant}`;
           const isRaw = state.inventory.raw[ing] !== undefined;
           const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);
           if (inv) {
-            const needed = baseQty * multiplier * qty;
-            inv.stock = Math.max(0, inv.stock - needed);
-            inv.reserved = Math.max(0, inv.reserved - needed);
+            inv.stock = Math.max(0, inv.stock - qty);
+            inv.reserved = Math.max(0, inv.reserved - qty);
+          }
+        } else {
+          for (const [ing, baseQty] of Object.entries(menuInfo.recipe)) {
+            const isRaw = state.inventory.raw[ing] !== undefined;
+            const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);
+            if (inv) {
+              const needed = baseQty * multiplier * qty;
+              inv.stock = Math.max(0, inv.stock - needed);
+              inv.reserved = Math.max(0, inv.reserved - needed);
+            }
           }
         }
 
