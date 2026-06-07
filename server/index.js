@@ -28,6 +28,28 @@ const db = require('./db');
 // Auto-migration: ensure worker_stations and workers have required columns
 (async () => {
   try {
+    await db.query('ALTER TABLE stations ADD COLUMN current_worker_id VARCHAR(64) DEFAULT NULL');
+    console.log('[Auto-Migration] Added COLUMN current_worker_id to stations');
+  } catch (e) {
+    if (e.code !== 'ER_DUP_COLUMN_NAME') {
+      console.warn('[Auto-Migration] Notice:', e.message);
+    }
+  }
+  try {
+    await db.query('ALTER TABLE stations ADD CONSTRAINT fk_stations_current_worker FOREIGN KEY (current_worker_id) REFERENCES workers(id) ON DELETE SET NULL');
+    console.log('[Auto-Migration] Added foreign key fk_stations_current_worker to stations');
+  } catch (e) {
+    if (e.code !== 'ER_FK_DUP_NAME' && e.code !== 'ER_DUP_KEYNAME' && !e.message.includes('already exists')) {
+      console.warn('[Auto-Migration] Notice:', e.message);
+    }
+  }
+  try {
+    await db.query('ALTER TABLE menu_variants MODIFY COLUMN recipe_multiplier DECIMAL(10,4) DEFAULT 1.0');
+    console.log('[Auto-Migration] Modified recipe_multiplier to DECIMAL(10,4) on menu_variants');
+  } catch (e) {
+    console.warn('[Auto-Migration] recipe_multiplier alter failed:', e.message);
+  }
+  try {
     await db.query('ALTER TABLE worker_stations ADD COLUMN prep_time INT DEFAULT 3');
     console.log('[Auto-Migration] Added COLUMN prep_time to worker_stations');
   } catch (e) {

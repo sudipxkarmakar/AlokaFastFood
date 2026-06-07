@@ -204,7 +204,8 @@ class POSPanel {
       { id: "paratha", name: "Paratha" },
       { id: "chinese", name: "Chinese" },
       { id: "curry", name: "Mains & Curries" },
-      { id: "fry", name: "Snacks & Starters" }
+      { id: "fry", name: "Snacks & Starters" },
+      { id: "beverage", name: "Beverages & Eggs" }
     ];
 
     list.innerHTML = categories.map(cat => {
@@ -230,6 +231,7 @@ class POSPanel {
     if (categoryId === "chinese") return item.station === "chinese";
     if (categoryId === "curry") return item.station === "main";
     if (categoryId === "fry") return item.station === "fry";
+    if (categoryId === "beverage") return item.id === "egg" || item.id.includes("pepsi") || item.id.includes("7up") || item.id.includes("mirinda") || item.id.includes("dew") || item.id.includes("water") || item.id.includes("beverage") || item.station === "reception";
     return false;
   }
 

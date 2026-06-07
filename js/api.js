@@ -128,7 +128,7 @@ window.AlokaAPI = {
     });
 
     const stationsMap = {};
-    stations.forEach(s => { stationsMap[s.id] = { id: s.id, name: s.name, baseCapacity: s.base_capacity }; });
+    stations.forEach(s => { stationsMap[s.id] = { id: s.id, name: s.name, baseCapacity: s.base_capacity, currentWorkerId: s.current_worker_id || null }; });
 
     const workersArr = workers.map(w => ({
       id: w.id,

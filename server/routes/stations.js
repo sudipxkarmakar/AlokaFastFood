@@ -34,4 +34,16 @@ router.delete('/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// PUT assign staff to station
+router.put('/:id/assign', async (req, res) => {
+  const { worker_id } = req.body;
+  const station_id = req.params.id;
+  try {
+    await db.query('UPDATE stations SET current_worker_id = ? WHERE id = ?', [worker_id || null, station_id]);
+    await db.query("INSERT INTO audit_logs (action, payload) VALUES ('Assign Station', ?)",
+      [`Assigned worker ${worker_id || 'None'} to station ${station_id}`]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

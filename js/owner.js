@@ -29,10 +29,10 @@ class OwnerPanel {
           <button class="owner-tab-btn ${this.activeTab === "analytics" ? "active" : ""}" data-tab="analytics">Operations Report</button>
           <button class="owner-tab-btn ${this.activeTab === "menu" ? "active" : ""}" data-tab="menu">Menu</button>
           <button class="owner-tab-btn ${this.activeTab === "recipes" ? "active" : ""}" data-tab="recipes">Recipe Editor</button>
-          <button class="owner-tab-btn ${this.activeTab === "stations" ? "active" : ""}" data-tab="stations">Station Management</button>
+          <button class="owner-tab-btn ${this.activeTab === "stations" ? "active" : ""}" data-tab="stations">Station</button>
           <button class="owner-tab-btn ${this.activeTab === "labor" ? "active" : ""}" data-tab="labor">Employee</button>
           <button class="owner-tab-btn ${this.activeTab === "inventory" ? "active" : ""}" data-tab="inventory">Batch Prep & Stock</button>
-          <button class="owner-tab-btn ${this.activeTab === "expenditures" ? "active" : ""}" data-tab="expenditures">Purchase Ledger</button>
+          <button class="owner-tab-btn ${this.activeTab === "expenditures" ? "active" : ""}" data-tab="expenditures">Purchase</button>
         </div>
         
         <!-- Tab Content Workspace -->
@@ -57,7 +57,7 @@ class OwnerPanel {
     });
   }
 
-  updateActiveTabContent() {
+  async updateActiveTabContent() {
     const workspace = document.getElementById("owner-workspace");
     if (!workspace) return;
 
@@ -84,6 +84,7 @@ class OwnerPanel {
     } else if (this.activeTab === "inventory") {
       this.renderInventoryTab(workspace, state);
     } else if (this.activeTab === "expenditures") {
+      await this.loadExpendituresData(state);
       this.renderExpendituresTab(workspace, state);
     }
   }
@@ -1712,35 +1713,44 @@ class OwnerPanel {
   }
 
   // ==========================================
-  // TAB: Station Management
+  // TAB: Station
   // ==========================================
   renderStationsTab(container, state) {
     container.innerHTML = `
       <div class="glass-card">
-        <h4 class="modal-section-title" style="margin-bottom:0.75rem;">Station Management</h4>
+        <h4 class="modal-section-title" style="margin-bottom:0.75rem;">Station</h4>
         <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:1rem;">
-          Add or remove operational kitchen stations. Active workers can cover multiple stations at once.
+          Add or remove operational kitchen stations and assign a staff member to cover each in real-time.
         </p>
         
         <div class="owner-table-wrapper" style="border:none; margin-bottom:1.5rem;">
           <table class="owner-table">
             <thead>
               <tr>
-                <th>Station ID</th>
                 <th>Station Name</th>
+                <th>Assigned Staff</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              ${Object.values(state.config.stations).map(station => `
-                <tr>
-                  <td><code style="font-family:var(--font-mono);">${station.id}</code></td>
-                  <td><strong>${station.name}</strong></td>
-                  <td>
-                    <button class="k-item-btn" onclick="ownerPanel.deleteStation('${station.id}')" style="color:var(--color-critical); padding:2px 6px;">Remove Station</button>
-                  </td>
-                </tr>
-              `).join("")}
+              ${Object.values(state.config.stations).map(station => {
+                return `
+                  <tr>
+                    <td><strong>${station.name}</strong></td>
+                    <td>
+                      <select class="pos-select-sm station-worker-select" data-station-id="${station.id}" style="width:100%; max-width:180px;">
+                        <option value="">Unassigned</option>
+                        ${state.config.workers.map(w => `
+                          <option value="${w.id}" ${w.id === station.currentWorkerId ? 'selected' : ''}>${w.name}</option>
+                        `).join("")}
+                      </select>
+                    </td>
+                    <td>
+                      <button class="k-item-btn" onclick="ownerPanel.deleteStation('${station.id}')" style="color:var(--color-critical); padding:2px 6px;">Remove Station</button>
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
             </tbody>
           </table>
         </div>
@@ -1755,6 +1765,25 @@ class OwnerPanel {
         </div>
       </div>
     `;
+
+    // Bind dropdown changes
+    container.querySelectorAll(".station-worker-select").forEach(select => {
+      select.addEventListener("change", async (e) => {
+        const stationId = e.target.dataset.stationId;
+        const workerId = e.target.value;
+        if (window.AlokaAPI.isOnline()) {
+          try {
+            await window.AlokaAPI.put(`/stations/${stationId}/assign`, { worker_id: workerId || null });
+            await window.AlokaAPI.loadAllState();
+          } catch (err) {
+            alert("Error assigning worker: " + err.message);
+          }
+        } else {
+          window.AutoBrixStore.assignWorkerToStation(stationId, workerId || null);
+        }
+        this.updateActiveTabContent();
+      });
+    });
 
     document.getElementById("station-add-form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -2889,122 +2918,159 @@ class OwnerPanel {
   }
 
   // ==========================================
-  // TAB: Purchase Ledger & Expenditures
+  // TAB: Purchase & Expenditures
   // ==========================================
+  async loadExpendituresData(state) {
+    if (!this.expenditurePeriodFilter) this.expenditurePeriodFilter = "today";
+    if (!this.expenditureStartDate) this.expenditureStartDate = new Date().toISOString().split("T")[0];
+    if (!this.expenditureEndDate) this.expenditureEndDate = new Date().toISOString().split("T")[0];
+
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        let path = '/expenses';
+        if (this.expenditurePeriodFilter === 'today') {
+          path += `?date=${new Date().toISOString().split("T")[0]}`;
+        } else if (this.expenditurePeriodFilter === 'month') {
+          const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+          path += `?month=${currentMonth}`;
+        } else if (this.expenditurePeriodFilter === 'all') {
+          path += '?all=true';
+        } else if (this.expenditurePeriodFilter === 'custom') {
+          path += `?start_date=${this.expenditureStartDate}&end_date=${this.expenditureEndDate}`;
+        }
+        const filtered = await window.AlokaAPI.get(path);
+        state.expenses = filtered.map(exp => ({
+          id: exp.id,
+          date: exp.expense_date.split('T')[0],
+          item: exp.item_name,
+          quantity: parseFloat(exp.quantity),
+          unit: exp.unit,
+          cost: parseFloat(exp.cost),
+          supplier: exp.supplier,
+          raw_ingredient_id: exp.raw_ingredient_id
+        }));
+      } catch (err) {
+        console.error("Failed to load filtered expenses:", err);
+      }
+    } else {
+      let filtered = [...state.expenses];
+      const todayStr = new Date().toISOString().split("T")[0];
+      if (this.expenditurePeriodFilter === 'today') {
+        filtered = filtered.filter(exp => exp.date === todayStr);
+      } else if (this.expenditurePeriodFilter === 'month') {
+        const currentMonth = todayStr.slice(0, 7); // YYYY-MM
+        filtered = filtered.filter(exp => exp.date.startsWith(currentMonth));
+      } else if (this.expenditurePeriodFilter === 'custom') {
+        filtered = filtered.filter(exp => exp.date >= this.expenditureStartDate && exp.date <= this.expenditureEndDate);
+      }
+      this.localFilteredExpenses = filtered;
+    }
+  }
+
   renderExpendituresTab(container, state) {
-    // Collect unique expense item names and suppliers for combo list datalist suggestions
+    if (!this.expenditureFormType) this.expenditureFormType = "general";
+    if (!this.expenditurePeriodFilter) this.expenditurePeriodFilter = "today";
+    if (!this.bevSizes) this.bevSizes = ["100ml", "250ml", "500ml", "1L", "2L"];
+    if (this.selectedBevSizeIdx === undefined) this.selectedBevSizeIdx = 2;
+
     const customItems = state.customExpenseItems || [];
     const suppliers = state.customSuppliers || [];
 
-    // Combine raw names and custom items
-    const rawNames = Object.values(state.inventory.raw).map(r => r.name);
-    const combinedItems = Array.from(new Set([...rawNames, ...customItems]));
+    const utilitySuggestions = [
+      "Electricity Bill", "Gas Bill", "Mobile Recharge", "Rent", "Salary Payment",
+      "Internet/Wi-Fi Bill", "Water Supply Bill", "Raw Chicken", "Paneer", "Flour",
+      "Cooking Oil", "Onions", "Capsicum", "Raw Noodles", "Raw Pasta",
+      "Cheese Block", "Mix Spices", "Sauces & Condiments", "Ghugni Peas", "Chole Chana"
+    ];
+    const combinedItems = Array.from(new Set([...utilitySuggestions, ...customItems]));
+
+    const listExpenses = window.AlokaAPI.isOnline() ? state.expenses : (this.localFilteredExpenses || state.expenses);
+    const totalPeriodCost = listExpenses.reduce((sum, exp) => sum + exp.cost, 0);
+
+    let periodTitle = "Today's Purchases";
+    if (this.expenditurePeriodFilter === 'month') periodTitle = "This Month's Purchases";
+    else if (this.expenditurePeriodFilter === 'all') periodTitle = "All-Time Purchases";
+    else if (this.expenditurePeriodFilter === 'custom') periodTitle = `Purchases: ${this.expenditureStartDate} to ${this.expenditureEndDate}`;
 
     container.innerHTML = `
-      <div class="batch-editor-panel" style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem;">
+      <div class="glass-card" style="margin-bottom:1rem; padding:1rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+          <span style="font-size:0.8rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase;">Show Period:</span>
+          <div class="nav-buttons" style="gap:4px; display:inline-flex; background:rgba(0,0,0,0.2); padding:2px; border-radius:6px;">
+            <button class="nav-btn ${this.expenditurePeriodFilter === 'today' ? 'active' : ''}" id="btn-filter-today" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; margin:0; height:26px;">Today</button>
+            <button class="nav-btn ${this.expenditurePeriodFilter === 'month' ? 'active' : ''}" id="btn-filter-month" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; margin:0; height:26px;">This Month</button>
+            <button class="nav-btn ${this.expenditurePeriodFilter === 'all' ? 'active' : ''}" id="btn-filter-all" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; margin:0; height:26px;">All Time</button>
+            <button class="nav-btn ${this.expenditurePeriodFilter === 'custom' ? 'active' : ''}" id="btn-filter-custom" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; margin:0; height:26px;">Custom Range</button>
+          </div>
+          
+          <div id="custom-date-inputs" style="display:${this.expenditurePeriodFilter === 'custom' ? 'flex' : 'none'}; align-items:center; gap:6px;">
+            <input type="date" class="pos-input-sm" id="filter-start-date" value="${this.expenditureStartDate}" style="height:28px; padding:2px 6px; font-size:0.75rem;">
+            <span style="font-size:0.75rem; color:var(--text-secondary);">to</span>
+            <input type="date" class="pos-input-sm" id="filter-end-date" value="${this.expenditureEndDate}" style="height:28px; padding:2px 6px; font-size:0.75rem;">
+            <button class="pos-action-btn primary" id="btn-apply-custom-filter" style="padding:2px 8px; font-size:0.75rem; height:28px; margin:0;">Apply</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:1.5rem; align-items:center;">
+          <div style="text-align:right;">
+            <span style="font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; display:block;">Total Expenditure</span>
+            <span style="font-size:1.3rem; font-weight:700; color:var(--color-warning); font-family:var(--font-mono);">₹${totalPeriodCost.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="batch-editor-panel" style="display:grid; grid-template-columns: 1.1fr 0.9fr; gap:1.5rem;">
         
         <!-- Left: Form to record expense -->
         <div class="glass-card">
-          <h4 class="modal-section-title" style="margin-bottom:0.75rem;">Record Purchase Expense</h4>
-          <div style="display:flex; flex-direction:column; gap:0.75rem;">
-            
-            <div style="display:flex; flex-direction:column; gap:0.25rem;">
-              <label class="form-label-xs">Date</label>
-              <input type="date" class="pos-input-sm" id="exp-date" value="${new Date().toISOString().split("T")[0]}">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:0.5rem; margin-bottom:0.75rem;">
+            <h4 class="modal-section-title" style="margin-bottom:0;">Record Purchase / Bill</h4>
+            <div class="nav-buttons" style="gap:4px; display:inline-flex; background:rgba(0,0,0,0.2); padding:2px; border-radius:6px;">
+              <button class="nav-btn ${this.expenditureFormType === 'general' ? 'active' : ''}" id="btn-form-general" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; margin:0; height:26px;">General / Bill</button>
+              <button class="nav-btn ${this.expenditureFormType === 'beverage' ? 'active' : ''}" id="btn-form-beverage" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; margin:0; height:26px;">Beverages</button>
+              <button class="nav-btn ${this.expenditureFormType === 'egg' ? 'active' : ''}" id="btn-form-egg" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; margin:0; height:26px;">Eggs</button>
             </div>
-            
-            <div style="display:flex; flex-direction:column; gap:0.25rem;">
-              <label class="form-label-xs">Item Name / Category</label>
-              <input type="text" class="pos-input-sm" id="exp-item-input" list="expense-items-list" placeholder="Select or type item name..." required>
-              <datalist id="expense-items-list">
-                ${combinedItems.map(item => `<option value="${item}">`).join("")}
-              </datalist>
-            </div>
+          </div>
 
-            <div style="display:flex; gap:0.5rem;">
-              <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
-                <label class="form-label-xs">Quantity</label>
-                <input type="number" step="0.1" class="pos-input-sm" id="exp-qty" placeholder="1.0" required>
-              </div>
-              <div style="width:120px; display:flex; flex-direction:column; gap:2px;">
-                <label class="form-label-xs">Unit</label>
-                <select class="pos-select-sm" id="exp-unit-select" style="width:100%;">
-                  <option value="kg">kg</option>
-                  <option value="g">g</option>
-                  <option value="L">L</option>
-                  <option value="ml">ml</option>
-                  <option value="pcs">pcs</option>
-                  <option value="dozens">dozens</option>
-                  <option value="packets">packets</option>
-                  <option value="boxes">boxes</option>
-                  <option value="bags">bags</option>
-                </select>
-              </div>
-            </div>
-            
-            <div style="display:flex; flex-direction:column; gap:0.25rem;">
-              <label class="form-label-xs">Total Cost (₹)</label>
-              <input type="number" class="pos-input-sm" id="exp-cost" placeholder="Total Cost" required>
-            </div>
-
-            <div style="display:flex; flex-direction:column; gap:0.25rem;">
-              <label class="form-label-xs">Supplier Name</label>
-              <input type="text" class="pos-input-sm" id="exp-supplier-input" list="suppliers-list" placeholder="Select or type supplier..." required>
-              <datalist id="suppliers-list">
-                ${suppliers.map(sup => `<option value="${sup}">`).join("")}
-              </datalist>
-            </div>
-
-            <button class="pos-action-btn primary" id="btn-add-expense" style="grid-column:auto; margin-top:0.5rem;">Save Expenditure</button>
+          <div id="purchase-form-container">
+            ${this.renderActivePurchaseForm(state, combinedItems, suppliers)}
           </div>
         </div>
 
         <!-- Right: Recent expenditures list & Audit Logs -->
         <div style="display:flex; flex-direction:column; gap:1.5rem;">
           
-          <div class="glass-card" style="flex:1;">
-            <h4 class="modal-section-title" style="margin-bottom:0.75rem;">Today's Purchases Ledger</h4>
-            <div class="owner-table-wrapper" style="border:none; max-height:220px; overflow-y:auto;">
+          <div class="glass-card" style="flex:1; display:flex; flex-direction:column; min-height:420px;">
+            <h4 class="modal-section-title" style="margin-bottom:0.75rem;">${periodTitle}</h4>
+            <div class="owner-table-wrapper" style="border:none; flex-grow:1; max-height:450px; overflow-y:auto;">
               <table class="owner-table">
                 <thead>
                   <tr>
+                    <th>Date</th>
                     <th>Item</th>
                     <th>Qty</th>
                     <th>Cost</th>
                     <th>Supplier</th>
+                    <th style="text-align:center; width:45px;">Delete</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${state.expenses.length === 0 
-                    ? `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:1rem;">No expenditures logged today.</td></tr>` 
-                    : state.expenses.map(exp => `
+                  ${listExpenses.length === 0 
+                    ? `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">No purchases logged for this period.</td></tr>` 
+                    : listExpenses.map(exp => `
                       <tr>
-                        <td><strong>${exp.item_name || exp.item}</strong></td>
+                        <td style="font-size:0.75rem; color:var(--text-secondary); white-space:nowrap;">${exp.date || exp.expense_date.split('T')[0]}</td>
+                        <td><strong>${exp.item || exp.item_name}</strong></td>
                         <td>${exp.quantity} ${exp.unit}</td>
                         <td style="font-family:var(--font-mono); font-weight:600;">₹${exp.cost}</td>
-                        <td>${exp.supplier}</td>
+                        <td style="font-size:0.75rem;">${exp.supplier}</td>
+                        <td style="text-align:center;">
+                          <button class="k-item-btn" onclick="ownerPanel.handleDeleteExpense('${exp.id}')" style="color:var(--color-critical); padding:2px 6px; background:var(--color-critical-bg); border-color:rgba(239,68,68,0.2); border-radius:4px;">🗑️</button>
+                        </td>
                       </tr>
                     `).join("")}
                 </tbody>
               </table>
-            </div>
-          </div>
-
-          <div class="glass-card" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
-            <h4 class="modal-section-title" style="margin-bottom:0.75rem;">System Configuration Audit logs</h4>
-            <div class="audit-logs-container" style="max-height:180px; overflow-y:auto; font-size:0.75rem;">
-              ${state.auditLogs.map(log => `
-                <div class="audit-log-row" style="padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
-                  <div class="audit-log-meta" style="color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:2px;">
-                    <span>${new Date(log.timestamp).toLocaleTimeString()}</span>
-                    <span>${log.user}</span>
-                  </div>
-                  <div>
-                    <span class="audit-log-action" style="color:var(--accent-color);">${log.action}:</span>
-                    <span>${log.payload}</span>
-                  </div>
-                </div>
-              `).join("")}
             </div>
           </div>
 
@@ -3013,68 +3079,541 @@ class OwnerPanel {
       </div>
     `;
 
-    // Dropdown auto unit mapping for Raw Ingredients
-    const itemInput = document.getElementById("exp-item-input");
-    const unitSelect = document.getElementById("exp-unit-select");
-    
-    itemInput.addEventListener("input", () => {
-      const val = itemInput.value.trim();
-      const matchingRaw = Object.values(state.inventory.raw).find(r => r.name.toLowerCase() === val.toLowerCase());
-      if (matchingRaw) {
-        unitSelect.value = matchingRaw.purchaseUnit;
+    this.bindExpenditureEvents(state);
+  }
+
+  renderActivePurchaseForm(state, combinedItems, suppliers) {
+    if (this.expenditureFormType === 'beverage') {
+      return `
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <label class="form-label-xs">Date</label>
+            <input type="date" class="pos-input-sm" id="exp-date" value="${new Date().toISOString().split("T")[0]}">
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <label class="form-label-xs">Beverage Name (e.g. Pepsi, Water, Sprite)</label>
+            <input type="text" class="pos-input-sm" id="bev-name-input" placeholder="Enter beverage name (e.g. Pepsi)" required list="bev-brands-suggest">
+            <datalist id="bev-brands-suggest">
+              <option value="Pepsi">
+              <option value="Water">
+              <option value="7up">
+              <option value="Mirinda">
+              <option value="Mountain Dew">
+              <option value="Sprite">
+              <option value="Coca Cola">
+              <option value="Fanta">
+            </datalist>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <label class="form-label-xs">Container Type</label>
+            <div style="display:flex; gap:0.75rem; margin-top:2px;">
+              <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+                <input type="radio" name="bev-container-radio" value="plastic" checked style="accent-color:var(--accent-color);"> Plastic Bottle
+              </label>
+              <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+                <input type="radio" name="bev-container-radio" value="glass" style="accent-color:var(--accent-color);"> Glass Bottle
+              </label>
+              <label style="font-size:0.8rem; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+                <input type="radio" name="bev-container-radio" value="can" style="accent-color:var(--accent-color);"> Can
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <label class="form-label-xs">Volume / Size Presets (Edit labels, select one to purchase)</label>
+            <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:4px; background:rgba(0,0,0,0.1); padding:4px; border-radius:6px;">
+              ${this.bevSizes.map((sz, idx) => `
+                <div style="display:flex; flex-direction:column; align-items:center; gap:4px; background:rgba(255,255,255,0.02); padding:4px; border-radius:4px; border: 1px solid ${this.selectedBevSizeIdx === idx ? 'var(--accent-color)' : 'transparent'};">
+                  <input type="radio" name="bev-size-select-radio" value="${idx}" ${this.selectedBevSizeIdx === idx ? 'checked' : ''} style="cursor:pointer; accent-color:var(--accent-color);">
+                  <input type="text" class="owner-input-cell bev-size-label-input" data-index="${idx}" value="${sz}" style="width:100%; text-align:center; font-size:0.75rem; padding:2px; height:22px;">
+                </div>
+              `).join("")}
+            </div>
+          </div>
+
+          <div style="display:flex; gap:0.5rem;">
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+              <label class="form-label-xs">Qty Purchased (pcs)</label>
+              <input type="number" class="pos-input-sm" id="exp-qty" placeholder="e.g. 24" required min="1">
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+              <label class="form-label-xs">Total Cost (₹)</label>
+              <input type="number" class="pos-input-sm" id="exp-cost" placeholder="e.g. 480" required min="1">
+            </div>
+          </div>
+
+          <div style="display:flex; gap:0.5rem;">
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+              <label class="form-label-xs">Selling Price/piece (₹)</label>
+              <input type="number" class="pos-input-sm" id="bev-selling-price" placeholder="e.g. 25" required min="0">
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+              <label class="form-label-xs">Supplier Name</label>
+              <input type="text" class="pos-input-sm" id="exp-supplier-input" list="suppliers-list" placeholder="Select or type..." required>
+            </div>
+          </div>
+
+          <datalist id="suppliers-list">
+            ${suppliers.map(sup => `<option value="${sup}">`).join("")}
+          </datalist>
+
+          <button class="pos-action-btn primary" id="btn-save-beverage-purchase" style="margin-top:0.5rem;">Log Beverage Purchase</button>
+        </div>
+      `;
+    } else if (this.expenditureFormType === 'egg') {
+      return `
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <label class="form-label-xs">Date</label>
+            <input type="date" class="pos-input-sm" id="exp-date" value="${new Date().toISOString().split("T")[0]}">
+          </div>
+
+          <div style="display:flex; gap:0.5rem;">
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+              <label class="form-label-xs">Cartons Purchased</label>
+              <input type="number" class="pos-input-sm" id="egg-qty-cartons" placeholder="e.g. 2" required min="1">
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+              <label class="form-label-xs">Price Per Carton (₹)</label>
+              <input type="number" class="pos-input-sm" id="egg-carton-price" placeholder="e.g. 1200" required min="1">
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <label class="form-label-xs">Total Purchase Cost (₹)</label>
+            <input type="number" class="pos-input-sm" id="exp-cost" placeholder="Auto-calculated" required min="1">
+          </div>
+
+          <div style="display:flex; gap:0.5rem;">
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+              <label class="form-label-xs">Selling Price/Tray (₹)</label>
+              <input type="number" class="pos-input-sm" id="egg-tray-sell-price" value="210" required min="0">
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+              <label class="form-label-xs">Selling Price/Carton (₹)</label>
+              <input type="number" class="pos-input-sm" id="egg-carton-sell-price" value="1300" required min="0">
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <label class="form-label-xs">Supplier Name</label>
+            <input type="text" class="pos-input-sm" id="exp-supplier-input" list="suppliers-list" value="Egg Vendor" required>
+          </div>
+
+          <datalist id="suppliers-list">
+            ${suppliers.map(sup => `<option value="${sup}">`).join("")}
+          </datalist>
+
+          <button class="pos-action-btn primary" id="btn-save-egg-purchase" style="margin-top:0.5rem;">Log Egg Purchase</button>
+        </div>
+      `;
+    } else {
+      return `
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <label class="form-label-xs">Date</label>
+            <input type="date" class="pos-input-sm" id="exp-date" value="${new Date().toISOString().split("T")[0]}">
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <label class="form-label-xs">Item Name / Category</label>
+            <input type="text" class="pos-input-sm" id="exp-item-input" list="expense-items-list" placeholder="Select or type item name..." required>
+            <datalist id="expense-items-list">
+              ${combinedItems.map(item => `<option value="${item}">`).join("")}
+            </datalist>
+          </div>
+
+          <div style="display:flex; gap:0.5rem;">
+            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+              <label class="form-label-xs">Quantity</label>
+              <input type="number" step="0.1" class="pos-input-sm" id="exp-qty" value="1.0" required>
+            </div>
+            <div style="width:120px; display:flex; flex-direction:column; gap:2px;">
+              <label class="form-label-xs">Unit</label>
+              <select class="pos-select-sm" id="exp-unit-select" style="width:100%;">
+                <option value="pcs">pcs</option>
+                <option value="kg">kg</option>
+                <option value="g">g</option>
+                <option value="L">L</option>
+                <option value="ml">ml</option>
+                <option value="dozens">dozens</option>
+                <option value="packets">packets</option>
+                <option value="boxes">boxes</option>
+                <option value="bags">bags</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <label class="form-label-xs">Total Cost (₹)</label>
+            <input type="number" class="pos-input-sm" id="exp-cost" placeholder="Total Cost" required>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <label class="form-label-xs">Supplier Name</label>
+            <input type="text" class="pos-input-sm" id="exp-supplier-input" list="suppliers-list" placeholder="Select or type supplier..." required>
+            <datalist id="suppliers-list">
+              ${suppliers.map(sup => `<option value="${sup}">`).join("")}
+            </datalist>
+          </div>
+
+          <button class="pos-action-btn primary" id="btn-add-expense" style="margin-top:0.5rem;">Save Expenditure</button>
+        </div>
+      `;
+    }
+  }
+
+  bindExpenditureEvents(state) {
+    const formTypes = ['general', 'beverage', 'egg'];
+    formTypes.forEach(type => {
+      const btn = document.getElementById(`btn-form-${type}`);
+      if (btn) {
+        btn.addEventListener("click", () => {
+          this.expenditureFormType = type;
+          this.updateActiveTabContent();
+        });
       }
     });
 
-    document.getElementById("btn-add-expense").addEventListener("click", async () => {
-      const date = document.getElementById("exp-date").value;
-      const name = itemInput.value.trim();
-      const qty = parseFloat(document.getElementById("exp-qty").value);
-      const unit = unitSelect.value;
-      const cost = parseFloat(document.getElementById("exp-cost").value);
-      const supplier = document.getElementById("exp-supplier-input").value.trim();
-
-      if (!name || isNaN(qty) || qty <= 0 || isNaN(cost) || cost <= 0) {
-        alert("Please enter a valid item name, quantity, and cost!");
-        return;
+    const periods = ['today', 'month', 'all', 'custom'];
+    periods.forEach(p => {
+      const btn = document.getElementById(`btn-filter-${p}`);
+      if (btn) {
+        btn.addEventListener("click", () => {
+          this.expenditurePeriodFilter = p;
+          this.updateActiveTabContent();
+        });
       }
+    });
 
-      // Link to raw ingredient ID if it matches
-      const rawEntry = Object.entries(state.inventory.raw).find(([k, r]) => r.name.toLowerCase() === name.toLowerCase());
-      const rawId = rawEntry ? rawEntry[0] : null;
+    const applyFilterBtn = document.getElementById("btn-apply-custom-filter");
+    if (applyFilterBtn) {
+      applyFilterBtn.addEventListener("click", () => {
+        this.expenditureStartDate = document.getElementById("filter-start-date").value;
+        this.expenditureEndDate = document.getElementById("filter-end-date").value;
+        this.updateActiveTabContent();
+      });
+    }
 
-      if (window.AlokaAPI.isOnline()) {
-        try {
-          await window.AlokaAPI.post('/expenses', {
-            expense_date: date,
-            item_name: name,
-            quantity: qty,
-            unit: unit,
-            cost: cost,
-            supplier: supplier,
-            raw_ingredient_id: rawId
-          });
-          await window.AlokaAPI.loadAllState();
-          alert("Expenditure recorded!");
-        } catch (err) {
-          alert("Error saving expenditure: " + err.message);
-        }
-      } else {
-        window.AutoBrixStore.addExpense({
-          date: date,
-          item: name,
-          quantity: qty,
-          unit: unit,
-          cost: cost,
-          supplier: supplier
+    if (this.expenditureFormType === 'general') {
+      const itemInput = document.getElementById("exp-item-input");
+      const unitSelect = document.getElementById("exp-unit-select");
+      if (itemInput && unitSelect) {
+        itemInput.addEventListener("input", () => {
+          const val = itemInput.value.trim();
+          const matchingRaw = Object.values(state.inventory.raw).find(r => r.name.toLowerCase() === val.toLowerCase());
+          if (matchingRaw) {
+            unitSelect.value = matchingRaw.purchaseUnit;
+          }
         });
       }
 
-      itemInput.value = "";
-      document.getElementById("exp-qty").value = "";
-      document.getElementById("exp-cost").value = "";
-      document.getElementById("exp-supplier-input").value = "";
+      const saveBtn = document.getElementById("btn-add-expense");
+      if (saveBtn) {
+        saveBtn.addEventListener("click", async () => {
+          const date = document.getElementById("exp-date").value;
+          const name = itemInput.value.trim();
+          const qtyVal = document.getElementById("exp-qty").value;
+          const qty = qtyVal === "" ? 1.0 : parseFloat(qtyVal);
+          const unit = unitSelect.value;
+          const cost = parseFloat(document.getElementById("exp-cost").value);
+          const supplier = document.getElementById("exp-supplier-input").value.trim();
+
+          if (!name || isNaN(qty) || qty <= 0 || isNaN(cost) || cost <= 0) {
+            alert("Please enter a valid item name, quantity, and cost!");
+            return;
+          }
+
+          const rawEntry = Object.entries(state.inventory.raw).find(([k, r]) => r.name.toLowerCase() === name.toLowerCase());
+          const rawId = rawEntry ? rawEntry[0] : null;
+
+          if (window.AlokaAPI.isOnline()) {
+            try {
+              await window.AlokaAPI.post('/expenses', {
+                expense_date: date,
+                item_name: name,
+                quantity: qty,
+                unit: unit,
+                cost: cost,
+                supplier: supplier,
+                raw_ingredient_id: rawId
+              });
+              await window.AlokaAPI.loadAllState();
+              alert("Expenditure recorded!");
+            } catch (err) {
+              alert("Error saving expenditure: " + err.message);
+            }
+          } else {
+            window.AutoBrixStore.addExpense({
+              date: date,
+              item: name,
+              quantity: qty,
+              unit: unit,
+              cost: cost,
+              supplier: supplier,
+              raw_ingredient_id: rawId
+            });
+          }
+          this.updateActiveTabContent();
+        });
+      }
+    }
+
+    if (this.expenditureFormType === 'beverage') {
+      const sizeRadioGroup = document.getElementsByName("bev-size-select-radio");
+      const sizeLabelInputs = document.querySelectorAll(".bev-size-label-input");
+
+      sizeRadioGroup.forEach(radio => {
+        radio.addEventListener("change", (e) => {
+          this.selectedBevSizeIdx = parseInt(e.target.value);
+        });
+      });
+
+      sizeLabelInputs.forEach(input => {
+        input.addEventListener("change", (e) => {
+          const idx = parseInt(e.target.dataset.index);
+          this.bevSizes[idx] = e.target.value.trim() || this.bevSizes[idx];
+        });
+      });
+
+      const saveBevBtn = document.getElementById("btn-save-beverage-purchase");
+      if (saveBevBtn) {
+        saveBevBtn.addEventListener("click", async () => {
+          const date = document.getElementById("exp-date").value;
+          const brandName = document.getElementById("bev-name-input").value.trim();
+          const container = document.querySelector("input[name='bev-container-radio']:checked").value;
+          const size = this.bevSizes[this.selectedBevSizeIdx];
+          const qty = parseFloat(document.getElementById("exp-qty").value);
+          const cost = parseFloat(document.getElementById("exp-cost").value);
+          const sellingPrice = parseFloat(document.getElementById("bev-selling-price").value);
+          const supplier = document.getElementById("exp-supplier-input").value.trim();
+
+          if (!brandName || !size || isNaN(qty) || qty <= 0 || isNaN(cost) || cost <= 0 || isNaN(sellingPrice) || sellingPrice <= 0) {
+            alert("Please fill in all beverage fields correctly (brand, size, qty, cost, and selling price must be greater than zero)!");
+            return;
+          }
+
+          const brandVal = brandName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+          const containerLabels = { plastic: "Plastic Bottle", glass: "Glass Bottle", can: "Can" };
+          const containerLabel = containerLabels[container] || container;
+          const variantId = `${size.toLowerCase()}_${container.toLowerCase()}`;
+          const rawId = `${brandVal}_${variantId}`;
+          const variantName = `${size} ${containerLabel}`;
+          const itemFullName = `${brandName} ${variantName}`;
+
+          const beverageData = {
+            brandVal,
+            brandName,
+            size,
+            container,
+            sellingPrice
+          };
+
+          if (window.AlokaAPI.isOnline()) {
+            try {
+              const menuItems = state.config.menuItems;
+              const existingItem = menuItems[brandVal];
+              if (!existingItem) {
+                const formData = new FormData();
+                formData.append("id", brandVal);
+                formData.append("name", brandVal === 'water' ? 'Water Bottle' : brandName);
+                formData.append("station_id", "reception");
+                formData.append("prep_time", "1");
+                formData.append("active", "1");
+                await window.AlokaAPI.postForm('/menu', formData);
+                await window.AlokaAPI.patch(`/menu/${brandVal}`, { food_type: 'veg' });
+              }
+
+              const existingRaw = state.inventory.raw[rawId];
+              if (!existingRaw) {
+                await window.AlokaAPI.post('/inventory/raw', {
+                  id: rawId,
+                  name: itemFullName,
+                  stock: 0,
+                  min_stock: 12,
+                  purchase_unit: 'pcs',
+                  stock_unit: 'pcs',
+                  conversion_factor: 1.0,
+                  cost_per_purchase_unit: cost / qty,
+                  supplier: supplier
+                });
+              }
+
+              const dbVariantId = `${brandVal}_${variantId}`;
+              const hasVariant = existingItem && existingItem.variants[variantId];
+              if (hasVariant) {
+                await window.AlokaAPI.patch(`/menu/${brandVal}/variants/${dbVariantId}`, {
+                  price: sellingPrice
+                });
+              } else {
+                await window.AlokaAPI.post(`/menu/${brandVal}/variants`, {
+                  variantId: dbVariantId,
+                  name: variantName,
+                  price: sellingPrice,
+                  recipe_multiplier: 1.0
+                });
+              }
+
+              await window.AlokaAPI.put(`/menu/${brandVal}/recipe/${rawId}`, {
+                quantity: 1.0,
+                ingredient_type: 'raw',
+                unit: 'pcs'
+              });
+
+              await window.AlokaAPI.post('/expenses', {
+                expense_date: date,
+                item_name: itemFullName,
+                quantity: qty,
+                unit: 'pcs',
+                cost: cost,
+                supplier: supplier,
+                raw_ingredient_id: rawId
+              });
+
+              await window.AlokaAPI.loadAllState();
+              alert(`Beverage purchase logged and menu updated for ${itemFullName}!`);
+            } catch (err) {
+              alert("Error saving online beverage purchase: " + err.message);
+            }
+          } else {
+            window.AutoBrixStore.addExpense({
+              date: date,
+              item: itemFullName,
+              quantity: qty,
+              unit: 'pcs',
+              cost: cost,
+              supplier: supplier,
+              raw_ingredient_id: rawId,
+              beverageData: beverageData
+            });
+            alert(`Beverage purchase logged locally for ${itemFullName}!`);
+          }
+          this.updateActiveTabContent();
+        });
+      }
+    }
+
+    if (this.expenditureFormType === 'egg') {
+      const qtyCartonsInput = document.getElementById("egg-qty-cartons");
+      const cartonPriceInput = document.getElementById("egg-carton-price");
+      const totalCostInput = document.getElementById("exp-cost");
+
+      const calcTotalEggCost = () => {
+        const qty = parseFloat(qtyCartonsInput.value) || 0;
+        const price = parseFloat(cartonPriceInput.value) || 0;
+        totalCostInput.value = qty * price || "";
+      };
+
+      qtyCartonsInput.addEventListener("input", calcTotalEggCost);
+      cartonPriceInput.addEventListener("input", calcTotalEggCost);
+
+      const saveEggBtn = document.getElementById("btn-save-egg-purchase");
+      if (saveEggBtn) {
+        saveEggBtn.addEventListener("click", async () => {
+          const date = document.getElementById("exp-date").value;
+          const qtyCartons = parseFloat(qtyCartonsInput.value);
+          const cartonPrice = parseFloat(cartonPriceInput.value);
+          const totalCost = parseFloat(totalCostInput.value);
+          const traySellPrice = parseFloat(document.getElementById("egg-tray-sell-price").value);
+          const cartonSellPrice = parseFloat(document.getElementById("egg-carton-sell-price").value);
+          const supplier = document.getElementById("exp-supplier-input").value.trim();
+
+          if (isNaN(qtyCartons) || qtyCartons <= 0 || isNaN(cartonPrice) || cartonPrice <= 0 || isNaN(totalCost) || totalCost <= 0 || isNaN(traySellPrice) || traySellPrice <= 0 || isNaN(cartonSellPrice) || cartonSellPrice <= 0) {
+            alert("Please fill all egg purchase and selling price fields correctly!");
+            return;
+          }
+
+          if (window.AlokaAPI.isOnline()) {
+            try {
+              const existingItem = state.config.menuItems.egg;
+              if (!existingItem) {
+                const formData = new FormData();
+                formData.append("id", "egg");
+                formData.append("name", "Egg");
+                formData.append("station_id", "reception");
+                formData.append("prep_time", "1");
+                formData.append("active", "1");
+                await window.AlokaAPI.postForm('/menu', formData);
+                await window.AlokaAPI.patch(`/menu/egg`, { food_type: 'egg' });
+              }
+
+              const variants = [
+                { id: 'egg_tray', name: 'Tray (30 pcs)', price: traySellPrice, multiplier: 30.0 },
+                { id: 'egg_carton', name: 'Carton (210 pcs)', price: cartonSellPrice, multiplier: 210.0 }
+              ];
+
+              for (const v of variants) {
+                const hasVariant = existingItem && existingItem.variants[v.id.replace('egg_', '')];
+                if (hasVariant) {
+                  await window.AlokaAPI.patch(`/menu/egg/variants/${v.id}`, { price: v.price });
+                } else {
+                  await window.AlokaAPI.post(`/menu/egg/variants`, {
+                    variantId: v.id,
+                    name: v.name,
+                    price: v.price,
+                    recipe_multiplier: v.multiplier
+                  });
+                }
+              }
+
+              await window.AlokaAPI.put(`/menu/egg/recipe/egg`, {
+                quantity: 1.0,
+                ingredient_type: 'raw',
+                unit: 'pcs'
+              });
+
+              await window.AlokaAPI.post('/expenses', {
+                expense_date: date,
+                item_name: 'Egg Carton',
+                quantity: qtyCartons,
+                unit: 'cartons',
+                cost: totalCost,
+                supplier: supplier,
+                raw_ingredient_id: 'egg'
+              });
+
+              await window.AlokaAPI.loadAllState();
+              alert(`Egg purchase logged. Stock increased by ${qtyCartons * 210} eggs, variants priced in menu!`);
+            } catch (err) {
+              alert("Error saving online egg purchase: " + err.message);
+            }
+          } else {
+            window.AutoBrixStore.addExpense({
+              date: date,
+              item: 'Egg Carton',
+              quantity: qtyCartons,
+              unit: 'cartons',
+              cost: totalCost,
+              supplier: supplier,
+              raw_ingredient_id: 'egg',
+              eggPrices: { tray: traySellPrice, carton: cartonSellPrice }
+            });
+            alert(`Egg purchase logged locally!`);
+          }
+          this.updateActiveTabContent();
+        });
+      }
+    }
+  }
+
+  async handleDeleteExpense(expenseId) {
+    if (confirm("Are you sure you want to delete this expenditure log?")) {
+      if (window.AlokaAPI.isOnline()) {
+        try {
+          await window.AlokaAPI.del(`/expenses/${expenseId}`);
+          await window.AlokaAPI.loadAllState();
+          alert("Expenditure log deleted!");
+        } catch (err) {
+          alert("Error deleting expenditure: " + err.message);
+        }
+      } else {
+        window.AutoBrixStore.deleteExpense(expenseId);
+        alert("Expenditure log deleted locally!");
+      }
       this.updateActiveTabContent();
-    });
+    }
   }
 }
 

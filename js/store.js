@@ -1,16 +1,16 @@
 // AutoBrix State Store & Logic Engine (Layer 1 & Layer 2)
 
 const STATIONS_DEFAULT = {
-  tawa: { id: "tawa", name: "Tawa", baseCapacity: 1 },
-  prep: { id: "prep", name: "Prep", baseCapacity: 1 },
-  reception: { id: "reception", name: "Reception", baseCapacity: 1 },
-  deep_fry: { id: "deep_fry", name: "Deep Fry", baseCapacity: 1 },
-  kosha: { id: "kosha", name: "Kosha", baseCapacity: 1 },
-  chilley: { id: "chilley", name: "Chilley", baseCapacity: 1 },
-  moghlai: { id: "moghlai", name: "Mughlai", baseCapacity: 1 },
-  moghlai_tawa: { id: "moghlai_tawa", name: "Mughlai Tawa", baseCapacity: 1 },
-  cleaner: { id: "cleaner", name: "Cleaner", baseCapacity: 1 },
-  server: { id: "server", name: "Server", baseCapacity: 1 }
+  tawa: { id: "tawa", name: "Tawa", baseCapacity: 1, currentWorkerId: null },
+  prep: { id: "prep", name: "Prep", baseCapacity: 1, currentWorkerId: null },
+  reception: { id: "reception", name: "Reception", baseCapacity: 1, currentWorkerId: null },
+  deep_fry: { id: "deep_fry", name: "Deep Fry", baseCapacity: 1, currentWorkerId: null },
+  kosha: { id: "kosha", name: "Kosha", baseCapacity: 1, currentWorkerId: null },
+  chilley: { id: "chilley", name: "Chilley", baseCapacity: 1, currentWorkerId: null },
+  moghlai: { id: "moghlai", name: "Mughlai", baseCapacity: 1, currentWorkerId: null },
+  moghlai_tawa: { id: "moghlai_tawa", name: "Mughlai Tawa", baseCapacity: 1, currentWorkerId: null },
+  cleaner: { id: "cleaner", name: "Cleaner", baseCapacity: 1, currentWorkerId: null },
+  server: { id: "server", name: "Server", baseCapacity: 1, currentWorkerId: null }
 };
 
 const BATCH_RECIPES_DEFAULT = {
@@ -757,15 +757,25 @@ class AutoBrixStore {
 
   // --- Labor Station Capacities & ETAs ---
   getStationEffectiveCapacity(stationId) {
-    const workers = this.state.config.workers.filter(w => w.stations && w.stations.includes(stationId) && w.active);
+    const station = this.state.config.stations[stationId];
+    const currentWorkerId = station ? station.currentWorkerId : null;
+    let workers = [];
+    if (currentWorkerId) {
+      const worker = this.state.config.workers.find(w => w.id === currentWorkerId && w.active);
+      if (worker) {
+        workers = [worker];
+      }
+    } else {
+      workers = this.state.config.workers.filter(w => w.stations && w.stations.includes(stationId) && w.active);
+    }
+
     if (workers.length === 0) {
       // Fallback if no worker is checked in, use a tiny default capacity to avoid divide-by-zero
-      const station = this.state.config.stations[stationId];
       return station ? station.baseCapacity * 0.5 : 0.5;
     }
     return workers.reduce((sum, w) => {
-      // Worker splits their time equally among assigned stations
-      const capacityContribution = 1.0 / (w.stations.length || 1);
+      // If dedicated in real-time, capacity contribution is 1.0, otherwise split among covered stations
+      const capacityContribution = currentWorkerId ? 1.0 : (1.0 / (w.stations.length || 1));
       return sum + capacityContribution;
     }, 0);
   }
@@ -1138,30 +1148,126 @@ class AutoBrixStore {
     this.updateState((state) => {
       const cost = parseFloat(expenseData.cost);
       const newExpense = {
-        id: "EXP-" + Math.floor(1000 + Math.random() * 9000),
+        id: expenseData.id || "EXP-" + Math.floor(1000 + Math.random() * 9000),
         date: expenseData.date || new Date().toISOString().split("T")[0],
         item: expenseData.item,
         quantity: parseFloat(expenseData.quantity),
         unit: expenseData.unit,
         supplier: expenseData.supplier || "Cash Expense",
-        cost: cost
+        cost: cost,
+        raw_ingredient_id: expenseData.raw_ingredient_id || null
       };
 
       state.expenses.unshift(newExpense);
 
+      // Offline creation / sync for Eggs
+      if (expenseData.raw_ingredient_id === 'egg' && expenseData.eggPrices) {
+        const prices = expenseData.eggPrices;
+        let existingEgg = state.config.menuItems.egg;
+        if (!existingEgg) {
+          state.config.menuItems.egg = {
+            id: "egg",
+            name: "Egg",
+            station: "reception",
+            prepTime: 1,
+            active: true,
+            foodType: "egg",
+            sortOrder: Object.keys(state.config.menuItems).length + 1,
+            variants: {
+              tray: { id: "egg_tray", name: "Tray (30 pcs)", price: parseFloat(prices.tray) || 210, recipeMultiplier: 30.0 },
+              carton: { id: "egg_carton", name: "Carton (210 pcs)", price: parseFloat(prices.carton) || 1300, recipeMultiplier: 210.0 }
+            },
+            recipe: { egg: 1.0 }
+          };
+        } else {
+          if (existingEgg.variants.tray) existingEgg.variants.tray.price = parseFloat(prices.tray) || existingEgg.variants.tray.price;
+          if (existingEgg.variants.carton) existingEgg.variants.carton.price = parseFloat(prices.carton) || existingEgg.variants.carton.price;
+        }
+      }
+
+      // Offline creation / sync for Beverages
+      if (expenseData.beverageData) {
+        const bev = expenseData.beverageData;
+        const menuItemId = bev.brandVal;
+        const menuItemName = bev.brandVal === 'water' ? 'Water Bottle' : bev.brandName;
+        const containerLabels = { plastic: "Plastic Bottle", glass: "Glass Bottle", can: "Can" };
+        const containerLabel = containerLabels[bev.container] || bev.container;
+        const variantId = `${bev.size.toLowerCase()}_${bev.container.toLowerCase()}`;
+        const rawId = `${menuItemId}_${variantId}`;
+        const variantName = `${bev.size} ${containerLabel}`;
+
+        // Ensure menu item exists
+        let existingItem = state.config.menuItems[menuItemId];
+        if (!existingItem) {
+          state.config.menuItems[menuItemId] = {
+            id: menuItemId,
+            name: menuItemName,
+            station: 'reception',
+            prepTime: 1,
+            active: true,
+            image: null,
+            foodType: 'veg',
+            sortOrder: Object.keys(state.config.menuItems).length + 1,
+            variants: {},
+            recipe: {}
+          };
+          existingItem = state.config.menuItems[menuItemId];
+        }
+
+        // Add/update variant
+        existingItem.variants[variantId] = {
+          id: `${menuItemId}_${variantId}`,
+          name: variantName,
+          price: parseFloat(bev.sellingPrice) || 0,
+          recipeMultiplier: 1.0
+        };
+
+        // Ensure raw ingredient exists in inventory
+        if (!state.inventory.raw[rawId]) {
+          state.inventory.raw[rawId] = {
+            name: newExpense.item,
+            stock: 0,
+            reserved: 0,
+            minStock: 12,
+            purchaseUnit: 'pcs',
+            stockUnit: 'pcs',
+            conversionFactor: 1.0,
+            costPerPurchaseUnit: cost / newExpense.quantity,
+            supplier: newExpense.supplier
+          };
+        }
+
+        // Ensure recipe exists
+        existingItem.recipe[rawId] = 1.0;
+      }
+
       // If it corresponds to a raw ingredient, automatically add to raw stock!
-      // This is a neat real-world touch!
-      const rawKey = Object.keys(state.inventory.raw).find(k => state.inventory.raw[k].name.toLowerCase() === expenseData.item.toLowerCase() || k === expenseData.item);
+      const rawKey = expenseData.raw_ingredient_id || Object.keys(state.inventory.raw).find(k => state.inventory.raw[k].name.toLowerCase() === expenseData.item.toLowerCase() || k === expenseData.item);
       if (rawKey) {
         const raw = state.inventory.raw[rawKey];
-        // convert purchase quantity to stock units (e.g. 5kg * 1000 = 5000g)
-        const addedStock = newExpense.quantity * raw.conversionFactor;
+        let addedStock = newExpense.quantity * raw.conversionFactor;
+        let perPieceCost = cost / newExpense.quantity;
+        // Carton conversion for eggs
+        if (rawKey === 'egg' && newExpense.unit === 'cartons') {
+          addedStock = newExpense.quantity * 210;
+          perPieceCost = cost / addedStock;
+        }
         raw.stock += addedStock;
-        // update the purchase unit cost if it changed!
-        raw.costPerPurchaseUnit = cost / newExpense.quantity;
-        this.logAudit("Inventory Purchase", `Restocked ${expenseData.item} +${newExpense.quantity}${expenseData.unit}. Updated price to ₹${raw.costPerPurchaseUnit.toFixed(2)}/${raw.purchaseUnit}`);
+        raw.costPerPurchaseUnit = perPieceCost;
+        this.logAudit("Inventory Purchase", `Restocked ${expenseData.item} +${newExpense.quantity}${newExpense.unit}. Updated price to ₹${raw.costPerPurchaseUnit.toFixed(2)}/${raw.purchaseUnit}`);
       } else {
         this.logAudit("Log Expense", `Recorded expense: ${newExpense.item} (₹${cost})`);
+      }
+    });
+  }
+
+  deleteExpense(expenseId) {
+    this.updateState((state) => {
+      const idx = state.expenses.findIndex(exp => exp.id === expenseId);
+      if (idx !== -1) {
+        const item = state.expenses[idx].item || state.expenses[idx].item_name;
+        state.expenses.splice(idx, 1);
+        this.logAudit("Delete Expense", `Deleted expense record for: ${item} (${expenseId})`);
       }
     });
   }
@@ -1362,6 +1468,16 @@ class AutoBrixStore {
         }
       });
       this.logAudit("Config Change", `Removed station ID: ${id}`);
+    });
+  }
+
+  assignWorkerToStation(stationId, workerId) {
+    this.updateState((state) => {
+      const station = state.config.stations[stationId];
+      if (station) {
+        station.currentWorkerId = workerId || null;
+        this.logAudit("Labor Change", `Assigned worker ${workerId || 'None'} to station ${stationId}`);
+      }
     });
   }
 

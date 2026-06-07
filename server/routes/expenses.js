@@ -3,12 +3,26 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// GET all expenses (today by default, or ?date=YYYY-MM-DD)
+// GET expenses (supports ?date=YYYY-MM-DD, ?month=YYYY-MM, ?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD, ?all=true, defaults to today)
 router.get('/', async (req, res) => {
   try {
-    const date = req.query.date || new Date().toISOString().split('T')[0];
-    const [rows] = await db.query(
-      'SELECT * FROM expenses WHERE expense_date=? ORDER BY created_at DESC', [date]);
+    let query = 'SELECT * FROM expenses';
+    const params = [];
+    if (req.query.all === 'true') {
+      // return all
+    } else if (req.query.start_date && req.query.end_date) {
+      query += ' WHERE expense_date BETWEEN ? AND ?';
+      params.push(req.query.start_date, req.query.end_date);
+    } else if (req.query.month) {
+      query += ' WHERE expense_date LIKE ?';
+      params.push(`${req.query.month}%`);
+    } else {
+      const date = req.query.date || new Date().toISOString().split('T')[0];
+      query += ' WHERE expense_date = ?';
+      params.push(date);
+    }
+    query += ' ORDER BY expense_date DESC, created_at DESC';
+    const [rows] = await db.query(query, params);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -47,8 +61,13 @@ router.post('/', async (req, res) => {
     if (raw_ingredient_id) {
       const [[raw]] = await db.query('SELECT * FROM raw_ingredients WHERE id=?', [raw_ingredient_id]);
       if (raw) {
-        const addedStock = parseFloat(quantity) * raw.conversion_factor;
-        const newPrice = parseFloat(cost) / parseFloat(quantity);
+        let addedStock = parseFloat(quantity) * raw.conversion_factor;
+        let newPrice = parseFloat(cost) / parseFloat(quantity);
+        // Carton conversion for eggs
+        if (raw_ingredient_id === 'egg' && unit === 'cartons') {
+          addedStock = parseFloat(quantity) * 210;
+          newPrice = parseFloat(cost) / (parseFloat(quantity) * 210);
+        }
         await db.query(
           'UPDATE raw_ingredients SET stock=stock+?, cost_per_purchase_unit=? WHERE id=?',
           [addedStock, newPrice, raw_ingredient_id]
@@ -69,6 +88,16 @@ router.post('/', async (req, res) => {
     }
 
     res.json({ success: true, id: expId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE expense
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query('DELETE FROM expenses WHERE id=?', [id]);
+    await db.query("INSERT INTO audit_logs (action, payload) VALUES ('Delete Expense', ?)", [`Deleted expense log: ${id}`]);
+    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
