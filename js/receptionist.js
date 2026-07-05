@@ -16,6 +16,7 @@ class POSPanel {
     this.selectedMenuItem = null; // for variant/modifier modal
     this.selectedVariant = "single";
     this.selectedModifiers = [];
+    this.lastModifiers = [];
   }
 
   init() {
@@ -24,6 +25,7 @@ class POSPanel {
     
     // Subscribe to store updates to keep stock numbers live!
     window.AutoBrixStore.subscribe(() => {
+      this.renderCategories();
       this.renderMenuGrid();
       this.updateCartETA();
     });
@@ -250,39 +252,40 @@ class POSPanel {
     }
 
     grid.innerHTML = filtered.map(item => {
-      // Calculate availability based on default variant ('single' or 'half')
       const defaultVariant = Object.keys(item.variants)[0];
       const available = window.AutoBrixStore.getMenuItemAvailableStock(item.id, defaultVariant);
-      const isOutOfStock = available <= 0;
+      const isOutOfStock = false;
       
-      const prepTimeText = item.prepTime > 1 ? `${item.prepTime} mins` : `${item.prepTime} min`;
       const priceText = item.variants[defaultVariant].price;
       
-      // Stock warning class
       let stockClass = "good";
-      if (available === 0) stockClass = "empty";
+      if (available <= 0) stockClass = "empty";
       else if (available < 10) stockClass = "low";
       
-      const stockText = isOutOfStock ? "Out of Stock" : `Available: ${available}`;
-
-      // High quality SVG path representing food items
-      let foodIcon = `
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-        </svg>
-      `; // default icon is currency/food
+      // Fallback food image gradients if item.image is not set
+      const defaultImages = {
+        egg: "https://images.unsplash.com/photo-1516448424440-9dbca97779c1?w=400",
+        chowmein: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400",
+        pasta: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400",
+        roll: "https://images.unsplash.com/photo-1626700051175-6518c4793f4f?w=400",
+        pepsi: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400",
+        mirinda: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400",
+        '7up': "https://images.unsplash.com/photo-1543257580-7269da773bf5?w=400",
+        water: "https://images.unsplash.com/photo-1548839130-3bf6047b9609?w=400"
+      };
+      
+      const matchedKey = Object.keys(defaultImages).find(k => item.id.toLowerCase().includes(k) || item.name.toLowerCase().includes(k));
+      const imageSrc = item.image || defaultImages[matchedKey] || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400";
 
       return `
-        <div class="menu-card ${isOutOfStock ? "out-of-stock" : ""}" data-item-id="${item.id}">
-          <div class="menu-card-image-placeholder">
-            ${foodIcon}
+        <div class="menu-card" data-item-id="${item.id}">
+          <div class="menu-card-image" style="background-image: url('${imageSrc}'); background-size: cover; background-position: center; height: 110px; width: 100%; border-radius: 8px 8px 0 0; position: relative;">
           </div>
-          <div class="menu-card-title">${item.name}</div>
-          <div class="menu-card-details">
-            <span class="menu-card-price">₹${priceText}</span>
-            <div class="menu-card-meta">
-              <span>Prep: ${prepTimeText}</span>
-              <span class="stock-badge ${stockClass}">${stockText}</span>
+          <div style="padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${item.name}</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+              <span style="font-weight: 700; color: var(--accent-color); font-size: 0.9rem;">₹${priceText}</span>
+              <span class="stock-badge ${stockClass}" style="font-size: 0.65rem; padding: 1px 5px; border-radius: 3px;">${isOutOfStock ? "0 Left" : `${available} Avail`}</span>
             </div>
           </div>
         </div>
@@ -295,23 +298,13 @@ class POSPanel {
         const itemId = card.dataset.itemId;
         const item = menuItems[itemId];
         
-        const defaultVar = Object.keys(item.variants)[0];
-        const stock = window.AutoBrixStore.getMenuItemAvailableStock(itemId, defaultVar);
-        if (stock <= 0) {
-          alert(`Warning: ${item.name} is currently out of stock due to raw ingredient constraints!`);
-          return;
-        }
-
         this.openCustomizerModal(itemId);
       });
     });
   }
 
-  // Opens variant and modifiers configuration
   openCustomizerModal(itemId) {
     const item = window.AutoBrixStore.state.config.menuItems[itemId];
-    const modifiers = window.AutoBrixStore.state.config.modifiers;
-    
     this.selectedMenuItem = item;
     this.selectedVariant = Object.keys(item.variants)[0];
     this.selectedModifiers = [];
@@ -334,23 +327,18 @@ class POSPanel {
     let variantsHTML = "";
     if (showVariants) {
       variantsHTML = `
-        <div>
-          <h4 class="modal-section-title">Select Variant</h4>
-          <div class="modal-variants-grid">
+        <div style="margin-bottom: 1rem;">
+          <h4 class="modal-section-title" style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem; letter-spacing:0.05em;">Select Variant</h4>
+          <div class="modal-variants-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px;">
             ${variantsKeys.map(key => {
               const v = item.variants[key];
               const isSelected = this.selectedVariant === key;
               const avail = window.AutoBrixStore.getMenuItemAvailableStock(item.id, key, this.selectedModifiers);
               return `
-                <div class="variant-select-row ${isSelected ? "selected" : ""}" data-variant-key="${key}">
-                  <div style="display:flex; align-items:center; gap:0.5rem;">
-                    <input type="radio" name="variant-option" class="variant-radio" ${isSelected ? "checked" : ""}>
-                    <strong>${v.name}</strong>
-                  </div>
-                  <div style="text-align:right;">
-                    <span style="font-weight:700;">₹${v.price}</span>
-                    <div style="font-size:0.7rem; opacity:0.7;">Avail: ${avail}</div>
-                  </div>
+                <div class="variant-select-row ${isSelected ? "selected" : ""}" data-variant-key="${key}" style="border:1px solid ${isSelected ? "var(--accent-color)" : "rgba(255,255,255,0.06)"}; padding:8px; border-radius:6px; cursor:pointer; background:${isSelected ? "rgba(245,158,11,0.08)" : "rgba(0,0,0,0.15)"}; display:flex; flex-direction:column; align-items:center; gap:2px; text-align:center;">
+                  <strong style="font-size:0.8rem; color:${isSelected ? "var(--accent-color)" : "inherit"};">${v.name}</strong>
+                  <span style="font-size:0.75rem; font-weight:700;">₹${v.price}</span>
+                  <span style="font-size:0.6rem; opacity:0.6;">Avail: ${avail}</span>
                 </div>
               `;
             }).join("")}
@@ -359,26 +347,20 @@ class POSPanel {
       `;
     }
 
-    // Generate modifiers content
-    let modifiersHTML = `
-      <div>
-        <h4 class="modal-section-title">Modifiers / Extras</h4>
-        <div class="modal-modifiers-list">
-          ${Object.values(modifiersConfig).map(mod => {
+    // Split modifiers into Kitchen Specifications vs Premium Add-ons
+    const kitchenKeys = ['no_onion', 'only_onion', 'no_salad', 'no_sauce', 'no_spice', 'extra_spice'];
+    const kitchenModifiers = kitchenKeys.map(k => modifiersConfig[k]).filter(Boolean);
+    const premiumModifiers = Object.values(modifiersConfig).filter(m => !kitchenKeys.includes(m.id));
+
+    let kitchenHTML = `
+      <div style="margin-bottom:1rem;">
+        <h4 class="modal-section-title" style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem; letter-spacing:0.05em;">Kitchen Preference (Free)</h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          ${kitchenModifiers.map(mod => {
             const isSelected = this.selectedModifiers.includes(mod.id);
-            // Check availability if we add this modifier
-            const testMods = [...this.selectedModifiers];
-            if (!isSelected) testMods.push(mod.id);
-            const availWithMod = window.AutoBrixStore.getMenuItemAvailableStock(item.id, this.selectedVariant, testMods);
-            const isSelectable = isSelected || availWithMod > 0;
-            
             return `
-              <div class="modifier-select-row ${isSelected ? "selected" : ""} ${!isSelectable ? "out-of-stock" : ""}" data-mod-id="${mod.id}">
-                <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <input type="checkbox" class="modifier-checkbox" ${isSelected ? "checked" : ""} ${!isSelectable ? "disabled" : ""}>
-                  <span>${mod.name}</span>
-                </div>
-                <strong>+ ₹${mod.price}</strong>
+              <div class="modifier-pill-btn ${isSelected ? "selected" : ""}" data-mod-id="${mod.id}" style="border:1px solid ${isSelected ? "var(--accent-color)" : "rgba(255,255,255,0.06)"}; padding:6px; border-radius:6px; cursor:pointer; background:${isSelected ? "rgba(245,158,11,0.1)" : "rgba(255,255,255,0.02)"}; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:600; text-align:center; height:32px; transition:all 0.15s ease;">
+                ${mod.name}
               </div>
             `;
           }).join("")}
@@ -386,40 +368,112 @@ class POSPanel {
       </div>
     `;
 
+    let premiumHTML = "";
+    if (premiumModifiers.length > 0) {
+      premiumHTML = `
+        <div style="margin-bottom:1rem;">
+          <h4 class="modal-section-title" style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem; letter-spacing:0.05em;">Premium Add-ons</h4>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            ${premiumModifiers.map(mod => {
+              const isSelected = this.selectedModifiers.includes(mod.id);
+              const testMods = [...this.selectedModifiers];
+              if (!isSelected) testMods.push(mod.id);
+              const availWithMod = window.AutoBrixStore.getMenuItemAvailableStock(item.id, this.selectedVariant, testMods);
+              const isSelectable = isSelected || availWithMod > 0;
+              
+              return `
+                <div class="modifier-select-row ${isSelected ? "selected" : ""} ${!isSelectable ? "out-of-stock" : ""}" data-mod-id="${mod.id}" style="display:flex; justify-content:space-between; align-items:center; border:1px solid ${isSelected ? "var(--accent-color)" : "rgba(255,255,255,0.05)"}; padding:6px 10px; border-radius:6px; cursor:${isSelectable ? "pointer" : "not-allowed"}; opacity:${isSelectable ? "1" : "0.5"}; background:${isSelected ? "rgba(245,158,11,0.05)" : "rgba(0,0,0,0.1)"}; font-size:0.75rem;">
+                  <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <input type="checkbox" class="modifier-checkbox" ${isSelected ? "checked" : ""} ${!isSelectable ? "disabled" : ""} style="pointer-events:none;">
+                    <span>${mod.name}</span>
+                  </div>
+                  <strong>+ ₹${mod.price}</strong>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `;
+    }
+
     modal.innerHTML = `
-      <div class="modal-container">
-        <div class="modal-header">
-          <span class="modal-title">Customize ${item.name}</span>
-          <button class="modal-close-btn" id="modal-close">&times;</button>
+      <div class="modal-container" style="max-width: 420px; border-radius: 12px; background: var(--bg-card); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem; display: flex; flex-direction: column;">
+        <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:0.5rem; margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
+          <span class="modal-title" style="font-weight:600; font-size:1rem; color:var(--text-primary);">Customize ${item.name}</span>
+          <button class="modal-close-btn" id="modal-close" style="background:none; border:none; font-size:1.3rem; color:var(--text-muted); cursor:pointer;">&times;</button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" style="flex:1; overflow-y:auto; max-height:300px; padding-right:4px;">
           ${variantsHTML}
-          ${modifiersHTML}
+          ${kitchenHTML}
+          ${premiumHTML}
         </div>
-        <div class="modal-footer">
-          <button class="pos-action-btn primary" id="modal-add-to-cart" style="flex:1;">Add to Order</button>
-          <button class="pos-action-btn secondary" id="modal-cancel">Cancel</button>
+        <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.08); padding-top:1rem; margin-top:1rem; display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; gap:8px;">
+            <button class="pos-action-btn secondary" id="modal-repeat-last" style="flex:1.2; font-size:0.75rem; height:36px; display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; grid-column:auto;">🔁 Repeat Last</button>
+            <button class="pos-action-btn danger" id="modal-no-cust" style="flex:1; font-size:0.75rem; height:36px; display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; grid-column:auto;">🚫 Plain / None</button>
+          </div>
+          <button class="pos-action-btn primary" id="modal-add-to-cart" style="width:100%; height:38px; font-weight:700; grid-column:auto;">Confirm & Add</button>
         </div>
       </div>
     `;
 
     // Event listeners inside modal
     document.getElementById("modal-close").addEventListener("click", () => this.closeCustomizerModal());
-    document.getElementById("modal-cancel").addEventListener("click", () => this.closeCustomizerModal());
+    
+    // Repeat Last Customization
+    document.getElementById("modal-repeat-last").addEventListener("click", () => {
+      this.selectedModifiers = [...this.lastModifiers];
+      this.renderCustomizer();
+    });
+
+    // Plain / No Customization
+    document.getElementById("modal-no-cust").addEventListener("click", () => {
+      this.addToCart(item.id, this.selectedVariant, []);
+      this.closeCustomizerModal();
+    });
+
+    // Confirm & Add to Cart
+    document.getElementById("modal-add-to-cart").addEventListener("click", () => {
+      this.lastModifiers = [...this.selectedModifiers];
+      this.addToCart(item.id, this.selectedVariant, this.selectedModifiers);
+      this.closeCustomizerModal();
+    });
 
     // Variant selection
     modal.querySelectorAll(".variant-select-row").forEach(row => {
       row.addEventListener("click", () => {
         this.selectedVariant = row.dataset.variantKey;
-        this.renderCustomizer(); // re-evaluate modifiers stock availability
+        this.renderCustomizer();
       });
     });
 
-    // Modifier selection
-    modal.querySelectorAll(".modifier-select-row").forEach(row => {
-      row.addEventListener("click", (e) => {
-        if (row.classList.contains("out-of-stock")) return;
+    // Kitchen preference pills (toggling)
+    modal.querySelectorAll(".modifier-pill-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const modId = btn.dataset.modId;
+        const index = this.selectedModifiers.indexOf(modId);
         
+        if (index > -1) {
+          this.selectedModifiers.splice(index, 1);
+        } else {
+          // Exclude contradictory onion configurations
+          if (modId === 'no_onion') {
+            const onlyIdx = this.selectedModifiers.indexOf('only_onion');
+            if (onlyIdx > -1) this.selectedModifiers.splice(onlyIdx, 1);
+          } else if (modId === 'only_onion') {
+            const noIdx = this.selectedModifiers.indexOf('no_onion');
+            if (noIdx > -1) this.selectedModifiers.splice(noIdx, 1);
+          }
+          this.selectedModifiers.push(modId);
+        }
+        this.renderCustomizer();
+      });
+    });
+
+    // Premium modifiers toggle
+    modal.querySelectorAll(".modifier-select-row").forEach(row => {
+      row.addEventListener("click", () => {
+        if (row.classList.contains("out-of-stock")) return;
         const modId = row.dataset.modId;
         const index = this.selectedModifiers.indexOf(modId);
         
@@ -430,12 +484,6 @@ class POSPanel {
         }
         this.renderCustomizer();
       });
-    });
-
-    // Add to cart
-    document.getElementById("modal-add-to-cart").addEventListener("click", () => {
-      this.addToCart(item.id, this.selectedVariant, this.selectedModifiers);
-      this.closeCustomizerModal();
     });
   }
 

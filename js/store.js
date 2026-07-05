@@ -450,7 +450,12 @@ const MODIFIERS_DEFAULT = {
   extra_chicken: { id: "extra_chicken", name: "Extra Chicken", price: 25, recipe: { chicken_keema: 40 } },
   extra_cheese: { id: "extra_cheese", name: "Extra Cheese", price: 15, recipe: { cheese: 20 } },
   extra_egg: { id: "extra_egg", name: "Extra Egg", price: 10, recipe: { egg: 1 } },
-  no_onion: { id: "no_onion", name: "No Onion", price: 0, recipe: { onion: -20 } }
+  no_onion: { id: "no_onion", name: "No Onion", price: 0, recipe: { onion: -20 } },
+  only_onion: { id: "only_onion", name: "Only Onion", price: 0 },
+  no_salad: { id: "no_salad", name: "No Salad", price: 0 },
+  no_sauce: { id: "no_sauce", name: "No Sauce", price: 0 },
+  no_spice: { id: "no_spice", name: "No Spice", price: 0 },
+  extra_spice: { id: "extra_spice", name: "Extra Spice", price: 0 }
 };
 
 const WORKERS_DEFAULT = [
@@ -464,36 +469,36 @@ const WORKERS_DEFAULT = [
 ];
 
 const RAW_DEFAULT = {
-  raw_chicken: { name: "Raw Chicken", stock: 20000, reserved: 0, minStock: 5000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 220, supplier: "Apex Poultry" },
-  paneer: { name: "Paneer", stock: 10000, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 350, supplier: "Maa Dairy" },
-  flour: { name: "Flour", stock: 50000, reserved: 0, minStock: 10000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 40, supplier: "Ganesh Flour Mill" },
-  egg: { name: "Egg", stock: 120, reserved: 0, minStock: 30, purchaseUnit: "pcs", stockUnit: "pcs", conversionFactor: 1, costPerPurchaseUnit: 6, supplier: "Egg Vendor" },
-  oil: { name: "Cooking Oil", stock: 15000, reserved: 0, minStock: 3000, purchaseUnit: "L", stockUnit: "ml", conversionFactor: 1000, costPerPurchaseUnit: 140, supplier: "Fortune Retail" },
-  onion: { name: "Onions", stock: 15000, reserved: 0, minStock: 3000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 40, supplier: "Sabji Mandi" },
-  capsicum: { name: "Capsicum", stock: 5000, reserved: 0, minStock: 1500, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 80, supplier: "Sabji Mandi" },
-  noodles: { name: "Raw Noodles", stock: 10000, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 60, supplier: "Chong noodles" },
-  pasta: { name: "Raw Pasta", stock: 10000, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 80, supplier: "Fortune Retail" },
-  cheese: { name: "Cheese Block", stock: 5000, reserved: 0, minStock: 1000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 400, supplier: "Amul Store" },
-  spices: { name: "Mix Spices", stock: 2000, reserved: 0, minStock: 500, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 300, supplier: "Sunrise Spices" },
-  sauce: { name: "Sauces & Condiments", stock: 5000, reserved: 0, minStock: 1000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 80, supplier: "Kissan Depot" },
-  ghugni_peas: { name: "Ghugni Peas", stock: 10000, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 60, supplier: "Sabji Mandi" },
-  chole_chana: { name: "Chole Chana", stock: 10000, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 80, supplier: "Sabji Mandi" }
+  raw_chicken: { name: "Raw Chicken", stock: 0, reserved: 0, minStock: 5000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 220, supplier: "Apex Poultry" },
+  paneer: { name: "Paneer", stock: 0, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 350, supplier: "Maa Dairy" },
+  flour: { name: "Flour", stock: 0, reserved: 0, minStock: 10000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 40, supplier: "Ganesh Flour Mill" },
+  egg: { name: "Egg", stock: 0, reserved: 0, minStock: 30, purchaseUnit: "pcs", stockUnit: "pcs", conversionFactor: 1, costPerPurchaseUnit: 6, supplier: "Egg Vendor" },
+  oil: { name: "Cooking Oil", stock: 0, reserved: 0, minStock: 3000, purchaseUnit: "L", stockUnit: "ml", conversionFactor: 1000, costPerPurchaseUnit: 140, supplier: "Fortune Retail" },
+  onion: { name: "Onions", stock: 0, reserved: 0, minStock: 3000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 40, supplier: "Sabji Mandi" },
+  capsicum: { name: "Capsicum", stock: 0, reserved: 0, minStock: 1500, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 80, supplier: "Sabji Mandi" },
+  noodles: { name: "Raw Noodles", stock: 0, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 60, supplier: "Chong noodles" },
+  pasta: { name: "Raw Pasta", stock: 0, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 80, supplier: "Fortune Retail" },
+  cheese: { name: "Cheese Block", stock: 0, reserved: 0, minStock: 1000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 400, supplier: "Amul Store" },
+  spices: { name: "Mix Spices", stock: 0, reserved: 0, minStock: 500, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 300, supplier: "Sunrise Spices" },
+  sauce: { name: "Sauces & Condiments", stock: 0, reserved: 0, minStock: 1000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 80, supplier: "Kissan Depot" },
+  ghugni_peas: { name: "Ghugni Peas", stock: 0, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 60, supplier: "Sabji Mandi" },
+  chole_chana: { name: "Chole Chana", stock: 0, reserved: 0, minStock: 2000, purchaseUnit: "kg", stockUnit: "g", conversionFactor: 1000, costPerPurchaseUnit: 80, supplier: "Sabji Mandi" }
 };
 
 const INTERMEDIATE_DEFAULT = {
-  chicken_keema: { name: "Chicken Keema", stock: 8000, reserved: 0, minStock: 1500, unit: "g" },
-  paneer_keema: { name: "Paneer Keema", stock: 3000, reserved: 0, minStock: 1000, unit: "g" },
-  chicken_kosha_gravy: { name: "Chicken Kosha Gravy", stock: 20, reserved: 0, minStock: 5, unit: "portions" },
-  pakora_mixture: { name: "Chicken Pakora Mixture", stock: 4000, reserved: 0, minStock: 1000, unit: "g" },
-  ghugni_gravy: { name: "Ghugni Gravy", stock: 5000, reserved: 0, minStock: 1000, unit: "g" },
-  chole_gravy: { name: "Chole Gravy", stock: 5000, reserved: 0, minStock: 1000, unit: "g" }
+  chicken_keema: { name: "Chicken Keema", stock: 0, reserved: 0, minStock: 1500, unit: "g" },
+  paneer_keema: { name: "Paneer Keema", stock: 0, reserved: 0, minStock: 1000, unit: "g" },
+  chicken_kosha_gravy: { name: "Chicken Kosha Gravy", stock: 0, reserved: 0, minStock: 5, unit: "portions" },
+  pakora_mixture: { name: "Chicken Pakora Mixture", stock: 0, reserved: 0, minStock: 1000, unit: "g" },
+  ghugni_gravy: { name: "Ghugni Gravy", stock: 0, reserved: 0, minStock: 1000, unit: "g" },
+  chole_gravy: { name: "Chole Gravy", stock: 0, reserved: 0, minStock: 1000, unit: "g" }
 };
 
 const PREPARED_DEFAULT = {
-  paratha_base: { name: "Paratha Base", stock: 150, reserved: 0, minStock: 30, unit: "pcs" },
-  mughlai_dough: { name: "Mughlai Dough", stock: 40, reserved: 0, minStock: 10, unit: "pcs" },
-  chowmein_base: { name: "Chowmein Base", stock: 50, reserved: 0, minStock: 10, unit: "portions" },
-  pasta_base: { name: "Pasta Base", stock: 30, reserved: 0, minStock: 10, unit: "portions" }
+  paratha_base: { name: "Paratha Base", stock: 0, reserved: 0, minStock: 30, unit: "pcs" },
+  mughlai_dough: { name: "Mughlai Dough", stock: 0, reserved: 0, minStock: 10, unit: "pcs" },
+  chowmein_base: { name: "Chowmein Base", stock: 0, reserved: 0, minStock: 10, unit: "portions" },
+  pasta_base: { name: "Pasta Base", stock: 0, reserved: 0, minStock: 10, unit: "portions" }
 };
 
 const SETTINGS_DEFAULT = {
@@ -560,6 +565,12 @@ class AutoBrixStore {
     });
   }
 
+  isBeverage(itemId) {
+    const item = this.state.config.menuItems[itemId];
+    if (!item) return false;
+    return item.station === 'reception' && item.foodType === 'veg' && itemId !== 'egg';
+  }
+
   // --- Persistence Layers ---
   loadFromStorage() {
     try {
@@ -567,7 +578,7 @@ class AutoBrixStore {
       if (data) {
         const parsed = JSON.parse(data);
         // Merge structures carefully
-        this.state.config = parsed.config || this.state.config;
+        this.state.config = (parsed.config && parsed.config.menuItems && Object.keys(parsed.config.menuItems).length > 0) ? parsed.config : this.state.config;
         this.state.orders = parsed.orders || [];
         this.state.inventory = parsed.inventory || this.state.inventory;
         this.state.expenses = parsed.expenses || [];
@@ -661,7 +672,7 @@ class AutoBrixStore {
 
     let totalCost = 0;
 
-    const isBeverage = itemId.includes("pepsi") || itemId.includes("7up") || itemId.includes("mirinda") || itemId.includes("dew") || itemId.includes("water") || itemId.includes("beverage");
+    const isBeverage = this.isBeverage(itemId);
     if (isBeverage) {
       const ingId = `${itemId}_${variantId}`;
       totalCost = this.calculateIngredientCost(ingId, 1.0);
@@ -719,7 +730,7 @@ class AutoBrixStore {
 
     // Calculate aggregated requirements per item ordered
     const requirements = {};
-    const isBeverage = itemId.includes("pepsi") || itemId.includes("7up") || itemId.includes("mirinda") || itemId.includes("dew") || itemId.includes("water") || itemId.includes("beverage");
+    const isBeverage = this.isBeverage(itemId);
     if (isBeverage) {
       const ingId = `${itemId}_${variantId}`;
       requirements[ingId] = 1.0;
@@ -752,7 +763,83 @@ class AutoBrixStore {
       }
     }
 
-    return minLimit === Infinity ? 0 : Math.max(0, minLimit);
+    return minLimit === Infinity ? 0 : minLimit;
+  }
+
+  calculateEggPricingRecommendations(state) {
+    const eggRaw = state.inventory.raw.egg;
+    if (!eggRaw) return { costPerEgg: 6.00, suggestedPricePerEgg: 6.30, suggestedPrices: {} };
+    const costPerEgg = eggRaw.costPerPurchaseUnit || 6.00;
+
+    const today = new Date().toISOString().split('T')[0];
+    
+    let purchasedCount = 0;
+    let purchaseCost = 0;
+    state.expenses.forEach(exp => {
+      const expDate = exp.expense_date ? exp.expense_date.split('T')[0] : '';
+      if (expDate === today && exp.raw_ingredient_id === 'egg') {
+        if (exp.unit === 'cartons') {
+          purchasedCount += exp.quantity * 210;
+        } else if (exp.unit === 'dozens') {
+          purchasedCount += exp.quantity * 12;
+        } else {
+          purchasedCount += exp.quantity;
+        }
+        purchaseCost += exp.cost;
+      }
+    });
+
+    let directEggSales = 0;
+    let eggPrepUsage = 0;
+    const completedOrders = state.orders.filter(o => o.fulfillmentStatus === 'COMPLETED' || o.paymentStatus === 'PAID' || o.fulfillmentStatus === 'ARCHIVED');
+    completedOrders.forEach(order => {
+      order.items.forEach(item => {
+        const menuInfo = state.config.menuItems[item.id];
+        if (menuInfo) {
+          const mult = menuInfo.variants[item.variant]?.recipeMultiplier || 1.0;
+          if (item.id === 'egg') {
+            directEggSales += item.quantity * mult;
+          } else {
+            const eggQty = menuInfo.recipe.egg || 0;
+            eggPrepUsage += item.quantity * eggQty * mult;
+          }
+        }
+      });
+    });
+
+    let rotten = this.state.eggTrackingRotten || 0;
+
+    const eggsCountToCover = directEggSales + rotten;
+    const totalCostOfEggsToRecover = eggsCountToCover * costPerEgg;
+    
+    // Effective cost per single egg sold (covering purchase cost and rotten eggs loss)
+    const effectiveCostPerEgg = directEggSales > 0 ? (totalCostOfEggsToRecover / directEggSales) : costPerEgg;
+
+    // Apply specific margins and round up to next whole number
+    const sugPc1 = Math.ceil(effectiveCostPerEgg * 1 * 1.07);     // 7% profit margin
+    const sugPc12 = Math.ceil(effectiveCostPerEgg * 12 * 1.06);   // 6% profit margin
+    const sugPc15 = Math.ceil(effectiveCostPerEgg * 15 * 1.06);   // 6% profit margin
+    const sugTray1 = Math.ceil(effectiveCostPerEgg * 30 * 1.05);  // 5% profit margin
+    const sugTray2 = Math.ceil(effectiveCostPerEgg * 60 * 1.05);  // 5% profit margin
+    const sugCarton1 = Math.ceil(effectiveCostPerEgg * 210 * 1.04); // 4% profit margin
+
+    return {
+      costPerEgg,
+      purchasedCount,
+      purchaseCost,
+      directEggSales,
+      eggPrepUsage,
+      rotten,
+      suggestedPricePerEgg: sugPc1,
+      suggestedPrices: {
+        pc1: sugPc1,
+        pc12: sugPc12,
+        pc15: sugPc15,
+        tray1: sugTray1,
+        tray2: sugTray2,
+        carton1: sugCarton1
+      }
+    };
   }
 
   // --- Labor Station Capacities & ETAs ---
@@ -858,7 +945,7 @@ class AutoBrixStore {
         const multiplier = menuInfo.variants[item.variant].recipeMultiplier;
         
         // Base recipe ingredients
-        const isBeverage = item.id.includes("pepsi") || item.id.includes("7up") || item.id.includes("mirinda") || item.id.includes("dew") || item.id.includes("water") || item.id.includes("beverage");
+        const isBeverage = this.isBeverage(item.id);
         if (isBeverage) {
           const ingId = `${item.id}_${item.variant}`;
           required[ingId] = (required[ingId] || 0) + qty;
@@ -879,12 +966,12 @@ class AutoBrixStore {
         }
       }
 
-      // 2. Validate availability
+      // Allow placing and cooking orders even if stocks are 0/negative
       let available = true;
       for (const [ing, needed] of Object.entries(required)) {
         const isRaw = state.inventory.raw[ing] !== undefined;
         const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);
-        if (!inv || (inv.stock - inv.reserved) < needed) {
+        if (!inv) {
           available = false;
           break;
         }
@@ -952,7 +1039,7 @@ class AutoBrixStore {
           const multiplier = menuInfo.variants[item.variant].recipeMultiplier;
 
           // Release base recipe
-          const isBeverage = item.id.includes("pepsi") || item.id.includes("7up") || item.id.includes("mirinda") || item.id.includes("dew") || item.id.includes("water") || item.id.includes("beverage");
+          const isBeverage = this.isBeverage(item.id);
           if (isBeverage) {
             const ing = `${item.id}_${item.variant}`;
             const isRaw = state.inventory.raw[ing] !== undefined;
@@ -1001,13 +1088,13 @@ class AutoBrixStore {
         const multiplier = menuInfo.variants[item.variant].recipeMultiplier;
 
         // Base recipe
-        const isBeverage = item.id.includes("pepsi") || item.id.includes("7up") || item.id.includes("mirinda") || item.id.includes("dew") || item.id.includes("water") || item.id.includes("beverage");
+        const isBeverage = this.isBeverage(item.id);
         if (isBeverage) {
           const ing = `${item.id}_${item.variant}`;
           const isRaw = state.inventory.raw[ing] !== undefined;
           const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);
           if (inv) {
-            inv.stock = Math.max(0, inv.stock - qty);
+            inv.stock = inv.stock - qty;
             inv.reserved = Math.max(0, inv.reserved - qty);
           }
         } else {
@@ -1016,7 +1103,7 @@ class AutoBrixStore {
             const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);
             if (inv) {
               const needed = baseQty * multiplier * qty;
-              inv.stock = Math.max(0, inv.stock - needed);
+              inv.stock = inv.stock - needed;
               inv.reserved = Math.max(0, inv.reserved - needed);
             }
           }
@@ -1031,7 +1118,7 @@ class AutoBrixStore {
               const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);
               if (inv) {
                 const needed = modQty * qty;
-                inv.stock = Math.max(0, inv.stock - needed);
+                inv.stock = inv.stock - needed;
                 inv.reserved = Math.max(0, inv.reserved - needed);
               }
             }
@@ -1115,7 +1202,7 @@ class AutoBrixStore {
       for (const [subIng, ratio] of Object.entries(recipe.rawIngredients)) {
         const rawInv = state.inventory.raw[subIng];
         if (rawInv) {
-          rawInv.stock = Math.max(0, rawInv.stock - (ratio * scaledOutput));
+          rawInv.stock = rawInv.stock - (ratio * scaledOutput);
         }
       }
 
@@ -1242,7 +1329,32 @@ class AutoBrixStore {
       }
 
       // If it corresponds to a raw ingredient, automatically add to raw stock!
-      const rawKey = expenseData.raw_ingredient_id || Object.keys(state.inventory.raw).find(k => state.inventory.raw[k].name.toLowerCase() === expenseData.item.toLowerCase() || k === expenseData.item);
+      let rawKey = expenseData.raw_ingredient_id || Object.keys(state.inventory.raw).find(k => state.inventory.raw[k].name.toLowerCase() === expenseData.item.toLowerCase() || k === expenseData.item);
+      
+      if (!rawKey) {
+        const cleanId = expenseData.item.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+        if (cleanId) {
+          rawKey = cleanId;
+          let conversionFactor = 1.0;
+          let stockUnit = newExpense.unit;
+          if (newExpense.unit === 'kg') { stockUnit = 'g'; conversionFactor = 1000; }
+          else if (newExpense.unit === 'L') { stockUnit = 'ml'; conversionFactor = 1000; }
+
+          state.inventory.raw[rawKey] = {
+            name: expenseData.item.trim(),
+            stock: 0,
+            reserved: 0,
+            minStock: 0,
+            purchaseUnit: newExpense.unit,
+            stockUnit: stockUnit,
+            conversionFactor: conversionFactor,
+            costPerPurchaseUnit: cost / newExpense.quantity,
+            supplier: newExpense.supplier
+          };
+          newExpense.raw_ingredient_id = rawKey;
+        }
+      }
+
       if (rawKey) {
         const raw = state.inventory.raw[rawKey];
         let addedStock = newExpense.quantity * raw.conversionFactor;

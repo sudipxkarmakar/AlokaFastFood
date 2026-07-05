@@ -112,7 +112,7 @@ class OwnerPanel {
       avgWaitTime = Math.round(completedWaitTimes.reduce((s, w) => s + w, 0) / completedWaitTimes.length);
     }
 
-    const expenses = state.expenses.reduce((sum, exp) => sum + exp.cost, 0);
+    const expenses = state.expenses.reduce((sum, exp) => sum + (parseFloat(exp.cost) || 0), 0);
     const netProfit = revenue - expenses;
 
     // Identify low stock items
@@ -138,6 +138,9 @@ class OwnerPanel {
         bestSeller = `${name} (${qty} sold)`;
       }
     }
+
+    // Calculate today's Egg recommendations
+    const eggRecs = window.AutoBrixStore.calculateEggPricingRecommendations(state);
 
     container.innerHTML = `
       <div class="kpi-row">
@@ -175,9 +178,90 @@ class OwnerPanel {
           </span>
         </div>
       </div>
+
+      <!-- Financial Chart.js section -->
+      <div class="glass-card" style="margin-bottom:1.5rem;">
+        <h4 class="modal-section-title" style="margin-bottom:0.5rem; display:flex; justify-content:space-between; align-items:center;">
+          <span>Daily Financial Analytics Trend (EBITDA & Costs)</span>
+          <span style="font-size:0.75rem; font-weight:normal; color:var(--text-muted);">Last 7 Closed Days</span>
+        </h4>
+        <div style="position: relative; height: 280px; width: 100%;">
+          <canvas id="financialsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Egg Stock & Dynamic Pricing Dashboard -->
+      <div class="glass-card" style="margin-bottom:1.5rem; display:grid; grid-template-columns:1fr 1.8fr; gap:1.5rem;">
+        
+        <!-- Left: Rotten logger & suggestions -->
+        <div style="border-right: 1px solid rgba(255,255,255,0.06); padding-right:1.5rem;">
+          <h4 class="modal-section-title" style="margin-bottom:0.5rem;">Egg Tracking & Dynamic Pricing</h4>
+          <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:1rem;">Maintains 5% overall profit on raw egg sales by adjusting for wastage and purchase cost fluctuations.</span>
+          
+          <div style="background:rgba(0,0,0,0.2); padding:0.75rem; border-radius:6px; margin-bottom:1rem; border:1px solid rgba(255,255,255,0.04);">
+            <span style="font-size:0.8rem; font-weight:600; display:block; margin-bottom:6px; color:var(--accent-color);">Suggested Egg Selling Prices:</span>
+            <div style="font-size:0.8rem; display:flex; flex-direction:column; gap:4px; font-family:var(--font-mono);">
+              <div style="display:flex; justify-content:space-between;"><span>1pc egg:</span><strong>₹${eggRecs.suggestedPrices.pc1 || '0.00'}</strong></div>
+              <div style="display:flex; justify-content:space-between;"><span>12pc egg:</span><strong>₹${eggRecs.suggestedPrices.pc12 || '0.00'}</strong></div>
+              <div style="display:flex; justify-content:space-between;"><span>15pc egg:</span><strong>₹${eggRecs.suggestedPrices.pc15 || '0.00'}</strong></div>
+              <div style="display:flex; justify-content:space-between;"><span>1 tray (30 pc):</span><strong>₹${eggRecs.suggestedPrices.tray1 || '0.00'}</strong></div>
+              <div style="display:flex; justify-content:space-between;"><span>2 tray (60 pc):</span><strong>₹${eggRecs.suggestedPrices.tray2 || '0.00'}</strong></div>
+              <div style="display:flex; justify-content:space-between;"><span>1 carton (210 pc):</span><strong>₹${eggRecs.suggestedPrices.carton1 || '0.00'}</strong></div>
+            </div>
+            
+            <button class="pos-action-btn primary" onclick="ownerPanel.handleApplyEggPricing()" style="width:100%; margin-top:10px; font-size:0.75rem; padding:6px; grid-column:auto; font-weight:600; height:32px;">Apply Prices to Menu</button>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px; background:rgba(255,255,255,0.02); padding:0.75rem; border-radius:6px;">
+            <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-secondary);">Log Egg Wastage / Rotten</span>
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+              <input type="date" class="pos-input-sm" id="egg-log-date" value="${new Date().toISOString().split("T")[0]}" style="font-size:0.75rem; padding:2px; height:28px;">
+              <input type="number" class="pos-input-sm" id="egg-rotten-count" placeholder="Qty pcs" min="0" value="${state.eggTrackingRotten || ''}" style="width:80px; font-size:0.75rem; padding:2px; height:28px; text-align:center;">
+            </div>
+            <button class="pos-action-btn" onclick="ownerPanel.handleSaveEggTracking()" style="padding:6px; font-size:0.75rem; font-weight:600; grid-column:auto; height:30px; margin:0; width:100%;">Save Egg Journal</button>
+          </div>
+        </div>
+
+        <!-- Right: Egg history table -->
+        <div>
+          <h4 class="modal-section-title" style="margin-bottom:0.5rem;">Egg Reconciliation Ledger</h4>
+          <div class="owner-table-wrapper" style="border:none; max-height:220px; overflow-y:auto;">
+            <table class="owner-table" style="font-size:0.75rem;">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th style="text-align:center;">Opening</th>
+                  <th style="text-align:center;">Purchased</th>
+                  <th style="text-align:center;">Rotten</th>
+                  <th style="text-align:center;">In Prep</th>
+                  <th style="text-align:center;">Sold (Raw)</th>
+                  <th style="text-align:center;">Closing</th>
+                  <th style="text-align:center;">Sug. Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${!state.eggTrackingHistory || state.eggTrackingHistory.length === 0
+                  ? `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1rem;">No egg logs stored. Log purchase/rotten to start tracking.</td></tr>`
+                  : state.eggTrackingHistory.map(log => `
+                    <tr>
+                      <td><strong>${log.tracking_date.split('T')[0]}</strong></td>
+                      <td style="text-align:center; font-family:var(--font-mono);">${log.opening_stock}</td>
+                      <td style="text-align:center; font-family:var(--font-mono); color:var(--color-success); font-weight:600;">+${log.purchased}</td>
+                      <td style="text-align:center; font-family:var(--font-mono); color:var(--color-critical); font-weight:600;">-${log.rotten}</td>
+                      <td style="text-align:center; font-family:var(--font-mono); color:var(--text-muted);">${log.used_in_prep}</td>
+                      <td style="text-align:center; font-family:var(--font-mono); color:var(--text-muted);">${log.used_in_menu}</td>
+                      <td style="text-align:center; font-family:var(--font-mono); font-weight:600;">${log.closing_stock}</td>
+                      <td style="text-align:center; font-family:var(--font-mono); font-weight:600; color:var(--accent-color);">₹${(log.recommended_price || 0).toFixed(2)}</td>
+                    </tr>
+                  `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
       
       <!-- Day Closing Trigger -->
-      <div class="glass-card" style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="glass-card" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
         <div>
           <h3 style="font-size:1rem; font-weight:600;">Operating Cycle Finalizer</h3>
           <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.25rem;">
@@ -221,6 +305,11 @@ class OwnerPanel {
       </div>
     `;
 
+    // Initialize Chart in next tick
+    setTimeout(() => {
+      this.initFinancialsChart(state);
+    }, 50);
+
     // Event Listener for closing day
     document.getElementById("btn-close-day").addEventListener("click", async () => {
       if (confirm("Are you sure you want to CLOSE THE OPERATING DAY? This generates an reporting snap and resets active cashier/kitchen grids!")) {
@@ -239,6 +328,213 @@ class OwnerPanel {
         this.updateActiveTabContent();
       }
     });
+  }
+
+  initFinancialsChart(state) {
+    const canvas = document.getElementById("financialsChart");
+    if (!canvas) return;
+
+    if (!window.Chart) {
+      canvas.parentElement.innerHTML = `<div style="text-align:center; padding:3rem; color:var(--text-secondary);">Chart.js library is loading or unavailable.</div>`;
+      return;
+    }
+
+    // Get last 7 closed days from dayHistory
+    const lastDays = [...state.dayHistory].slice(0, 7).reverse();
+    if (lastDays.length === 0) {
+      const ctx = canvas.getContext("2d");
+      ctx.font = "14px Inter, sans-serif";
+      ctx.fillStyle = "#888";
+      ctx.textAlign = "center";
+      ctx.fillText("No historical closed days found to plot graph.", canvas.width / 2, canvas.height / 2);
+      return;
+    }
+
+    const labels = lastDays.map(d => d.date);
+    const revenues = lastDays.map(d => d.revenue);
+    
+    const foodCosts = [];
+    const laborCosts = [];
+    const fixedCosts = [];
+    const ebitdas = [];
+
+    lastDays.forEach(day => {
+      let food = 0;
+      let labor = 0;
+      let fixed = 0;
+      
+      const dayExpenses = state.expenses.filter(e => {
+        const expDate = e.date ? e.date.split('T')[0] : '';
+        return expDate === day.date;
+      });
+
+      dayExpenses.forEach(e => {
+        if (e.raw_ingredient_id !== null) {
+          food += e.cost;
+        } else if (e.item.toLowerCase().includes('wage') || e.item.toLowerCase().includes('salary') || e.item.toLowerCase().includes('payroll') || e.supplier.toLowerCase().includes('payroll')) {
+          labor += e.cost;
+        } else {
+          fixed += e.cost;
+        }
+      });
+
+      foodCosts.push(food);
+      laborCosts.push(labor);
+      fixedCosts.push(fixed);
+      ebitdas.push(day.revenue - (food + labor + fixed));
+    });
+
+    const ctx = canvas.getContext("2d");
+    new window.Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Revenue',
+            data: revenues,
+            type: 'line',
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: false,
+            tension: 0.2,
+            yAxisID: 'y',
+            zIndex: 10
+          },
+          {
+            label: 'EBITDA',
+            data: ebitdas,
+            type: 'line',
+            borderColor: '#F59E0B',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            borderDash: [5, 5],
+            fill: false,
+            tension: 0.2,
+            yAxisID: 'y',
+            zIndex: 9
+          },
+          {
+            label: 'Food Cost',
+            data: foodCosts,
+            backgroundColor: 'rgba(239, 68, 68, 0.7)',
+            stack: 'costs',
+            yAxisID: 'y'
+          },
+          {
+            label: 'Labor Cost',
+            data: laborCosts,
+            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+            stack: 'costs',
+            yAxisID: 'y'
+          },
+          {
+            label: 'Fixed Cost',
+            data: fixedCosts,
+            backgroundColor: 'rgba(139, 92, 246, 0.7)',
+            stack: 'costs',
+            yAxisID: 'y'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            stacked: true,
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#9CA3AF' }
+          },
+          y: {
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#9CA3AF', callback: val => '₹' + val }
+          }
+        },
+        plugins: {
+          legend: {
+            labels: { color: '#F3F4F6' }
+          }
+        }
+      }
+    });
+  }
+
+  async handleSaveEggTracking() {
+    const date = document.getElementById("egg-log-date").value;
+    const rotten = parseInt(document.getElementById("egg-rotten-count").value) || 0;
+    
+    if (!date) {
+      alert("Please select a valid date!");
+      return;
+    }
+    
+    window.AutoBrixStore.state.eggTrackingRotten = rotten;
+
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        const calc = await window.AlokaAPI.get(`/inventory/egg-tracking/calculate/${date}`);
+        calc.rotten = rotten;
+        calc.closing_stock = Math.max(0, calc.opening_stock + calc.purchased - rotten - calc.used_in_prep - calc.used_in_menu);
+        
+        const store = window.AutoBrixStore;
+        const recommendations = store.calculateEggPricingRecommendations(store.state);
+        calc.recommended_price = recommendations.suggestedPricePerEgg;
+
+        await window.AlokaAPI.post(`/inventory/egg-tracking`, calc);
+        await window.AlokaAPI.loadAllState();
+        alert(`Successfully logged ${rotten} rotten eggs for ${date}! Suggested price: ₹${calc.recommended_price}/egg.`);
+      } catch (err) {
+        alert("Error saving egg tracking: " + err.message);
+      }
+    } else {
+      alert("Logged rotten count locally!");
+    }
+    this.updateActiveTabContent();
+  }
+
+  async handleApplyEggPricing() {
+    const store = window.AutoBrixStore;
+    const recommendations = store.calculateEggPricingRecommendations(store.state);
+    if (!recommendations.suggestedPrices || Object.keys(recommendations.suggestedPrices).length === 0) {
+      alert("No pricing recommendation available.");
+      return;
+    }
+    
+    const prices = recommendations.suggestedPrices;
+    const mapped = [
+      { id: 'egg_1pc', price: prices.pc1 },
+      { id: 'egg_12pc', price: prices.pc12 },
+      { id: 'egg_15pc', price: prices.pc15 },
+      { id: 'egg_tray', price: prices.tray1 },
+      { id: 'egg_2tray', price: prices.tray2 },
+      { id: 'egg_carton', price: prices.carton1 }
+    ];
+
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        for (const item of mapped) {
+          await window.AlokaAPI.patch(`/menu/egg/variants/${item.id}`, { price: item.price });
+        }
+        await window.AlokaAPI.loadAllState();
+        alert("Applied suggested egg prices to the Menu tab successfully!");
+      } catch (err) {
+        alert("Error updating egg prices: " + err.message);
+      }
+    } else {
+      store.updateState(s => {
+        const item = s.config.menuItems.egg;
+        if (item) {
+          if (item.variants['1pc']) item.variants['1pc'].price = prices.pc1;
+          if (item.variants['12pc']) item.variants['12pc'].price = prices.pc12;
+          if (item.variants['15pc']) item.variants['15pc'].price = prices.pc15;
+          if (item.variants['1tray']) item.variants['1tray'].price = prices.tray1;
+          if (item.variants['2tray']) item.variants['2tray'].price = prices.tray2;
+          if (item.variants['1carton']) item.variants['1carton'].price = prices.carton1;
+        }
+      });
+      alert("Applied suggested egg prices locally!");
+    }
+    this.updateActiveTabContent();
   }
 
   getItemCategory(item) {
@@ -3144,15 +3440,9 @@ class OwnerPanel {
             </div>
           </div>
 
-          <div style="display:flex; gap:0.5rem;">
-            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
-              <label class="form-label-xs">Selling Price/piece (₹)</label>
-              <input type="number" class="pos-input-sm" id="bev-selling-price" placeholder="e.g. 25" required min="0">
-            </div>
-            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
-              <label class="form-label-xs">Supplier Name</label>
-              <input type="text" class="pos-input-sm" id="exp-supplier-input" list="suppliers-list" placeholder="Select or type..." required>
-            </div>
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <label class="form-label-xs">Supplier Name</label>
+            <input type="text" class="pos-input-sm" id="exp-supplier-input" list="suppliers-list" placeholder="Select or type..." required>
           </div>
 
           <datalist id="suppliers-list">
@@ -3186,16 +3476,7 @@ class OwnerPanel {
             <input type="number" class="pos-input-sm" id="exp-cost" placeholder="Auto-calculated" required min="1">
           </div>
 
-          <div style="display:flex; gap:0.5rem;">
-            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
-              <label class="form-label-xs">Selling Price/Tray (₹)</label>
-              <input type="number" class="pos-input-sm" id="egg-tray-sell-price" value="210" required min="0">
-            </div>
-            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
-              <label class="form-label-xs">Selling Price/Carton (₹)</label>
-              <input type="number" class="pos-input-sm" id="egg-carton-sell-price" value="1300" required min="0">
-            </div>
-          </div>
+
 
           <div style="display:flex; flex-direction:column; gap:0.25rem;">
             <label class="form-label-xs">Supplier Name</label>
@@ -3387,11 +3668,10 @@ class OwnerPanel {
           const size = this.bevSizes[this.selectedBevSizeIdx];
           const qty = parseFloat(document.getElementById("exp-qty").value);
           const cost = parseFloat(document.getElementById("exp-cost").value);
-          const sellingPrice = parseFloat(document.getElementById("bev-selling-price").value);
           const supplier = document.getElementById("exp-supplier-input").value.trim();
 
-          if (!brandName || !size || isNaN(qty) || qty <= 0 || isNaN(cost) || cost <= 0 || isNaN(sellingPrice) || sellingPrice <= 0) {
-            alert("Please fill in all beverage fields correctly (brand, size, qty, cost, and selling price must be greater than zero)!");
+          if (!brandName || !size || isNaN(qty) || qty <= 0 || isNaN(cost) || cost <= 0) {
+            alert("Please fill in all beverage fields correctly (brand, size, qty, cost must be greater than zero)!");
             return;
           }
 
@@ -3403,12 +3683,14 @@ class OwnerPanel {
           const variantName = `${size} ${containerLabel}`;
           const itemFullName = `${brandName} ${variantName}`;
 
+          const defaultSellingPrice = Math.round((cost / qty) * 1.30);
+
           const beverageData = {
             brandVal,
             brandName,
             size,
             container,
-            sellingPrice
+            sellingPrice: defaultSellingPrice
           };
 
           if (window.AlokaAPI.isOnline()) {
@@ -3443,15 +3725,11 @@ class OwnerPanel {
 
               const dbVariantId = `${brandVal}_${variantId}`;
               const hasVariant = existingItem && existingItem.variants[variantId];
-              if (hasVariant) {
-                await window.AlokaAPI.patch(`/menu/${brandVal}/variants/${dbVariantId}`, {
-                  price: sellingPrice
-                });
-              } else {
+              if (!hasVariant) {
                 await window.AlokaAPI.post(`/menu/${brandVal}/variants`, {
                   variantId: dbVariantId,
                   name: variantName,
-                  price: sellingPrice,
+                  price: defaultSellingPrice,
                   recipe_multiplier: 1.0
                 });
               }
@@ -3516,12 +3794,10 @@ class OwnerPanel {
           const qtyCartons = parseFloat(qtyCartonsInput.value);
           const cartonPrice = parseFloat(cartonPriceInput.value);
           const totalCost = parseFloat(totalCostInput.value);
-          const traySellPrice = parseFloat(document.getElementById("egg-tray-sell-price").value);
-          const cartonSellPrice = parseFloat(document.getElementById("egg-carton-sell-price").value);
           const supplier = document.getElementById("exp-supplier-input").value.trim();
 
-          if (isNaN(qtyCartons) || qtyCartons <= 0 || isNaN(cartonPrice) || cartonPrice <= 0 || isNaN(totalCost) || totalCost <= 0 || isNaN(traySellPrice) || traySellPrice <= 0 || isNaN(cartonSellPrice) || cartonSellPrice <= 0) {
-            alert("Please fill all egg purchase and selling price fields correctly!");
+          if (isNaN(qtyCartons) || qtyCartons <= 0 || isNaN(cartonPrice) || cartonPrice <= 0 || isNaN(totalCost) || totalCost <= 0) {
+            alert("Please fill all egg purchase fields correctly!");
             return;
           }
 
@@ -3537,25 +3813,6 @@ class OwnerPanel {
                 formData.append("active", "1");
                 await window.AlokaAPI.postForm('/menu', formData);
                 await window.AlokaAPI.patch(`/menu/egg`, { food_type: 'egg' });
-              }
-
-              const variants = [
-                { id: 'egg_tray', name: 'Tray (30 pcs)', price: traySellPrice, multiplier: 30.0 },
-                { id: 'egg_carton', name: 'Carton (210 pcs)', price: cartonSellPrice, multiplier: 210.0 }
-              ];
-
-              for (const v of variants) {
-                const hasVariant = existingItem && existingItem.variants[v.id.replace('egg_', '')];
-                if (hasVariant) {
-                  await window.AlokaAPI.patch(`/menu/egg/variants/${v.id}`, { price: v.price });
-                } else {
-                  await window.AlokaAPI.post(`/menu/egg/variants`, {
-                    variantId: v.id,
-                    name: v.name,
-                    price: v.price,
-                    recipe_multiplier: v.multiplier
-                  });
-                }
               }
 
               await window.AlokaAPI.put(`/menu/egg/recipe/egg`, {
@@ -3575,7 +3832,7 @@ class OwnerPanel {
               });
 
               await window.AlokaAPI.loadAllState();
-              alert(`Egg purchase logged. Stock increased by ${qtyCartons * 210} eggs, variants priced in menu!`);
+              alert(`Egg purchase logged. Stock increased by ${qtyCartons * 210} eggs!`);
             } catch (err) {
               alert("Error saving online egg purchase: " + err.message);
             }
@@ -3587,8 +3844,7 @@ class OwnerPanel {
               unit: 'cartons',
               cost: totalCost,
               supplier: supplier,
-              raw_ingredient_id: 'egg',
-              eggPrices: { tray: traySellPrice, carton: cartonSellPrice }
+              raw_ingredient_id: 'egg'
             });
             alert(`Egg purchase logged locally!`);
           }

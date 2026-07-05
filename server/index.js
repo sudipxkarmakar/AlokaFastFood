@@ -265,6 +265,54 @@ const db = require('./db');
   }
 
   try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS egg_tracking (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tracking_date DATE UNIQUE NOT NULL,
+        opening_stock INT DEFAULT 0,
+        purchased INT DEFAULT 0,
+        rotten INT DEFAULT 0,
+        used_in_prep INT DEFAULT 0,
+        used_in_menu INT DEFAULT 0,
+        closing_stock INT DEFAULT 0,
+        recommended_price DECIMAL(10,2) DEFAULT 0.00,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('[Auto-Migration] Created egg_tracking table');
+  } catch (e) {
+    console.warn('[Auto-Migration] Error creating egg_tracking table:', e.message);
+  }
+
+  try {
+    const [existingEgg] = await db.query("SELECT id FROM menu_items WHERE id='egg'");
+    if (existingEgg.length === 0) {
+      await db.query("INSERT INTO menu_items (id, name, station_id, prep_time, active, food_type, sort_order) VALUES ('egg', 'Egg', 'reception', 1, 1, 'egg', 50)");
+      console.log('[Auto-Migration] Created menu item: Egg');
+    }
+    await db.query("INSERT IGNORE INTO menu_recipes (menu_item_id, ingredient_id, ingredient_type, quantity, unit) VALUES ('egg', 'egg', 'raw', 1.0, 'pcs')");
+
+    const eggVariants = [
+      { id: 'egg_1pc', name: '1 pc', price: 7.00, mult: 1.0 },
+      { id: 'egg_12pc', name: '12 pc', price: 80.00, mult: 12.0 },
+      { id: 'egg_15pc', name: '15 pc', price: 100.00, mult: 15.0 },
+      { id: 'egg_tray', name: '1 Tray (30 pcs)', price: 190.00, mult: 30.0 },
+      { id: 'egg_2tray', name: '2 Trays (60 pcs)', price: 370.00, mult: 60.0 },
+      { id: 'egg_carton', name: '1 Carton (210 pcs)', price: 1250.00, mult: 210.0 }
+    ];
+    for (const ev of eggVariants) {
+      await db.query(`
+        INSERT INTO menu_variants (id, menu_item_id, name, price, recipe_multiplier)
+        VALUES (?, 'egg', ?, ?, ?)
+        ON DUPLICATE KEY UPDATE recipe_multiplier=?
+      `, [ev.id, ev.name, ev.price, ev.mult, ev.mult, ev.mult]);
+    }
+    console.log("[Auto-Migration] Seeded egg menu variants");
+  } catch (e) {
+    console.warn('[Auto-Migration] Error seeding egg menu variants:', e.message);
+  }
+
+  try {
     // Clean up unwanted chicken/paneer double egg items if they exist
     await db.query("DELETE FROM menu_items WHERE id IN ('double_egg_paneer_chowmein', 'double_egg_chicken_chowmein', 'double_egg_paneer_pasta', 'double_egg_chicken_pasta', 'double_egg_paneer_roll', 'double_egg_chicken_roll')");
   } catch (e) {

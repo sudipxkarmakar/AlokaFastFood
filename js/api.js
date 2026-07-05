@@ -83,7 +83,7 @@ window.AlokaAPI = {
   // High-level helpers
   async loadAllState() {
     const [menuItems, stations, workers, rawInv, intermediateInv, batchRecipes,
-           expenses, orders, auditLogs, dayHistory, customItems, suppliers] = await Promise.all([
+           expenses, orders, auditLogs, dayHistory, customItems, suppliers, eggTracking] = await Promise.all([
       this.get('/menu'),
       this.get('/stations'),
       this.get('/workers'),
@@ -95,7 +95,8 @@ window.AlokaAPI = {
       this.get('/orders/audit-logs'),
       this.get('/orders/day-history'),
       this.get('/expenses/custom-items'),
-      this.get('/expenses/suppliers')
+      this.get('/expenses/suppliers'),
+      this.get('/inventory/egg-tracking')
     ]);
 
     // Transform DB rows into the shape AutoBrixStore.state expects
@@ -175,7 +176,16 @@ window.AlokaAPI = {
     store.state.inventory.raw = rawMap;
     store.state.inventory.intermediate = interMap;
     store.state.inventory.prepared = prepMap;
-    store.state.expenses = expenses;
+    store.state.expenses = expenses.map(exp => ({
+      id: exp.id,
+      date: exp.expense_date ? exp.expense_date.split('T')[0] : '',
+      item: exp.item_name,
+      quantity: parseFloat(exp.quantity) || 0,
+      unit: exp.unit,
+      cost: parseFloat(exp.cost) || 0,
+      supplier: exp.supplier,
+      raw_ingredient_id: exp.raw_ingredient_id
+    }));
     store.state.orders = orders.map(o => ({
       id: o.id,
       customerName: o.customer_name || "Walk-In",
@@ -216,8 +226,10 @@ window.AlokaAPI = {
     }));
     store.state.customExpenseItems = customItems;
     store.state.customSuppliers = suppliers;
+    store.state.eggTrackingHistory = eggTracking;
 
     console.log('[AlokaAPI] State synced from MySQL ✓');
+    store.saveToStorage();
     store.notifyListeners('mysql-sync');
   }
 };

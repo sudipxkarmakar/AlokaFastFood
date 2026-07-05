@@ -71,20 +71,20 @@ CREATE TABLE IF NOT EXISTS raw_ingredients (
 );
 
 INSERT IGNORE INTO raw_ingredients (id, name, stock, reserved, min_stock, purchase_unit, stock_unit, conversion_factor, cost_per_purchase_unit, supplier) VALUES
-  ('raw_chicken', 'Raw Chicken',         20000, 0, 5000,  'kg', 'g',   1000, 220,  'Apex Poultry'),
-  ('paneer',      'Paneer',              10000, 0, 2000,  'kg', 'g',   1000, 350,  'Maa Dairy'),
-  ('flour',       'Flour',               50000, 0, 10000, 'kg', 'g',   1000, 40,   'Ganesh Flour Mill'),
-  ('egg',         'Egg',                 120,   0, 30,    'pcs','pcs', 1,    6,    'Egg Vendor'),
-  ('oil',         'Cooking Oil',         15000, 0, 3000,  'L',  'ml',  1000, 140,  'Fortune Retail'),
-  ('onion',       'Onions',              15000, 0, 3000,  'kg', 'g',   1000, 40,   'Sabji Mandi'),
-  ('capsicum',    'Capsicum',            5000,  0, 1500,  'kg', 'g',   1000, 80,   'Sabji Mandi'),
-  ('noodles',     'Raw Noodles',         10000, 0, 2000,  'kg', 'g',   1000, 60,   'Chong noodles'),
-  ('pasta',       'Raw Pasta',           10000, 0, 2000,  'kg', 'g',   1000, 80,   'Fortune Retail'),
-  ('cheese',      'Cheese Block',        5000,  0, 1000,  'kg', 'g',   1000, 400,  'Amul Store'),
-  ('spices',      'Mix Spices',          2000,  0, 500,   'kg', 'g',   1000, 300,  'Sunrise Spices'),
-  ('sauce',       'Sauces & Condiments', 5000,  0, 1000,  'kg', 'g',   1000, 80,   'Kissan Depot'),
-  ('ghugni_peas', 'Ghugni Peas',         10000, 0, 2000,  'kg', 'g',   1000, 60,   'Sabji Mandi'),
-  ('chole_chana', 'Chole Chana',         10000, 0, 2000,  'kg', 'g',   1000, 80,   'Sabji Mandi');
+  ('raw_chicken', 'Raw Chicken',         0, 0, 5000,  'kg', 'g',   1000, 220,  'Apex Poultry'),
+  ('paneer',      'Paneer',              0, 0, 2000,  'kg', 'g',   1000, 350,  'Maa Dairy'),
+  ('flour',       'Flour',               0, 0, 10000, 'kg', 'g',   1000, 40,   'Ganesh Flour Mill'),
+  ('egg',         'Egg',                 0, 0, 30,    'pcs','pcs', 1,    6,    'Egg Vendor'),
+  ('oil',         'Cooking Oil',         0, 0, 3000,  'L',  'ml',  1000, 140,  'Fortune Retail'),
+  ('onion',       'Onions',              0, 0, 3000,  'kg', 'g',   1000, 40,   'Sabji Mandi'),
+  ('capsicum',    'Capsicum',            0, 0, 1500,  'kg', 'g',   1000, 80,   'Sabji Mandi'),
+  ('noodles',     'Raw Noodles',         0, 0, 2000,  'kg', 'g',   1000, 60,   'Chong noodles'),
+  ('pasta',       'Raw Pasta',           0, 0, 2000,  'kg', 'g',   1000, 80,   'Fortune Retail'),
+  ('cheese',      'Cheese Block',        0, 0, 1000,  'kg', 'g',   1000, 400,  'Amul Store'),
+  ('spices',      'Mix Spices',          0, 0, 500,   'kg', 'g',   1000, 300,  'Sunrise Spices'),
+  ('sauce',       'Sauces & Condiments', 0, 0, 1000,  'kg', 'g',   1000, 80,   'Kissan Depot'),
+  ('ghugni_peas', 'Ghugni Peas',         0, 0, 2000,  'kg', 'g',   1000, 60,   'Sabji Mandi'),
+  ('chole_chana', 'Chole Chana',         0, 0, 2000,  'kg', 'g',   1000, 80,   'Sabji Mandi');
 
 -- ============================================================
 -- INTERMEDIATE & PREPARED STOCK
@@ -101,16 +101,16 @@ CREATE TABLE IF NOT EXISTS intermediate_stock (
 );
 
 INSERT IGNORE INTO intermediate_stock (id, name, stock, reserved, min_stock, unit, item_type) VALUES
-  ('chicken_keema',       'Chicken Keema',          8000, 0, 1500, 'g',       'intermediate'),
-  ('paneer_keema',        'Paneer Keema',            3000, 0, 1000, 'g',       'intermediate'),
-  ('chicken_kosha_gravy', 'Chicken Kosha Gravy',     20,   0, 5,    'portions','intermediate'),
-  ('pakora_mixture',      'Chicken Pakora Mixture',  4000, 0, 1000, 'g',       'intermediate'),
-  ('paratha_base',        'Paratha Base',            150,  0, 30,   'pcs',     'prepared'),
-  ('mughlai_dough',       'Mughlai Dough',           40,   0, 10,   'pcs',     'prepared'),
-  ('chowmein_base',       'Chowmein Base',           50,   0, 10,   'portions','prepared'),
-  ('pasta_base',          'Pasta Base',              30,   0, 10,   'portions','prepared'),
-  ('ghugni_gravy',        'Ghugni Gravy',            5000, 0, 1000, 'g',       'intermediate'),
-  ('chole_gravy',         'Chole Gravy',             5000, 0, 1000, 'g',       'intermediate');
+  ('chicken_keema',       'Chicken Keema',          0, 0, 1500, 'g',       'intermediate'),
+  ('paneer_keema',        'Paneer Keema',            0, 0, 1000, 'g',       'intermediate'),
+  ('chicken_kosha_gravy', 'Chicken Kosha Gravy',     0,   0, 5,    'portions','intermediate'),
+  ('pakora_mixture',      'Chicken Pakora Mixture',  0, 0, 1000, 'g',       'intermediate'),
+  ('paratha_base',        'Paratha Base',            0,  0, 30,   'pcs',     'prepared'),
+  ('mughlai_dough',       'Mughlai Dough',           0,  0, 10,   'pcs',     'prepared'),
+  ('chowmein_base',       'Chowmein Base',           0,  0, 10,   'portions','prepared'),
+  ('pasta_base',          'Pasta Base',              0,  0, 10,   'portions','prepared'),
+  ('ghugni_gravy',        'Ghugni Gravy',            0, 0, 1000, 'g',       'intermediate'),
+  ('chole_gravy',         'Chole Gravy',             0, 0, 1000, 'g',       'intermediate');
 
 -- ============================================================
 -- BATCH RECIPES
@@ -212,6 +212,7 @@ CREATE TABLE IF NOT EXISTS workers (
   id VARCHAR(64) PRIMARY KEY,
   name VARCHAR(80) NOT NULL,
   prep_time_per_item INT DEFAULT 3,
+  daily_salary INT DEFAULT 0,
   active TINYINT(1) DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -406,4 +407,20 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   action VARCHAR(80) NOT NULL,
   payload TEXT,
   INDEX idx_timestamp (log_timestamp)
+);
+
+-- ============================================================
+-- EGG STOCK TRACKING
+-- ============================================================
+CREATE TABLE IF NOT EXISTS egg_tracking (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tracking_date DATE UNIQUE NOT NULL,
+  opening_stock INT DEFAULT 0,
+  purchased INT DEFAULT 0,
+  rotten INT DEFAULT 0,
+  used_in_prep INT DEFAULT 0,
+  used_in_menu INT DEFAULT 0,
+  closing_stock INT DEFAULT 0,
+  recommended_price DECIMAL(10,2) DEFAULT 0.00,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
