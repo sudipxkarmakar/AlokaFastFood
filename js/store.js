@@ -653,6 +653,10 @@ class AutoBrixStore {
       for (const [subIng, subQty] of Object.entries(batchRecipe.rawIngredients)) {
         costSum += this.calculateIngredientCost(subIng, subQty);
       }
+      // Add fuel cost per unit (fuelCost is for 1000 units of yield)
+      if (batchRecipe.fuelCost) {
+        costSum += parseFloat(batchRecipe.fuelCost) / 1000;
+      }
       // expectedYieldRatio adjusts cost based on yield conversion (e.g. raw chicken loses weight)
       // To get cost per unit output = cost of raw inputs / expected yield
       // Note: rawIngredients ratio is defined per 1 unit of output (e.g. 1.25g chicken to get 1g keema)
@@ -901,26 +905,16 @@ class AutoBrixStore {
   calculateCartWaitTime(cartItems) {
     if (cartItems.length === 0) return 0;
     
-    const rush = this.getRushMultiplier();
-    const stationETAs = {};
-
+    let totalPrepTime = 0;
     cartItems.forEach(cartItem => {
       const menuInfo = this.state.config.menuItems[cartItem.id];
       if (!menuInfo) return;
-      const stationId = menuInfo.station;
-      const currentQueue = this.getStationQueueTime(stationId);
-      const itemPrep = menuInfo.prepTime;
-
-      // Item ETA = (Queue + Prep) * Rush Multiplier
-      const itemETA = (currentQueue + itemPrep) * rush;
-
-      if (!stationETAs[stationId] || itemETA > stationETAs[stationId]) {
-        stationETAs[stationId] = itemETA;
-      }
+      const qty = parseInt(cartItem.quantity) || 1;
+      const itemPrep = menuInfo.prepTime || 0;
+      totalPrepTime += itemPrep * qty;
     });
 
-    const maxETA = Math.max(...Object.values(stationETAs), 0);
-    return Math.ceil(maxETA);
+    return totalPrepTime;
   }
 
   // --- Layer 1 Business Actions ---

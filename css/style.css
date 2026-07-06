@@ -167,6 +167,7 @@ h1.logo-text {
   font-weight: 500;
   font-size: 0.85rem;
   cursor: pointer;
+  text-decoration: none;
   transition: all var(--transition-fast);
 }
 

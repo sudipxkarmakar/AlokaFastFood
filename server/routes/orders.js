@@ -197,4 +197,13 @@ router.patch('/:id/items/:itemIndex/status', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// DELETE order
+router.delete('/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM orders WHERE id=?', [req.params.id]);
+    await db.query("INSERT INTO audit_logs (action, payload) VALUES ('Order Deleted', ?)", [`Order #${req.params.id} has been deleted.`]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

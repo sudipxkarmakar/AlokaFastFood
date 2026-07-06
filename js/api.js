@@ -163,7 +163,9 @@ window.AlokaAPI = {
         rawIngredients,
         expectedYieldRatio: +r.expected_yield_ratio,
         processingType: r.processing_type,
-        stages: r.stages || []
+        stages: r.stages || [],
+        fuelType: r.fuel_type || 'none',
+        fuelCost: parseFloat(r.fuel_cost) || 0
       };
     });
 

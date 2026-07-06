@@ -263,17 +263,50 @@ class OwnerPanel {
           </div>
         </div>
       </div>
-      
-      <!-- Day Closing Trigger -->
-      <div class="glass-card" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-        <div>
-          <h3 style="font-size:1rem; font-weight:600;">Operating Cycle Finalizer</h3>
-          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.25rem;">
-            Finalize sales, expenses, and log the inventory snapshot. This resets active state caches and writes to history.
-          </p>
+
+      <!-- Operational Order Log & Management -->
+      <div class="glass-card" style="margin-bottom:1.5rem;">
+        <h4 class="modal-section-title" style="margin-bottom:0.75rem; display:flex; justify-content:space-between; align-items:center;">
+          <span>Operational Order Log</span>
+          <span style="font-size:0.75rem; font-weight:normal; color:var(--text-muted);">${state.orders.length} orders total</span>
+        </h4>
+        <div class="owner-table-wrapper" style="border:none; max-height:300px; overflow-y:auto;">
+          <table class="owner-table" style="font-size:0.8rem;">
+            <thead>
+              <tr>
+                <th style="width: 80px;">Order #</th>
+                <th style="min-width: 140px;">Customer</th>
+                <th>Items Ordered</th>
+                <th style="width: 100px; text-align:right;">Total</th>
+                <th style="width: 100px; text-align:center;">Fulfillment</th>
+                <th style="width: 100px; text-align:center;">Payment</th>
+                <th style="width: 90px; text-align:center;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${state.orders.length === 0 
+                ? `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">No orders registered in system.</td></tr>`
+                : state.orders.map(o => {
+                    const itemsSummary = o.items.map(it => `${it.quantity}x ${it.name}`).join(", ");
+                    return `
+                      <tr>
+                        <td><strong style="font-family:var(--font-mono);">#${o.id}</strong></td>
+                        <td><strong>${o.customerName || 'Walk-in'}</strong></td>
+                        <td style="color:var(--text-secondary); max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${itemsSummary}">${itemsSummary}</td>
+                        <td style="text-align:right; font-family:var(--font-mono); font-weight:600;">₹${parseFloat(o.total || 0).toFixed(2)}</td>
+                        <td style="text-align:center;"><span class="badge ${o.fulfillmentStatus === 'COMPLETED' ? 'badge-success' : 'badge-normal'}" style="font-size:0.65rem; padding:2px 6px;">${o.fulfillmentStatus}</span></td>
+                        <td style="text-align:center;"><span class="badge ${o.paymentStatus === 'PAID' ? 'badge-success' : 'badge-critical'}" style="font-size:0.65rem; padding:2px 6px;">${o.paymentStatus}</span></td>
+                        <td style="text-align:center;">
+                          <button class="k-item-btn" onclick="ownerPanel.handleDeleteOrder('${o.id}')" style="color:var(--color-critical); background:var(--color-critical-bg); border-color:rgba(239,68,68,0.2); font-weight:600; padding:2px 8px; font-size:0.75rem; border-radius:6px; margin:0;">Delete</button>
+                        </td>
+                      </tr>
+                    `;
+                  }).join("")}
+            </tbody>
+          </table>
         </div>
-        <button class="pos-action-btn primary" id="btn-close-day" style="grid-column:auto; width:180px;">Close Operating Day</button>
       </div>
+      
 
       <!-- Closed Days History Reports -->
       <div class="glass-card">
@@ -315,23 +348,26 @@ class OwnerPanel {
     }, 50);
 
     // Event Listener for closing day
-    document.getElementById("btn-close-day").addEventListener("click", async () => {
-      if (confirm("Are you sure you want to CLOSE THE OPERATING DAY? This generates an reporting snap and resets active cashier/kitchen grids!")) {
-        if (window.AlokaAPI.isOnline()) {
-          try {
-            const report = await window.AlokaAPI.post('/orders/day-close', {});
-            await window.AlokaAPI.loadAllState();
-            alert(`Day closed! Revenue of ₹${parseFloat(report.revenue).toFixed(2)} archived. Active lists cleared.`);
-          } catch (err) {
-            alert("Error closing day: " + err.message);
+    const btnCloseDay = document.getElementById("btn-close-day");
+    if (btnCloseDay) {
+      btnCloseDay.addEventListener("click", async () => {
+        if (confirm("Are you sure you want to CLOSE THE OPERATING DAY? This generates an reporting snap and resets active cashier/kitchen grids!")) {
+          if (window.AlokaAPI.isOnline()) {
+            try {
+              const report = await window.AlokaAPI.post('/orders/day-close', {});
+              await window.AlokaAPI.loadAllState();
+              alert(`Day closed! Revenue of ₹${parseFloat(report.revenue).toFixed(2)} archived. Active lists cleared.`);
+            } catch (err) {
+              alert("Error closing day: " + err.message);
+            }
+          } else {
+            const report = window.AutoBrixStore.closeDay();
+            alert(`Day closed! Revenue of ₹${report.revenue.toFixed(2)} archived. Active lists cleared.`);
           }
-        } else {
-          const report = window.AutoBrixStore.closeDay();
-          alert(`Day closed! Revenue of ₹${report.revenue.toFixed(2)} archived. Active lists cleared.`);
+          this.updateActiveTabContent();
         }
-        this.updateActiveTabContent();
-      }
-    });
+      });
+    }
   }
 
   initFinancialsChart(state) {
@@ -537,6 +573,27 @@ class OwnerPanel {
         }
       });
       alert("Applied suggested egg prices locally!");
+    }
+    this.updateActiveTabContent();
+  }
+
+  async handleDeleteOrder(orderId) {
+    if (!confirm(`Are you sure you want to permanently delete Order #${orderId}? This will remove it from all revenues and operational logs.`)) {
+      return;
+    }
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        await window.AlokaAPI.del(`/orders/${orderId}`);
+        await window.AlokaAPI.loadAllState();
+        alert(`Order #${orderId} deleted successfully!`);
+      } catch (err) {
+        alert("Error deleting order: " + err.message);
+      }
+    } else {
+      window.AutoBrixStore.updateState(state => {
+        state.orders = state.orders.filter(o => o.id !== orderId);
+      });
+      alert("Order deleted locally!");
     }
     this.updateActiveTabContent();
   }
@@ -782,11 +839,11 @@ class OwnerPanel {
           const availableHalf = window.AutoBrixStore.getMenuItemAvailableStock(item.id, 'half');
           const availableFull = window.AutoBrixStore.getMenuItemAvailableStock(item.id, 'full');
           
-          const marginHalfClass = marginHalf.marginPct >= 40 ? "good" : "poor";
-          const marginFullClass = marginFull.marginPct >= 40 ? "good" : "poor";
+          const marginHalfClass = marginHalf.marginPct >= 0 ? "good" : "poor";
+          const marginFullClass = marginFull.marginPct >= 0 ? "good" : "poor";
           
           return `
-            <tr draggable="true" data-id="${item.id}" class="draggable-row">
+            <tr draggable="false" data-id="${item.id}" class="draggable-row">
               <td class="drag-handle" style="cursor: grab; text-align: center; color: var(--text-muted); font-size: 1.1rem; user-select: none; vertical-align: middle;">⠿</td>
               <td style="cursor: pointer; position: relative; text-align: center; vertical-align: middle;" onclick="ownerPanel.openImageActionsModal('${item.id}')" title="Click to manage image">
                 <div style="position: relative; width: 40px; height: 40px; margin: 0 auto;">
@@ -855,15 +912,16 @@ class OwnerPanel {
             </tr>
           `;
         } else {
-          return Object.entries(item.variants || {}).map(([vId, v]) => {
+          return Object.entries(item.variants || {})
+            .sort((a, b) => parseFloat(a[1].price) - parseFloat(b[1].price))
+            .map(([vId, v]) => {
             const marginInfo = window.AutoBrixStore.calculateMenuItemMargin(item.id, vId);
             const availableSingle = window.AutoBrixStore.getMenuItemAvailableStock(item.id, vId);
             
-            let marginClass = "good";
-            if (marginInfo.marginPct < 40) marginClass = "poor";
+            let marginClass = marginInfo.marginPct >= 0 ? "good" : "poor";
             
             return `
-              <tr draggable="true" data-id="${item.id}" class="draggable-row">
+              <tr draggable="false" data-id="${item.id}" class="draggable-row">
                 <td class="drag-handle" style="cursor: grab; text-align: center; color: var(--text-muted); font-size: 1.1rem; user-select: none; vertical-align: middle;">⠿</td>
                 <td style="cursor: pointer; position: relative; text-align: center; vertical-align: middle;" onclick="ownerPanel.openImageActionsModal('${item.id}')" title="Click to manage image">
                   <div style="position: relative; width: 40px; height: 40px; margin: 0 auto;">
@@ -1138,7 +1196,10 @@ class OwnerPanel {
   async updateItemPrice(itemId, variantId, price) {
     if (window.AlokaAPI.isOnline()) {
       try {
-        const dbVariantId = `${itemId}_${variantId.toLowerCase()}`;
+        const state = window.AutoBrixStore.state;
+        const item = state.config.menuItems[itemId];
+        const v = item && item.variants[variantId];
+        const dbVariantId = v ? v.id : `${itemId}_${variantId.toLowerCase()}`;
         await window.AlokaAPI.patch(`/menu/${itemId}/variants/${dbVariantId}`, { price: parseFloat(price) });
         await window.AlokaAPI.loadAllState();
       } catch (err) { alert(err.message); }
@@ -1850,6 +1911,20 @@ class OwnerPanel {
       let draggedRow = null;
 
       tbody.querySelectorAll(".draggable-row").forEach((row) => {
+        // Toggle draggable attribute based on handle interaction to avoid hijacking input field focuses
+        const dragHandle = row.querySelector(".drag-handle");
+        if (dragHandle) {
+          dragHandle.addEventListener("mousedown", () => {
+            row.setAttribute("draggable", "true");
+          });
+          dragHandle.addEventListener("mouseup", () => {
+            row.setAttribute("draggable", "false");
+          });
+          dragHandle.addEventListener("mouseleave", () => {
+            row.setAttribute("draggable", "false");
+          });
+        }
+
         // Drag-and-drop listeners
         row.addEventListener("dragstart", (e) => {
           draggedRow = row;
@@ -2725,17 +2800,17 @@ class OwnerPanel {
             <h4 class="modal-section-title" style="margin-bottom:0.5rem;" id="batch-recipe-editor-title">Batch Recipe Formula</h4>
             
             <div class="owner-table-wrapper" style="border:none; max-height:160px; overflow-y:auto; margin-bottom:1rem;">
-              <table class="owner-table" style="font-size:0.8rem;">
-                <thead>
-                  <tr>
-                    <th>Raw Ingredient</th>
-                    <th>Ratio Per Unit Yield</th>
-                    <th>Unit</th>
-                    <th>Remove</th>
-                  </tr>
-                </thead>
-                <tbody id="batch-recipe-ing-rows"></tbody>
-              </table>
+               <table class="owner-table" style="font-size:0.8rem;">
+                 <thead>
+                   <tr>
+                     <th>Raw Ingredient</th>
+                     <th>Weight for 1000g/ml Batch (g/ml)</th>
+                     <th>Unit</th>
+                     <th>Remove</th>
+                   </tr>
+                 </thead>
+                 <tbody id="batch-recipe-ing-rows"></tbody>
+               </table>
             </div>
 
             <!-- Add Ing to Batch Recipe Form -->
@@ -2743,7 +2818,7 @@ class OwnerPanel {
               <select class="pos-select-sm" id="batch-add-raw-id" style="flex:1; font-size:0.75rem;">
                 ${Object.entries(state.inventory.raw).map(([key, raw]) => `<option value="${key}">${raw.name}</option>`).join("")}
               </select>
-              <input type="number" class="pos-input-sm" id="batch-add-ratio" placeholder="Ratio" style="width:70px; font-size:0.75rem;">
+              <input type="number" class="pos-input-sm" id="batch-add-ratio" placeholder="Weight" style="width:70px; font-size:0.75rem;">
               <select class="pos-select-sm" id="batch-add-unit" style="width:60px; font-size:0.75rem;">
                 <option value="g">g</option>
                 <option value="kg">kg</option>
@@ -2752,6 +2827,25 @@ class OwnerPanel {
                 <option value="pcs">pcs</option>
               </select>
               <button class="pos-action-btn primary" id="btn-batch-add-ing" style="padding:4px 8px; font-size:0.75rem; grid-column:auto;">Add</button>
+            </div>
+
+            <!-- Fuel Consumption Allocation -->
+            <div style="border-top:1px solid rgba(255,255,255,0.05); padding:1rem 0; display:flex; flex-direction:column; gap:0.5rem;">
+              <span class="form-label-xs" style="font-weight:700;">Fuel Consumption Allocation (Distributed in Cost):</span>
+              <div style="display:flex; gap:0.5rem; align-items:center;">
+                <div style="flex:1; display:flex; flex-direction:column; gap:0.25rem;">
+                  <label class="form-label-xs">Fuel Type:</label>
+                  <select class="pos-select-sm" id="batch-fuel-type" onchange="ownerPanel.updateBatchFuel()" style="font-size:0.75rem;">
+                    <option value="none">None</option>
+                    <option value="coal">Coal</option>
+                    <option value="gas">Gas</option>
+                  </select>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:0.25rem;">
+                  <label class="form-label-xs">Fuel Cost per 1000g/ml (₹):</label>
+                  <input type="number" class="pos-input-sm" id="batch-fuel-cost" placeholder="e.g. 20.00" onchange="ownerPanel.updateBatchFuel()" style="font-size:0.75rem; text-align:center; height:28px;">
+                </div>
+              </div>
             </div>
 
             <!-- Processing Type & Stages Config -->
@@ -2957,11 +3051,12 @@ class OwnerPanel {
       ingTbody.innerHTML = Object.entries(recipe.rawIngredients).map(([rawId, ratio]) => {
         const raw = state.inventory.raw[rawId];
         if (!raw) return '';
+        const weightValue = (ratio * 1000).toFixed(0);
         return `
           <tr>
             <td><strong>${raw.name}</strong></td>
             <td>
-              <input type="number" class="owner-input-cell" value="${ratio}" onchange="ownerPanel.updateBatchRecipeIng('${targetId}', '${rawId}', this.value)" style="width:70px;">
+              <input type="number" class="owner-input-cell" value="${weightValue}" onchange="ownerPanel.updateBatchRecipeIng('${targetId}', '${rawId}', this.value)" style="width:70px;">
             </td>
             <td>${raw.stockUnit}</td>
             <td>
@@ -2970,6 +3065,14 @@ class OwnerPanel {
           </tr>
         `;
       }).join("");
+
+      // Set fuel fields
+      const fuelTypeEl = document.getElementById("batch-fuel-type");
+      const fuelCostEl = document.getElementById("batch-fuel-cost");
+      if (fuelTypeEl && fuelCostEl) {
+        fuelTypeEl.value = recipe.fuelType || "none";
+        fuelCostEl.value = recipe.fuelCost || "";
+      }
 
       // Radio Flow type check
       const procDirect = document.getElementById("proc-direct");
@@ -3069,11 +3172,12 @@ class OwnerPanel {
     document.getElementById("btn-batch-add-ing").addEventListener("click", async () => {
       const targetId = this.selectedBatchRecipe;
       const rawId = document.getElementById("batch-add-raw-id").value;
-      const ratio = parseFloat(document.getElementById("batch-add-ratio").value);
+      const weightVal = parseFloat(document.getElementById("batch-add-ratio").value);
+      const ratio = weightVal / 1000;
       const unit = document.getElementById("batch-add-unit").value;
 
-      if (isNaN(ratio) || ratio <= 0) {
-        alert("Enter a valid ratio!");
+      if (isNaN(weightVal) || weightVal <= 0) {
+        alert("Enter a valid weight!");
         return;
       }
 
@@ -3175,7 +3279,7 @@ class OwnerPanel {
   }
 
   async updateBatchRecipeIng(targetId, rawId, ratio) {
-    const val = parseFloat(ratio);
+    const val = parseFloat(ratio) / 1000;
     if (window.AlokaAPI.isOnline()) {
       try {
         await window.AlokaAPI.put(`/inventory/batch-recipes/${targetId}/ingredients/${rawId}`, {
@@ -3195,6 +3299,29 @@ class OwnerPanel {
       });
     }
     this.updateActiveTabContent();
+  }
+
+  async updateBatchFuel() {
+    const targetId = this.selectedBatchRecipe;
+    const fuelType = document.getElementById("batch-fuel-type").value;
+    const fuelCost = parseFloat(document.getElementById("batch-fuel-cost").value) || 0;
+    
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        await window.AlokaAPI.patch(`/inventory/batch-recipes/${targetId}`, {
+          fuel_type: fuelType,
+          fuel_cost: fuelCost
+        });
+        await window.AlokaAPI.loadAllState();
+      } catch (err) { alert(err.message); }
+    } else {
+      window.AutoBrixStore.updateState(s => {
+        if (s.config.batchRecipes[targetId]) {
+          s.config.batchRecipes[targetId].fuelType = fuelType;
+          s.config.batchRecipes[targetId].fuelCost = fuelCost;
+        }
+      });
+    }
   }
 
   async removeBatchStage(targetId, index) {

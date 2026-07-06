@@ -6,17 +6,30 @@ class POSPanel {
     this.activeCategory = "all";
     this.searchQuery = "";
     
-    this.cart = []; // { id, name, variant, modifiers: [], price, quantity, prepTime, station }
+    try {
+      this.cart = JSON.parse(localStorage.getItem("autobrix_cart")) || [];
+      this.customerName = localStorage.getItem("autobrix_cart_customer") || "";
+      this.orderSource = localStorage.getItem("autobrix_cart_source") || "DINE_IN";
+      this.orderPriority = localStorage.getItem("autobrix_cart_priority") || "NORMAL";
+    } catch (e) {
+      this.cart = [];
+      this.customerName = "";
+      this.orderSource = "DINE_IN";
+      this.orderPriority = "NORMAL";
+    }
     this.heldCarts = []; // queue of held orders
-    
-    this.customerName = "";
-    this.orderSource = "DINE_IN";
-    this.orderPriority = "NORMAL";
     
     this.selectedMenuItem = null; // for variant/modifier modal
     this.selectedVariant = "single";
     this.selectedModifiers = [];
     this.lastModifiers = [];
+  }
+
+  saveCart() {
+    localStorage.setItem("autobrix_cart", JSON.stringify(this.cart));
+    localStorage.setItem("autobrix_cart_customer", this.customerName);
+    localStorage.setItem("autobrix_cart_source", this.orderSource);
+    localStorage.setItem("autobrix_cart_priority", this.orderPriority);
   }
 
   init() {
@@ -154,9 +167,15 @@ class POSPanel {
       this.renderMenuGrid();
     });
 
+    // Set initial values from saved state
+    document.getElementById("cart-cust-name").value = this.customerName;
+    document.getElementById("cart-order-source").value = this.orderSource;
+    document.getElementById("cart-order-priority").value = this.orderPriority;
+
     // Customer name input
     document.getElementById("cart-cust-name").addEventListener("input", (e) => {
       this.customerName = e.target.value;
+      this.saveCart();
     });
 
     // Order source selector (adjust commissions)
@@ -168,12 +187,14 @@ class POSPanel {
         this.orderPriority = this.orderSource;
         document.getElementById("cart-order-priority").value = this.orderSource;
       }
+      this.saveCart();
       this.renderCart();
     });
 
     // Priority selector
     document.getElementById("cart-order-priority").addEventListener("change", (e) => {
       this.orderPriority = e.target.value;
+      this.saveCart();
     });
 
     // Clear cart
@@ -305,8 +326,10 @@ class POSPanel {
       const imageSrc = item.image || defaultImages[matchedKey] || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400";
 
       if (isEggOrDrink) {
-        // Render a card for each variant
-        Object.keys(item.variants).forEach(varKey => {
+        // Render a card for each variant sorted by price
+        Object.keys(item.variants)
+          .sort((a, b) => parseFloat(item.variants[a].price) - parseFloat(item.variants[b].price))
+          .forEach(varKey => {
           const v = item.variants[varKey];
           const available = window.AutoBrixStore.getMenuItemAvailableStock(item.id, varKey);
           let stockClass = "good";
@@ -353,22 +376,53 @@ class POSPanel {
 
     grid.innerHTML = cardHTMLs.join("");
 
-    // Click handler for menu cards
+    // Click / Long-press handler for menu cards
     grid.querySelectorAll(".menu-card").forEach(card => {
-      card.addEventListener("click", () => {
-        const itemId = card.dataset.itemId;
-        const variantKey = card.dataset.variantKey;
-        const item = menuItems[itemId];
+      let pressTimer = null;
+      let isLongPress = false;
+      
+      const startPress = () => {
+        isLongPress = false;
+        pressTimer = setTimeout(() => {
+          isLongPress = true;
+          // Long press: open customization modal
+          const itemId = card.dataset.itemId;
+          const variantKey = card.dataset.variantKey;
+          const item = menuItems[itemId];
+          const isEggOrDrink = itemId === "egg" || item.station === "reception" || itemId.includes("pepsi") || itemId.includes("7up") || itemId.includes("mirinda") || itemId.includes("water") || itemId.includes("beverage");
+          
+          if (!isEggOrDrink) {
+            this.selectedVariant = variantKey; // Set target variant for customizer
+            this.openCustomizerModal(itemId);
+          }
+        }, 500); // 500ms threshold for long press
+      };
+
+      const endPress = (e) => {
+        if (pressTimer) {
+          clearTimeout(pressTimer);
+          pressTimer = null;
+        }
         
-        const isEggOrDrink = itemId === "egg" || item.station === "reception" || itemId.includes("pepsi") || itemId.includes("7up") || itemId.includes("mirinda") || itemId.includes("water") || itemId.includes("beverage");
-        
-        if (isEggOrDrink) {
+        if (!isLongPress && e.type === "click") {
+          // Short click: directly add to cart
+          const itemId = card.dataset.itemId;
+          const variantKey = card.dataset.variantKey;
           this.addToCart(itemId, variantKey, []);
-        } else {
-          this.selectedVariant = variantKey; // Set target variant for customizer
-          this.openCustomizerModal(itemId);
+        }
+      };
+
+      card.addEventListener("mousedown", startPress);
+      card.addEventListener("touchstart", startPress, { passive: true });
+      card.addEventListener("mouseup", endPress);
+      card.addEventListener("touchend", endPress);
+      card.addEventListener("mouseleave", () => {
+        if (pressTimer) {
+          clearTimeout(pressTimer);
+          pressTimer = null;
         }
       });
+      card.addEventListener("click", endPress);
     });
   }
 
@@ -626,6 +680,7 @@ class POSPanel {
       document.getElementById("pos-commission").innerText = "₹0.00";
       document.getElementById("aggregator-row").style.display = "none";
       document.getElementById("pos-cart-eta-value").innerText = "0 Min";
+      this.saveCart();
       return;
     }
 
@@ -660,6 +715,7 @@ class POSPanel {
 
     this.calculateTotals();
     this.updateCartETA();
+    this.saveCart();
   }
 
   changeQty(index, delta) {
@@ -686,9 +742,8 @@ class POSPanel {
       subtotal += item.price * item.quantity;
     });
 
-    const settings = window.AutoBrixStore.state.config.settings;
-    const taxRate = settings.gstRate || 5;
-    const tax = subtotal * (taxRate / 100);
+    const taxRate = 0;
+    const tax = 0;
 
     // Calculate delivery aggregator commission if applicable
     const sourceInfo = window.AutoBrixStore.state.config.sources[this.orderSource];
@@ -787,10 +842,9 @@ class POSPanel {
       subtotal += item.price * item.quantity;
     });
 
-    const settings = window.AutoBrixStore.state.config.settings;
-    const taxRate = settings.gstRate || 5;
-    const tax = subtotal * (taxRate / 100);
-    const total = subtotal + tax;
+    const taxRate = 0;
+    const tax = 0;
+    const total = subtotal;
 
     const sourceInfo = window.AutoBrixStore.state.config.sources[this.orderSource];
     const commPct = sourceInfo ? sourceInfo.commissionPct : 0;
@@ -919,7 +973,7 @@ class POSPanel {
         
         <div style="font-size: 9pt; line-height: 1.4; text-align: right; margin-top: 10px;">
           <div>Subtotal: ₹${order.subtotal.toFixed(2)}</div>
-          <div>GST (5%): ₹${order.tax.toFixed(2)}</div>
+          <div>Tax (0%): ₹${order.tax.toFixed(2)}</div>
           <div style="font-size: 11pt; font-weight: bold; margin-top: 4px; border-top: 1px double #000; padding-top: 4px;">
             Total: ₹${order.total.toFixed(2)}
           </div>

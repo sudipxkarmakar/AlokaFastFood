@@ -118,10 +118,16 @@ router.post('/batch-recipes', async (req, res) => {
 
 // PATCH update batch recipe details (processing_type, stages)
 router.patch('/batch-recipes/:id', async (req, res) => {
-  const { processing_type, stages } = req.body;
+  const { processing_type, stages, fuel_type, fuel_cost } = req.body;
   try {
     if (processing_type !== undefined) {
       await db.query('UPDATE batch_recipes SET processing_type=? WHERE id=?', [processing_type, req.params.id]);
+    }
+    if (fuel_type !== undefined) {
+      await db.query('UPDATE batch_recipes SET fuel_type=? WHERE id=?', [fuel_type, req.params.id]);
+    }
+    if (fuel_cost !== undefined) {
+      await db.query('UPDATE batch_recipes SET fuel_cost=? WHERE id=?', [parseFloat(fuel_cost), req.params.id]);
     }
     if (stages !== undefined) {
       await db.query('DELETE FROM batch_processing_stages WHERE batch_recipe_id=?', [req.params.id]);
