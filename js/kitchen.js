@@ -32,6 +32,10 @@ class KitchenDisplay {
   }
 
   render() {
+    // If the wrapper is already statically defined in HTML, don't overwrite it
+    if (this.container.querySelector(".kitchen-view-wrapper")) {
+      return;
+    }
     const titleText = this.screenType === "A" 
       ? "KITCHEN SCREEN A — FAST FOOD / ROLLS / CHINESE" 
       : "KITCHEN SCREEN B — MAINS / FRY / MUGHLAI";
@@ -105,7 +109,7 @@ class KitchenDisplay {
   }
 
   renderOrdersGrid(state) {
-    const container = document.getElementById("kitchen-orders-container");
+    const container = this.container.querySelector(".kitchen-orders-scroll") || document.getElementById("kitchen-orders-container");
     if (!container) return;
 
     // Filter orders:
@@ -135,7 +139,8 @@ class KitchenDisplay {
     });
 
     // Update Header stats
-    document.getElementById("k-active-count").innerText = activeOrders.length;
+    const activeCountEl = this.container.querySelector("#k-active-count") || this.container.querySelector(".kitchen-stats strong");
+    if (activeCountEl) activeCountEl.innerText = activeOrders.length;
     
     // Calculate avg wait time of completed orders from closing history or live completed
     let totalPrepTimes = 0;
@@ -148,7 +153,8 @@ class KitchenDisplay {
       }
     });
     const avgText = completedCount > 0 ? `${Math.round(totalPrepTimes / completedCount)}m` : "5m";
-    document.getElementById("k-avg-wait").innerText = avgText;
+    const avgWaitEl = this.container.querySelector("#k-avg-wait") || this.container.querySelector(".kitchen-stats span:nth-child(2) strong");
+    if (avgWaitEl) avgWaitEl.innerText = avgText;
 
     if (activeOrders.length === 0) {
       container.innerHTML = `
@@ -241,7 +247,7 @@ class KitchenDisplay {
   }
 
   updateTimers() {
-    const container = document.getElementById("kitchen-orders-container");
+    const container = this.container.querySelector(".kitchen-orders-scroll") || document.getElementById("kitchen-orders-container");
     if (!container) return;
 
     const cards = container.querySelectorAll(".kitchen-order-card");

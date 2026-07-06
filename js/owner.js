@@ -22,6 +22,10 @@ class OwnerPanel {
   }
 
   render() {
+    // If the wrapper is already statically defined in HTML, don't overwrite it
+    if (this.container.querySelector(".owner-grid")) {
+      return;
+    }
     this.container.innerHTML = `
       <div class="owner-grid">
         <!-- Sidebar Tabs -->
@@ -1868,7 +1872,19 @@ class OwnerPanel {
           
           const allDraggable = Array.from(document.querySelectorAll(".menu-rows-category-container .draggable-row"));
           const newOrder = allDraggable.map(r => r.dataset.id);
-          const uniqueOrder = Array.from(new Set(newOrder));
+          const uniqueIds = Array.from(new Set(newOrder));
+          uniqueIds.sort((a, b) => {
+            const indicesA = [];
+            const indicesB = [];
+            newOrder.forEach((id, idx) => {
+              if (id === a) indicesA.push(idx);
+              if (id === b) indicesB.push(idx);
+            });
+            const avgA = indicesA.reduce((sum, val) => sum + val, 0) / indicesA.length;
+            const avgB = indicesB.reduce((sum, val) => sum + val, 0) / indicesB.length;
+            return avgA - avgB;
+          });
+          const uniqueOrder = uniqueIds;
 
           if (window.AlokaAPI.isOnline()) {
             try {
@@ -1962,7 +1978,19 @@ class OwnerPanel {
 
               const allDraggable = Array.from(document.querySelectorAll(".menu-rows-category-container .draggable-row"));
               const newOrder = allDraggable.map(r => r.dataset.id);
-              const uniqueOrder = Array.from(new Set(newOrder));
+              const uniqueIds = Array.from(new Set(newOrder));
+              uniqueIds.sort((a, b) => {
+                const indicesA = [];
+                const indicesB = [];
+                newOrder.forEach((id, idx) => {
+                  if (id === a) indicesA.push(idx);
+                  if (id === b) indicesB.push(idx);
+                });
+                const avgA = indicesA.reduce((sum, val) => sum + val, 0) / indicesA.length;
+                const avgB = indicesB.reduce((sum, val) => sum + val, 0) / indicesB.length;
+                return avgA - avgB;
+              });
+              const uniqueOrder = uniqueIds;
 
               if (window.AlokaAPI.isOnline()) {
                 try {

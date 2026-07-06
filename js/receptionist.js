@@ -32,6 +32,13 @@ class POSPanel {
   }
 
   render() {
+    // If the wrapper is already statically defined in HTML, don't overwrite it
+    if (this.container.querySelector(".receptionist-grid")) {
+      this.renderCategories();
+      this.renderMenuGrid();
+      this.renderCart();
+      return;
+    }
     this.container.innerHTML = `
       <div class="receptionist-grid">
         <!-- Left Categories Panel -->
@@ -202,12 +209,13 @@ class POSPanel {
     // Count items in each category
     const categories = [
       { id: "all", name: "All Menu" },
-      { id: "rolls", name: "Rolls" },
-      { id: "paratha", name: "Paratha" },
-      { id: "chinese", name: "Chinese" },
-      { id: "curry", name: "Mains & Curries" },
-      { id: "fry", name: "Snacks & Starters" },
-      { id: "beverage", name: "Beverages & Eggs" }
+      { id: "rolls", name: "Roll" },
+      { id: "pasta", name: "Pasta" },
+      { id: "chowmein", name: "Chowmean" },
+      { id: "moghlai", name: "Moghlai" },
+      { id: "others", name: "Others" },
+      { id: "egg", name: "Egg" },
+      { id: "cold_drink", name: "Cold Drink" }
     ];
 
     list.innerHTML = categories.map(cat => {
@@ -228,12 +236,39 @@ class POSPanel {
   }
 
   isItemInCat(item, categoryId) {
-    if (categoryId === "rolls") return item.id.includes("roll") && !item.id.includes("paratha");
-    if (categoryId === "paratha") return item.id.includes("paratha");
-    if (categoryId === "chinese") return item.station === "chinese";
-    if (categoryId === "curry") return item.station === "main";
-    if (categoryId === "fry") return item.station === "fry";
-    if (categoryId === "beverage") return item.id === "egg" || item.id.includes("pepsi") || item.id.includes("7up") || item.id.includes("mirinda") || item.id.includes("dew") || item.id.includes("water") || item.id.includes("beverage") || item.station === "reception";
+    if (categoryId === "rolls") {
+      return item.id.toLowerCase().includes("roll");
+    }
+    if (categoryId === "pasta") {
+      return item.id.toLowerCase().includes("pasta");
+    }
+    if (categoryId === "chowmein") {
+      return item.id.toLowerCase().includes("chowmein") || item.id.toLowerCase().includes("chowmean") || item.name.toLowerCase().includes("chowmein") || item.name.toLowerCase().includes("chowmean");
+    }
+    if (categoryId === "moghlai") {
+      return item.id.toLowerCase().includes("moghlai") || item.id.toLowerCase().includes("mughlai") || item.name.toLowerCase().includes("moghlai") || item.name.toLowerCase().includes("mughlai");
+    }
+    if (categoryId === "egg") {
+      const lowerId = item.id.toLowerCase();
+      const lowerName = item.name.toLowerCase();
+      const isEggWord = lowerId.includes("egg") || lowerName.includes("egg");
+      const isCooked = lowerId.includes("roll") || lowerId.includes("pasta") || lowerId.includes("chowmein") || lowerId.includes("chowmean") || lowerId.includes("moghlai") || lowerId.includes("mughlai") ||
+                       lowerName.includes("roll") || lowerName.includes("pasta") || lowerName.includes("chowmein") || lowerName.includes("chowmean") || lowerName.includes("moghlai") || lowerName.includes("mughlai");
+      return isEggWord && !isCooked;
+    }
+    if (categoryId === "cold_drink") {
+      // Exclude raw egg items from cold drinks even if assigned to reception station
+      if (this.isItemInCat(item, "egg")) return false;
+      return item.id.toLowerCase().includes("pepsi") || item.id.toLowerCase().includes("7up") || item.id.toLowerCase().includes("mirinda") || item.id.toLowerCase().includes("dew") || item.id.toLowerCase().includes("water") || item.id.toLowerCase().includes("beverage") || item.station === "reception";
+    }
+    if (categoryId === "others") {
+      return !this.isItemInCat(item, "rolls") && 
+             !this.isItemInCat(item, "pasta") && 
+             !this.isItemInCat(item, "chowmein") && 
+             !this.isItemInCat(item, "moghlai") && 
+             !this.isItemInCat(item, "egg") && 
+             !this.isItemInCat(item, "cold_drink");
+    }
     return false;
   }
 
@@ -251,18 +286,10 @@ class POSPanel {
       filtered = filtered.filter(item => item.name.toLowerCase().includes(this.searchQuery));
     }
 
-    grid.innerHTML = filtered.map(item => {
-      const defaultVariant = Object.keys(item.variants)[0];
-      const available = window.AutoBrixStore.getMenuItemAvailableStock(item.id, defaultVariant);
-      const isOutOfStock = false;
+    const cardHTMLs = [];
+    filtered.forEach(item => {
+      const isEggOrDrink = item.id === "egg" || item.station === "reception" || item.id.includes("pepsi") || item.id.includes("7up") || item.id.includes("mirinda") || item.id.includes("water") || item.id.includes("beverage");
       
-      const priceText = item.variants[defaultVariant].price;
-      
-      let stockClass = "good";
-      if (available <= 0) stockClass = "empty";
-      else if (available < 10) stockClass = "low";
-      
-      // Fallback food image gradients if item.image is not set
       const defaultImages = {
         egg: "https://images.unsplash.com/photo-1516448424440-9dbca97779c1?w=400",
         chowmein: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400",
@@ -277,28 +304,70 @@ class POSPanel {
       const matchedKey = Object.keys(defaultImages).find(k => item.id.toLowerCase().includes(k) || item.name.toLowerCase().includes(k));
       const imageSrc = item.image || defaultImages[matchedKey] || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400";
 
-      return `
-        <div class="menu-card" data-item-id="${item.id}">
-          <div class="menu-card-image" style="background-image: url('${imageSrc}'); background-size: cover; background-position: center; height: 110px; width: 100%; border-radius: 8px 8px 0 0; position: relative;">
-          </div>
-          <div style="padding: 8px; display: flex; flex-direction: column; gap: 4px;">
-            <div style="font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${item.name}</div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-              <span style="font-weight: 700; color: var(--accent-color); font-size: 0.9rem;">₹${priceText}</span>
-              <span class="stock-badge ${stockClass}" style="font-size: 0.65rem; padding: 1px 5px; border-radius: 3px;">${isOutOfStock ? "0 Left" : `${available} Avail`}</span>
+      if (isEggOrDrink) {
+        // Render a card for each variant
+        Object.keys(item.variants).forEach(varKey => {
+          const v = item.variants[varKey];
+          const available = window.AutoBrixStore.getMenuItemAvailableStock(item.id, varKey);
+          let stockClass = "good";
+          if (available <= 0) stockClass = "empty";
+          else if (available < 10) stockClass = "low";
+          
+          cardHTMLs.push(`
+            <div class="menu-card" data-item-id="${item.id}" data-variant-key="${varKey}">
+              <div class="menu-card-image-bg" style="background-image: url('${imageSrc}');"></div>
+              <div class="menu-card-overlay">
+                <div class="menu-card-title-white">${item.name} - ${v.name}</div>
+                <div class="menu-card-meta-row">
+                  <span class="menu-card-price-white">₹${v.price}</span>
+                  <span class="stock-badge ${stockClass} menu-card-stock-white">${available} Avail</span>
+                </div>
+              </div>
+            </div>
+          `);
+        });
+      } else {
+        // Standard item
+        const defaultVariant = Object.keys(item.variants)[0];
+        const available = window.AutoBrixStore.getMenuItemAvailableStock(item.id, defaultVariant);
+        let stockClass = "good";
+        if (available <= 0) stockClass = "empty";
+        else if (available < 10) stockClass = "low";
+        
+        const priceText = item.variants[defaultVariant].price;
+        
+        cardHTMLs.push(`
+          <div class="menu-card" data-item-id="${item.id}" data-variant-key="${defaultVariant}">
+            <div class="menu-card-image-bg" style="background-image: url('${imageSrc}');"></div>
+            <div class="menu-card-overlay">
+              <div class="menu-card-title-white">${item.name}</div>
+              <div class="menu-card-meta-row">
+                <span class="menu-card-price-white">₹${priceText}</span>
+                <span class="stock-badge ${stockClass} menu-card-stock-white">${available} Avail</span>
+              </div>
             </div>
           </div>
-        </div>
-      `;
-    }).join("");
+        `);
+      }
+    });
+
+    grid.innerHTML = cardHTMLs.join("");
 
     // Click handler for menu cards
     grid.querySelectorAll(".menu-card").forEach(card => {
       card.addEventListener("click", () => {
         const itemId = card.dataset.itemId;
+        const variantKey = card.dataset.variantKey;
         const item = menuItems[itemId];
         
-        this.openCustomizerModal(itemId);
+        const isEggOrDrink = itemId === "egg" || item.station === "reception" || itemId.includes("pepsi") || itemId.includes("7up") || itemId.includes("mirinda") || itemId.includes("water") || itemId.includes("beverage");
+        
+        if (isEggOrDrink) {
+          this.addToCart(itemId, variantKey, []);
+        } else {
+          this.selectedVariant = variantKey; // Set target variant for customizer
+          this.openCustomizerModal(itemId);
+        }
       });
     });
   }
@@ -524,16 +593,6 @@ class POSPanel {
     );
 
     if (existingIndex > -1) {
-      // Validate stock availability for incremented count
-      const testCart = JSON.parse(JSON.stringify(this.cart));
-      testCart[existingIndex].quantity += 1;
-      
-      const available = window.AutoBrixStore.getMenuItemAvailableStock(itemId, variantId, modifierIds);
-      if (this.cart[existingIndex].quantity >= available) {
-        alert(`Cannot add more. Restricted by raw ingredient inventory availability!`);
-        return;
-      }
-
       this.cart[existingIndex].quantity += 1;
     } else {
       this.cart.push({
@@ -609,13 +668,6 @@ class POSPanel {
     
     if (newQty <= 0) {
       this.deleteItem(index);
-      return;
-    }
-
-    // Check inventory availability limit
-    const available = window.AutoBrixStore.getMenuItemAvailableStock(item.id, item.variant, item.modifiers);
-    if (newQty > available) {
-      alert(`Cannot add more. Restricted by ingredient stock constraints!`);
       return;
     }
 

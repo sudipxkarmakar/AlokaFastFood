@@ -26,6 +26,10 @@ class OperationsPanel {
   }
 
   render() {
+    // If the wrapper is already statically defined in HTML, don't overwrite it
+    if (this.container.querySelector(".ops-grid")) {
+      return;
+    }
     this.container.innerHTML = `
       <div class="ops-grid">
         <!-- Left Panel: Status Feed & KPIs -->
