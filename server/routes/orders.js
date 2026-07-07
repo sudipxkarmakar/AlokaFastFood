@@ -3,6 +3,32 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+async function activateNextOrders() {
+  try {
+    const [orders] = await db.query(
+      "SELECT id, fulfillment_status, ts_active FROM orders WHERE fulfillment_status IN ('ACCEPTED', 'COOKING', 'READY') ORDER BY created_at"
+    );
+    if (orders.length === 0) return;
+    const [items] = await db.query("SELECT order_id, station, status FROM order_items");
+    const stationsA = ["tawa", "chilley"];
+    const stationsB = ["deep_fry", "moghlai", "kosha", "moghlai_tawa"];
+    const activeA = orders.filter(o =>
+      items.some(it => it.order_id === o.id && stationsA.includes(it.station) && it.status !== 'READY')
+    );
+    if (activeA.length > 0 && !activeA[0].ts_active) {
+      await db.query("UPDATE orders SET ts_active=NOW() WHERE id=?", [activeA[0].id]);
+    }
+    const activeB = orders.filter(o =>
+      items.some(it => it.order_id === o.id && stationsB.includes(it.station) && it.status !== 'READY')
+    );
+    if (activeB.length > 0 && !activeB[0].ts_active) {
+      await db.query("UPDATE orders SET ts_active=NOW() WHERE id=?", [activeB[0].id]);
+    }
+  } catch (err) {
+    console.error('[Queue Activator Error]', err.message);
+  }
+}
+
 // GET orders (active by default)
 router.get('/', async (req, res) => {
   try {
@@ -39,27 +65,33 @@ router.post('/', async (req, res) => {
          item.quantity, item.unitPrice || 0, JSON.stringify(item.modifiers || []), 'PENDING']
       );
     }
+    await activateNextOrders();
     res.json({ success: true, id });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // PATCH update order status
 router.patch('/:id/status', async (req, res) => {
-  const { fulfillment_status, payment_status } = req.body;
+  const { fulfillment_status, payment_status, ts_active } = req.body;
   try {
     const updates = [];
     const vals = [];
     if (fulfillment_status) {
       updates.push('fulfillment_status=?'); vals.push(fulfillment_status);
       if (fulfillment_status === 'COOKING') { updates.push('ts_cooking=NOW()'); }
-      if (fulfillment_status === 'READY') { updates.push('ts_ready=NOW()'); }
+      if (fulfillment_status === 'READY') {
+        updates.push('ts_ready=NOW()');
+        await db.query("UPDATE order_items SET status='READY' WHERE order_id=?", [req.params.id]);
+      }
       if (fulfillment_status === 'COMPLETED') { updates.push('ts_completed=NOW()'); }
     }
     if (payment_status) { updates.push('payment_status=?'); vals.push(payment_status); }
+    if (ts_active) { updates.push('ts_active=NOW()'); }
     if (updates.length) {
       vals.push(req.params.id);
       await db.query(`UPDATE orders SET ${updates.join(',')} WHERE id=?`, vals);
     }
+    await activateNextOrders();
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -193,6 +225,7 @@ router.patch('/:id/items/:itemIndex/status', async (req, res) => {
         await db.query("INSERT INTO audit_logs (action, payload) VALUES ('Order Ready', ?)", [`All items in Order #${orderId} are ready to serve.`]);
       }
     }
+    await activateNextOrders();
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -202,6 +235,7 @@ router.delete('/:id', async (req, res) => {
   try {
     await db.query('DELETE FROM orders WHERE id=?', [req.params.id]);
     await db.query("INSERT INTO audit_logs (action, payload) VALUES ('Order Deleted', ?)", [`Order #${req.params.id} has been deleted.`]);
+    await activateNextOrders();
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

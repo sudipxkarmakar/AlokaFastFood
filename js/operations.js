@@ -314,7 +314,7 @@ class OperationsPanel {
   async serveOrder(orderId) {
     if (window.AlokaAPI.isOnline()) {
       try {
-        await window.AlokaAPI.patch(`/orders/${orderId}/status`, { fulfillment_status: "COMPLETED" });
+        await window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/status`, { fulfillment_status: "COMPLETED" });
         await window.AlokaAPI.loadAllState();
       } catch (err) {
         alert("Error serving order: " + err.message);
@@ -327,7 +327,7 @@ class OperationsPanel {
   async collectPayment(orderId) {
     if (window.AlokaAPI.isOnline()) {
       try {
-        await window.AlokaAPI.patch(`/orders/${orderId}/status`, { payment_status: "PAID" });
+        await window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/status`, { payment_status: "PAID" });
         await window.AlokaAPI.loadAllState();
       } catch (err) {
         alert("Error collecting payment: " + err.message);
@@ -341,7 +341,7 @@ class OperationsPanel {
     if (confirm(`Are you sure you want to cancel order #${orderId}? This will release reserved ingredients.`)) {
       if (window.AlokaAPI.isOnline()) {
         try {
-          await window.AlokaAPI.patch(`/orders/${orderId}/status`, { fulfillment_status: "CANCELLED" });
+          await window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/status`, { fulfillment_status: "CANCELLED" });
           await window.AlokaAPI.loadAllState();
         } catch (err) {
           alert("Error cancelling order: " + err.message);

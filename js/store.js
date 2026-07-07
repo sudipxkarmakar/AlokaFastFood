@@ -447,13 +447,12 @@ const MENU_DEFAULT = {
 };
 
 const MODIFIERS_DEFAULT = {
-  extra_chicken: { id: "extra_chicken", name: "Extra Chicken", price: 25, recipe: { chicken_keema: 40 } },
-  extra_cheese: { id: "extra_cheese", name: "Extra Cheese", price: 15, recipe: { cheese: 20 } },
   extra_egg: { id: "extra_egg", name: "Extra Egg", price: 10, recipe: { egg: 1 } },
   no_onion: { id: "no_onion", name: "No Onion", price: 0, recipe: { onion: -20 } },
   only_onion: { id: "only_onion", name: "Only Onion", price: 0 },
   no_salad: { id: "no_salad", name: "No Salad", price: 0 },
   no_sauce: { id: "no_sauce", name: "No Sauce", price: 0 },
+  extra_sauce: { id: "extra_sauce", name: "Extra Sauce", price: 0 },
   no_spice: { id: "no_spice", name: "No Spice", price: 0 },
   extra_spice: { id: "extra_spice", name: "Extra Spice", price: 0 }
 };
@@ -579,6 +578,7 @@ class AutoBrixStore {
         const parsed = JSON.parse(data);
         // Merge structures carefully
         this.state.config = (parsed.config && parsed.config.menuItems && Object.keys(parsed.config.menuItems).length > 0) ? parsed.config : this.state.config;
+        this.state.config.modifiers = MODIFIERS_DEFAULT;
         this.state.orders = parsed.orders || [];
         this.state.inventory = parsed.inventory || this.state.inventory;
         this.state.expenses = parsed.expenses || [];

@@ -10,8 +10,8 @@ class KitchenDisplay {
     // Screen A: Rolls, Paratha, Chinese (Pasta, Noodles, Chowmein)
     // Screen B: Fry, Mughlai, Curry/Main courses
     this.stations = this.screenType === "A" 
-      ? ["roll", "paratha", "chinese"] 
-      : ["fry", "mughlai", "main"];
+      ? ["tawa", "chilley"] 
+      : ["deep_fry", "moghlai", "kosha", "moghlai_tawa"];
       
     this.chimeAudio = null;
     this.lastOrderCount = 0;
@@ -156,6 +156,8 @@ class KitchenDisplay {
     const avgWaitEl = this.container.querySelector("#k-avg-wait") || this.container.querySelector(".kitchen-stats span:nth-child(2) strong");
     if (avgWaitEl) avgWaitEl.innerText = avgText;
 
+
+
     if (activeOrders.length === 0) {
       container.innerHTML = `
         <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; color:var(--text-muted); gap:0.5rem; text-align:center;">
@@ -167,7 +169,8 @@ class KitchenDisplay {
       return;
     }
 
-    container.innerHTML = activeOrders.map(order => {
+    container.innerHTML = activeOrders.map((order, idx) => {
+      const isOnHold = idx > 0;
       const priorityClass = `priority-${order.priority}`;
       
       // Filter items in the card to show ONLY those handled by this screen
@@ -175,55 +178,83 @@ class KitchenDisplay {
         if (!this.stations.includes(item.station) || item.status === "READY") return "";
 
         const modifiersConfig = state.config.modifiers;
-        const modsText = item.modifiers.map(mId => modifiersConfig[mId]?.name).filter(Boolean).join(", ");
-        const modsHTML = modsText ? `<div class="k-item-modifiers">+ ${modsText}</div>` : "";
+        const getModifierImgHTML = (modId, size = 20) => {
+          const fileMap = {
+            no_onion: "NO ONION.png",
+            only_onion: "ONLY ONION.png",
+            no_salad: "NO SALAD.png",
+            no_sauce: "NO SAUCE.png",
+            extra_sauce: "EXTRA SAUCE.png",
+            no_spice: "NO SPICE.png",
+            extra_spice: "EXTRA SPICE.png",
+            extra_egg: "EXTRA EGG.png"
+          };
+          const filename = fileMap[modId];
+          if (!filename) return "";
+          return `<img src="http://localhost:3001/uploads/${encodeURIComponent(filename)}" width="${size}" height="${size}" style="margin-right:4px; object-fit:contain; flex-shrink:0; vertical-align:middle; border-radius:3px;" onerror="this.style.display='none'">`;
+        };
 
-        // Status cycle button
-        let btnClass = "pending";
-        let btnText = "Start Cooking";
-        if (item.status === "COOKING") {
-          btnClass = "cooking";
-          btnText = "Mark Ready";
-        }
+        const modsListHTML = item.modifiers.map(mId => {
+          const mod = modifiersConfig[mId];
+          if (!mod) return "";
+          const icon = getModifierImgHTML(mId, 20);
+          return `<span class="k-mod-badge" style="display:inline-flex; align-items:center; background:rgba(255,255,255,0.06); padding:4px 8px; border-radius:4px; margin-right:4px; margin-top:4px; font-size:0.75rem; font-weight:700; border:1px solid rgba(255,255,255,0.12); color:var(--text-primary);">${icon}${mod.name}</span>`;
+        }).filter(Boolean).join("");
+        
+        const modsHTML = modsListHTML ? `<div class="k-item-modifiers" style="display:flex; flex-wrap:wrap; margin-top:2px;">${modsListHTML}</div>` : "";
 
         return `
-          <div class="k-item">
-            <div class="k-item-header">
-              <div style="display:flex; align-items:flex-start;">
-                <span class="k-item-qty">${item.quantity}x</span>
+          <div class="k-item" style="padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+            <div class="k-item-header" style="margin-bottom:6px;">
+              <div style="display:flex; align-items:center;">
+                <span class="k-item-qty" style="font-size:1.15rem; font-weight:800; color:var(--accent-color); margin-right:8px;">${item.quantity}x</span>
                 <div style="display:flex; flex-direction:column;">
-                  <span class="k-item-name">${item.name}</span>
+                  <span class="k-item-name" style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">${item.name}</span>
                   ${modsHTML}
                 </div>
               </div>
             </div>
-            <button class="k-item-btn ${btnClass}" onclick="kitchenDisplay${this.screenType}.cycleItemStatus('${order.id}', ${index}, '${item.status}')">
-              ${btnText}
-            </button>
           </div>
         `;
       }).join("");
 
-      // Calculate time values
-      const elapsedSec = Math.floor((new Date() - new Date(order.timestamp)) / 1000);
-      const elapsedMin = Math.floor(elapsedSec / 60);
-      const elapsedSecRemaining = elapsedSec % 60;
-      const formattedElapsed = `${elapsedMin}:${elapsedSecRemaining.toString().padStart(2, "0")}`;
-
       const totalItemPrepTime = order.items
         .filter(it => this.stations.includes(it.station))
-        .reduce((max, it) => Math.max(max, it.prepTime), 0);
+        .reduce((sum, it) => sum + (it.prepTime * it.quantity), 0);
+
+      // Calculate backwards timer values
+      const elapsedSec = Math.floor((new Date() - new Date(order.ts_active || order.timestamp)) / 1000);
+      const elapsedMin = Math.floor(elapsedSec / 60);
+      const remainingSec = (totalItemPrepTime * 60) - (isOnHold ? 0 : elapsedSec);
+      const isDelayed = !isOnHold && remainingSec < 0;
+      const absSec = Math.abs(remainingSec);
+      const min = Math.floor(absSec / 60);
+      const sec = absSec % 60;
+      const formattedElapsed = `${isDelayed ? "-" : ""}${min}:${sec.toString().padStart(2, "0")}`;
         
-      const isDelayed = elapsedMin >= totalItemPrepTime;
       const delayMin = elapsedMin - totalItemPrepTime;
       const delayText = isDelayed ? `DELAYED by ${delayMin}m` : `ETA: ${totalItemPrepTime}m`;
 
+      // Compute dynamic card style based on elapsed time ratio (0 for on-hold)
+      const ratio = (!isOnHold && totalItemPrepTime > 0) ? (elapsedMin / totalItemPrepTime) : 0;
+      let cardStyle = "background: var(--bg-card); border: 1px solid rgba(255,255,255,0.08);";
+      if (ratio >= 1.0) {
+        cardStyle = "background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05)); border: 1px solid rgba(239, 68, 68, 0.4);";
+      } else if (ratio >= 0.6) {
+        cardStyle = "background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05)); border: 1px solid rgba(245, 158, 11, 0.4);";
+      } else {
+        cardStyle = "background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.03)); border: 1px solid rgba(16, 185, 129, 0.25);";
+      }
+
       return `
-        <div class="kitchen-order-card ${priorityClass} ${isDelayed ? "delayed" : ""}" id="k-card-${order.id}" data-timestamp="${order.timestamp}" data-preptime="${totalItemPrepTime}">
-          <div class="kitchen-card-header">
-            <div class="kitchen-card-meta">
-              <span class="kitchen-card-id">#${order.id}</span>
-              <span class="kitchen-card-time">${order.customerName} [${order.source}]</span>
+        <div class="kitchen-order-card ${priorityClass} ${isDelayed ? "delayed" : ""}" id="k-card-${order.id}" data-timestamp="${order.ts_active || order.timestamp}" data-preptime="${totalItemPrepTime}" style="${cardStyle} border-radius:8px; padding:12px; margin-bottom:12px; transition:all 0.3s ease; ${isOnHold ? "pointer-events: none; user-select: none; border-color: rgba(255,255,255,0.05);" : ""}">
+          <div class="kitchen-card-header" style="border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:flex-start;">
+            <div class="kitchen-card-meta" style="display:flex; flex-direction:column; gap:2px;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="kitchen-card-id" style="font-size:1rem; font-weight:800; color:var(--text-primary);">${order.id}</span>
+                ${isOnHold ? `<span style="background:rgba(255,255,255,0.08); color:var(--text-muted); border:1px solid rgba(255,255,255,0.12); font-size:0.65rem; font-weight:800; padding:1px 6px; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em;">On Hold</span>` : ""}
+              </div>
+              <span class="kitchen-card-time" style="font-size:0.75rem; color:var(--text-muted);">${order.customerName} [${order.source}]</span>
             </div>
             <span class="badge badge-${order.priority.toLowerCase()}">${order.priority}</span>
           </div>
@@ -231,13 +262,16 @@ class KitchenDisplay {
             <div class="kitchen-card-items-list">
               ${itemsHTML}
             </div>
+            <button class="k-item-btn cooking" style="width:100%; border:none; padding:10px; border-radius:6px; font-weight:800; font-size:0.9rem; cursor:pointer; margin-top:12px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.02em;" onclick="kitchenDisplay${this.screenType}.markOrderAsReady('${order.id}')">
+              Mark Ready
+            </button>
           </div>
-          <div class="kitchen-card-footer">
-            <span class="kitchen-timer-display ${isDelayed ? "delayed" : ""}" id="k-timer-${order.id}">
-              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+          <div class="kitchen-card-footer" style="border-top:1px solid rgba(255,255,255,0.08); padding-top:6px; margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span class="kitchen-timer-display ${isDelayed ? "delayed" : ""}" id="k-timer-${order.id}" style="display:inline-flex; align-items:center; gap:4px; font-weight:700; font-size:0.85rem;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
               <span>${formattedElapsed}</span>
             </span>
-            <span style="font-size:0.75rem; font-weight:700; color:${isDelayed ? "var(--color-critical)" : "var(--text-secondary)"};" id="k-delay-text-${order.id}">
+            <span style="font-size:0.8rem; font-weight:800; color:${isDelayed ? "var(--color-critical)" : "var(--text-secondary)"};" id="k-delay-text-${order.id}">
               ${delayText}
             </span>
           </div>
@@ -251,15 +285,27 @@ class KitchenDisplay {
     if (!container) return;
 
     const cards = container.querySelectorAll(".kitchen-order-card");
-    cards.forEach(card => {
+    cards.forEach((card, idx) => {
       const orderId = card.id.replace("k-card-", "");
       const timestamp = new Date(card.dataset.timestamp);
       const prepTime = parseInt(card.dataset.preptime);
 
+      if (idx > 0) {
+        const timerSpan = document.getElementById(`k-timer-${orderId}`);
+        if (timerSpan) {
+          timerSpan.querySelector("span").innerText = `${prepTime}:00`;
+        }
+        return;
+      }
+
       const elapsedSec = Math.floor((new Date() - timestamp) / 1000);
       const elapsedMin = Math.floor(elapsedSec / 60);
-      const elapsedSecRemaining = elapsedSec % 60;
-      const formattedElapsed = `${elapsedMin}:${elapsedSecRemaining.toString().padStart(2, "0")}`;
+      const remainingSec = (prepTime * 60) - elapsedSec;
+      const isDelayed = remainingSec < 0;
+      const absSec = Math.abs(remainingSec);
+      const min = Math.floor(absSec / 60);
+      const sec = absSec % 60;
+      const formattedElapsed = `${isDelayed ? "-" : ""}${min}:${sec.toString().padStart(2, "0")}`;
 
       // Update stopwatch
       const timerSpan = document.getElementById(`k-timer-${orderId}`);
@@ -267,19 +313,30 @@ class KitchenDisplay {
         timerSpan.querySelector("span").innerText = formattedElapsed;
       }
 
-      // Check if delayed
-      const isDelayed = elapsedMin >= prepTime;
+      // Check if delayed and update card background color dynamically
+      const ratio = prepTime > 0 ? (elapsedMin / prepTime) : 0;
+      if (ratio >= 1.0) {
+        card.style.background = "linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05))";
+        card.style.borderColor = "rgba(239, 68, 68, 0.4)";
+      } else if (ratio >= 0.6) {
+        card.style.background = "linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05))";
+        card.style.borderColor = "rgba(245, 158, 11, 0.4)";
+      } else {
+        card.style.background = "linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.03))";
+        card.style.borderColor = "rgba(16, 185, 129, 0.25)";
+      }
+
       const delayTextSpan = document.getElementById(`k-delay-text-${orderId}`);
       if (delayTextSpan) {
         if (isDelayed) {
           card.classList.add("delayed");
-          timerSpan.classList.add("delayed");
+          if (timerSpan) timerSpan.classList.add("delayed");
           const delayMin = elapsedMin - prepTime;
           delayTextSpan.innerText = `DELAYED by ${delayMin}m`;
           delayTextSpan.style.color = "var(--color-critical)";
         } else {
           card.classList.remove("delayed");
-          timerSpan.classList.remove("delayed");
+          if (timerSpan) timerSpan.classList.remove("delayed");
           delayTextSpan.innerText = `ETA: ${prepTime}m`;
           delayTextSpan.style.color = "var(--text-secondary)";
         }
@@ -288,20 +345,43 @@ class KitchenDisplay {
   }
 
   async cycleItemStatus(orderId, itemIndex, currentStatus) {
-    let nextStatus = "COOKING";
+    let nextStatus = "READY";
     if (currentStatus === "COOKING") {
       nextStatus = "READY";
     }
 
     if (window.AlokaAPI.isOnline()) {
       try {
-        await window.AlokaAPI.patch(`/orders/${orderId}/items/${itemIndex}/status`, { status: nextStatus });
+        await window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/items/${itemIndex}/status`, { status: nextStatus });
         await window.AlokaAPI.loadAllState();
       } catch (err) {
         alert("Error updating item status: " + err.message);
       }
     } else {
       window.AutoBrixStore.updateOrderItemStatus(orderId, itemIndex, nextStatus);
+    }
+  }
+
+  async markOrderAsReady(orderId) {
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        await window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/status`, { fulfillment_status: "READY" });
+        await window.AlokaAPI.loadAllState();
+      } catch (err) {
+        alert("Error marking order ready: " + err.message);
+      }
+    } else {
+      window.AutoBrixStore.updateState(state => {
+        const order = state.orders.find(o => o.id === orderId);
+        if (order) {
+          order.fulfillmentStatus = "READY";
+          order.items.forEach(it => {
+            if (this.stations.includes(it.station)) {
+              it.status = "READY";
+            }
+          });
+        }
+      });
     }
   }
 }

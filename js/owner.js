@@ -583,7 +583,7 @@ class OwnerPanel {
     }
     if (window.AlokaAPI.isOnline()) {
       try {
-        await window.AlokaAPI.del(`/orders/${orderId}`);
+        await window.AlokaAPI.del(`/orders/${encodeURIComponent(orderId)}`);
         await window.AlokaAPI.loadAllState();
         alert(`Order #${orderId} deleted successfully!`);
       } catch (err) {

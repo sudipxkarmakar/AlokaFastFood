@@ -28,6 +28,14 @@ const db = require('./db');
 // Auto-migration: ensure worker_stations and workers have required columns
 (async () => {
   try {
+    await db.query('ALTER TABLE orders ADD COLUMN ts_active TIMESTAMP NULL DEFAULT NULL');
+    console.log('[Auto-Migration] Added COLUMN ts_active to orders');
+  } catch (e) {
+    if (e.code !== 'ER_DUP_COLUMN_NAME') {
+      console.warn('[Auto-Migration] Notice:', e.message);
+    }
+  }
+  try {
     await db.query('ALTER TABLE stations ADD COLUMN current_worker_id VARCHAR(64) DEFAULT NULL');
     console.log('[Auto-Migration] Added COLUMN current_worker_id to stations');
   } catch (e) {

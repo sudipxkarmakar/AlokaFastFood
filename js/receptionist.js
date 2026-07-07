@@ -471,19 +471,35 @@ class POSPanel {
     }
 
     // Split modifiers into Kitchen Specifications vs Premium Add-ons
-    const kitchenKeys = ['no_onion', 'only_onion', 'no_salad', 'no_sauce', 'no_spice', 'extra_spice'];
+    const kitchenKeys = ['no_onion', 'only_onion', 'no_salad', 'no_sauce', 'no_spice', 'extra_spice', 'extra_sauce'];
     const kitchenModifiers = kitchenKeys.map(k => modifiersConfig[k]).filter(Boolean);
     const premiumModifiers = Object.values(modifiersConfig).filter(m => !kitchenKeys.includes(m.id));
+    const getModifierImgHTML = (modId, size = 24, extraStyle = "") => {
+      const fileMap = {
+        no_onion: "NO ONION.png",
+        only_onion: "ONLY ONION.png",
+        no_salad: "NO SALAD.png",
+        no_sauce: "NO SAUCE.png",
+        extra_sauce: "EXTRA SAUCE.png",
+        no_spice: "NO SPICE.png",
+        extra_spice: "EXTRA SPICE.png",
+        extra_egg: "EXTRA EGG.png"
+      };
+      const filename = fileMap[modId];
+      if (!filename) return "";
+      return `<img src="http://localhost:3001/uploads/${encodeURIComponent(filename)}" width="${size}" height="${size}" style="object-fit:contain; flex-shrink:0; border-radius:3px; ${extraStyle}" onerror="this.style.display='none'">`;
+    };
 
     let kitchenHTML = `
-      <div style="margin-bottom:1rem;">
-        <h4 class="modal-section-title" style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem; letter-spacing:0.05em;">Kitchen Preference (Free)</h4>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+      <div style="margin-bottom:0.5rem;">
+        <h4 class="modal-section-title" style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.35rem; letter-spacing:0.05em;">Kitchen Preference (Free)</h4>
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
           ${kitchenModifiers.map(mod => {
             const isSelected = this.selectedModifiers.includes(mod.id);
+            const icon = getModifierImgHTML(mod.id, 24, "margin-bottom:2px;");
             return `
-              <div class="modifier-pill-btn ${isSelected ? "selected" : ""}" data-mod-id="${mod.id}" style="border:1px solid ${isSelected ? "var(--accent-color)" : "rgba(255,255,255,0.06)"}; padding:6px; border-radius:6px; cursor:pointer; background:${isSelected ? "rgba(245,158,11,0.1)" : "rgba(255,255,255,0.02)"}; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:600; text-align:center; height:32px; transition:all 0.15s ease;">
-                ${mod.name}
+              <div class="modifier-pill-btn ${isSelected ? "selected" : ""}" data-mod-id="${mod.id}" style="border:1px solid ${isSelected ? "var(--accent-color)" : "rgba(255,255,255,0.06)"}; padding:6px 2px; border-radius:6px; cursor:pointer; background:${isSelected ? "rgba(245,158,11,0.1)" : "rgba(255,255,255,0.02)"}; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; font-size:0.75rem; font-weight:700; text-align:center; height:56px; transition:all 0.15s ease;">
+                ${icon}<span>${mod.name}</span>
               </div>
             `;
           }).join("")}
@@ -494,23 +510,25 @@ class POSPanel {
     let premiumHTML = "";
     if (premiumModifiers.length > 0) {
       premiumHTML = `
-        <div style="margin-bottom:1rem;">
-          <h4 class="modal-section-title" style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem; letter-spacing:0.05em;">Premium Add-ons</h4>
-          <div style="display:flex; flex-direction:column; gap:6px;">
+        <div style="margin-bottom:0.5rem;">
+          <h4 class="modal-section-title" style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.35rem; letter-spacing:0.05em;">Premium Add-ons</h4>
+          <div style="display:flex; flex-direction:column; gap:4px;">
             ${premiumModifiers.map(mod => {
               const isSelected = this.selectedModifiers.includes(mod.id);
               const testMods = [...this.selectedModifiers];
               if (!isSelected) testMods.push(mod.id);
               const availWithMod = window.AutoBrixStore.getMenuItemAvailableStock(item.id, this.selectedVariant, testMods);
-              const isSelectable = isSelected || availWithMod > 0;
+              const isSelectable = true;
+              const icon = getModifierImgHTML(mod.id, 24, "margin-right:6px;");
               
               return `
-                <div class="modifier-select-row ${isSelected ? "selected" : ""} ${!isSelectable ? "out-of-stock" : ""}" data-mod-id="${mod.id}" style="display:flex; justify-content:space-between; align-items:center; border:1px solid ${isSelected ? "var(--accent-color)" : "rgba(255,255,255,0.05)"}; padding:6px 10px; border-radius:6px; cursor:${isSelectable ? "pointer" : "not-allowed"}; opacity:${isSelectable ? "1" : "0.5"}; background:${isSelected ? "rgba(245,158,11,0.05)" : "rgba(0,0,0,0.1)"}; font-size:0.75rem;">
+                <div class="modifier-select-row ${isSelected ? "selected" : ""}" data-mod-id="${mod.id}" style="display:flex; justify-content:space-between; align-items:center; border:1px solid ${isSelected ? "var(--accent-color)" : "rgba(255,255,255,0.05)"}; padding:6px 10px; border-radius:6px; cursor:pointer; background:${isSelected ? "rgba(245,158,11,0.05)" : "rgba(0,0,0,0.1)"}; font-size:0.8rem;">
                   <div style="display:flex; align-items:center; gap:0.5rem;">
-                    <input type="checkbox" class="modifier-checkbox" ${isSelected ? "checked" : ""} ${!isSelectable ? "disabled" : ""} style="pointer-events:none;">
-                    <span>${mod.name}</span>
+                    <input type="checkbox" class="modifier-checkbox" ${isSelected ? "checked" : ""} style="pointer-events:none; width:14px; height:14px;">
+                    ${icon}
+                    <span style="font-weight:600;">${mod.name}</span>
                   </div>
-                  <strong>+ ₹${mod.price}</strong>
+                  <strong style="font-size:0.8rem;">+ ₹${mod.price}</strong>
                 </div>
               `;
             }).join("")}
@@ -520,22 +538,22 @@ class POSPanel {
     }
 
     modal.innerHTML = `
-      <div class="modal-container" style="max-width: 420px; border-radius: 12px; background: var(--bg-card); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem; display: flex; flex-direction: column;">
-        <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:0.5rem; margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
-          <span class="modal-title" style="font-weight:600; font-size:1rem; color:var(--text-primary);">Customize ${item.name}</span>
-          <button class="modal-close-btn" id="modal-close" style="background:none; border:none; font-size:1.3rem; color:var(--text-muted); cursor:pointer;">&times;</button>
+      <div class="modal-container" style="max-width: 360px; border-radius: 8px; background: var(--bg-card); border: 1px solid rgba(255,255,255,0.08); padding: 0.75rem 1rem; display: flex; flex-direction: column;">
+        <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:0.25rem; margin-bottom:0.5rem; display:flex; justify-content:space-between; align-items:center;">
+          <span class="modal-title" style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">Customize ${item.name}</span>
+          <button class="modal-close-btn" id="modal-close" style="background:none; border:none; font-size:1.1rem; color:var(--text-muted); cursor:pointer;">&times;</button>
         </div>
-        <div class="modal-body" style="flex:1; overflow-y:auto; max-height:300px; padding-right:4px;">
+        <div class="modal-body" style="flex:1; padding-right:2px;">
           ${variantsHTML}
           ${kitchenHTML}
           ${premiumHTML}
         </div>
-        <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.08); padding-top:1rem; margin-top:1rem; display:flex; flex-direction:column; gap:8px;">
-          <div style="display:flex; gap:8px;">
-            <button class="pos-action-btn secondary" id="modal-repeat-last" style="flex:1.2; font-size:0.75rem; height:36px; display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; grid-column:auto;">🔁 Repeat Last</button>
-            <button class="pos-action-btn danger" id="modal-no-cust" style="flex:1; font-size:0.75rem; height:36px; display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; grid-column:auto;">🚫 Plain / None</button>
+        <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.08); padding-top:0.5rem; margin-top:0.5rem; display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; gap:6px;">
+            <button class="pos-action-btn secondary" id="modal-repeat-last" style="flex:1.2; font-size:0.7rem; height:30px; display:flex; align-items:center; justify-content:center; gap:3px; font-weight:600; grid-column:auto;">🔁 Repeat Last</button>
+            <button class="pos-action-btn danger" id="modal-no-cust" style="flex:1; font-size:0.7rem; height:30px; display:flex; align-items:center; justify-content:center; gap:3px; font-weight:600; grid-column:auto;">🚫 Plain / None</button>
           </div>
-          <button class="pos-action-btn primary" id="modal-add-to-cart" style="width:100%; height:38px; font-weight:700; grid-column:auto;">Confirm & Add</button>
+          <button class="pos-action-btn primary" id="modal-add-to-cart" style="width:100%; height:32px; font-weight:700; font-size:0.8rem; grid-column:auto;">Confirm & Add</button>
         </div>
       </div>
     `;
@@ -852,7 +870,17 @@ class POSPanel {
     const netRevenue = total - commission;
 
     const etaVal = window.AutoBrixStore.calculateCartWaitTime(this.cart);
-    const orderId = "AB-" + Math.floor(1000 + Math.random() * 9000);
+    
+    // Generate order ID like #7-7-26-0001
+    const now = new Date();
+    const day = now.getDate();
+    const month = now.getMonth() + 1;
+    const shortYear = now.getFullYear().toString().slice(-2);
+    const datePrefix = `${day}-${month}-${shortYear}-`;
+    const todayOrders = window.AutoBrixStore.state.orders.filter(o => o.id.startsWith("#" + datePrefix) || o.id.startsWith(datePrefix));
+    const nextSerial = todayOrders.length + 1;
+    const serialStr = nextSerial.toString().padStart(4, '0');
+    const orderId = `#${datePrefix}${serialStr}`;
 
     const orderData = {
       id: orderId,
@@ -875,49 +903,97 @@ class POSPanel {
       commission: commission,
       netRevenue: netRevenue,
       eta: etaVal,
-      paymentStatus: (this.orderSource === "SWIGGY" || this.orderSource === "ZOMATO") ? "PAID" : "UNPAID" // aggregators pre-pay
+      paymentStatus: (this.orderSource === "SWIGGY" || this.orderSource === "ZOMATO") ? "PAID" : "UNPAID"
     };
 
-    // Perform atomic transaction reservation
-    const success = window.AutoBrixStore.reserveInventoryAtomically(orderData);
-    if (success) {
-      if (window.AlokaAPI.isOnline()) {
-        const itemsPayload = orderData.items.map(it => ({
-          id: it.id,
-          name: it.name,
-          variant: it.variant,
-          variantName: it.variant === 'single' ? 'Single' : (it.variant === 'half' ? 'Half' : 'Full'),
-          quantity: it.quantity,
-          unitPrice: it.price,
-          modifiers: it.modifiers
-        }));
-        window.AlokaAPI.post('/orders', {
-          id: orderData.id,
-          customer_name: orderData.customerName,
-          source: orderData.source,
-          priority: orderData.priority,
-          subtotal: orderData.subtotal,
-          tax: orderData.tax,
-          total: orderData.total,
-          commission: orderData.commission,
-          net_revenue: orderData.netRevenue,
-          eta: orderData.eta,
-          payment_status: orderData.paymentStatus,
-          items: itemsPayload
-        }).then(() => {
-          window.AlokaAPI.loadAllState();
-        }).catch(err => {
-          console.error("Online order save failed:", err);
-          alert("Order recorded locally, but failed to sync online: " + err.message);
-        });
-      }
-      this.printBillReceipt(orderData);
+    // Show Payment Mode Selection Modal instead of printing
+    const paymentModal = document.createElement("div");
+    paymentModal.className = "custom-modal-backdrop";
+    paymentModal.style = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:2000; font-family:var(--font-sans);";
+    paymentModal.innerHTML = `
+      <div style="background:var(--bg-card); border:1px solid rgba(255,255,255,0.08); border-radius:12px; width:360px; padding:1.5rem; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+        <h3 style="font-size:1.15rem; font-weight:700; margin-bottom:0.5rem; color:var(--text-primary);">Select Payment Mode</h3>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem;">Choose the payment method for Order ${orderId}</p>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:1.5rem;">
+          <button id="pay-online" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; height:80px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); border-radius:8px; cursor:pointer; color:var(--text-primary); font-weight:600; font-size:0.9rem; transition:all 0.15s ease;">
+            <svg width="24" height="24" fill="none" stroke="var(--accent-color)" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20m-5 4h.01M13 14h.01"/></svg>
+            <span>Online</span>
+          </button>
+          
+          <button id="pay-offline" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; height:80px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); border-radius:8px; cursor:pointer; color:var(--text-primary); font-weight:600; font-size:0.9rem; transition:all 0.15s ease;">
+            <svg width="24" height="24" fill="none" stroke="#10b981" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+            <span>Offline (Cash)</span>
+          </button>
+        </div>
+        
+        <button id="pay-cancel" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.85rem; font-weight:500;">Cancel</button>
+      </div>
+    `;
+
+    document.body.appendChild(paymentModal);
+
+    const buttons = paymentModal.querySelectorAll("button:not(#pay-cancel)");
+    buttons.forEach(btn => {
+      btn.onmouseenter = () => btn.style.background = "rgba(255,255,255,0.06)";
+      btn.onmouseleave = () => btn.style.background = "rgba(255,255,255,0.02)";
+    });
+
+    const finalizeCheckout = (paymentStatus) => {
+      orderData.paymentStatus = paymentStatus;
       
-      // Clean up POS
-      this.clearCart();
-    } else {
-      alert("Checkout failed: Insufficient ingredient stock! Ingredients were reserved by another terminal or stock is depleted.");
-    }
+      const success = window.AutoBrixStore.reserveInventoryAtomically(orderData);
+      if (success) {
+        if (window.AlokaAPI.isOnline()) {
+          const itemsPayload = orderData.items.map(it => ({
+            id: it.id,
+            name: it.name,
+            variant: it.variant,
+            variantName: it.variant === 'single' ? 'Single' : (it.variant === 'half' ? 'Half' : 'Full'),
+            quantity: it.quantity,
+            unitPrice: it.price,
+            modifiers: it.modifiers
+          }));
+          window.AlokaAPI.post('/orders', {
+            id: orderData.id,
+            customer_name: orderData.customerName,
+            source: orderData.source,
+            priority: orderData.priority,
+            subtotal: orderData.subtotal,
+            tax: orderData.tax,
+            total: orderData.total,
+            commission: orderData.commission,
+            net_revenue: orderData.netRevenue,
+            eta: orderData.eta,
+            payment_status: orderData.paymentStatus,
+            items: itemsPayload
+          }).then(() => {
+            window.AlokaAPI.loadAllState();
+          }).catch(err => {
+            console.error("Online order save failed:", err);
+            alert("Order recorded locally, but failed to sync online: " + err.message);
+          });
+        }
+        
+        // Clean up POS (No printing!)
+        this.clearCart();
+        paymentModal.remove();
+        
+        // Show success notification/toast
+        const successToast = document.createElement("div");
+        successToast.style = "position:fixed; bottom:24px; right:24px; background:#10b981; color:white; font-weight:700; font-size:0.9rem; padding:12px 24px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:9999;";
+        successToast.innerText = `Order ${orderId} Placed Successfully (${paymentStatus === 'PAID' ? 'Online' : 'Offline'})!`;
+        document.body.appendChild(successToast);
+        setTimeout(() => successToast.remove(), 3000);
+      } else {
+        alert("Checkout failed: Insufficient ingredient stock!");
+        paymentModal.remove();
+      }
+    };
+
+    paymentModal.querySelector("#pay-online").onclick = () => finalizeCheckout("PAID");
+    paymentModal.querySelector("#pay-offline").onclick = () => finalizeCheckout("UNPAID");
+    paymentModal.querySelector("#pay-cancel").onclick = () => paymentModal.remove();
   }
 
   printBillReceipt(order) {
