@@ -2,20 +2,24 @@
 
 class POSPanel {
   constructor(containerId) {
+    this.containerId = containerId;
     this.container = document.getElementById(containerId);
     this.activeCategory = "all";
     this.searchQuery = "";
+    this.modifyingOrderId = null;
     
     try {
       this.cart = JSON.parse(localStorage.getItem("autobrix_cart")) || [];
       this.customerName = localStorage.getItem("autobrix_cart_customer") || "";
       this.orderSource = localStorage.getItem("autobrix_cart_source") || "DINE_IN";
       this.orderPriority = localStorage.getItem("autobrix_cart_priority") || "NORMAL";
+      this.modifyingOrderId = localStorage.getItem("autobrix_modifying_order_id") || null;
     } catch (e) {
       this.cart = [];
       this.customerName = "";
       this.orderSource = "DINE_IN";
       this.orderPriority = "NORMAL";
+      this.modifyingOrderId = null;
     }
     this.heldCarts = []; // queue of held orders
     
@@ -30,6 +34,11 @@ class POSPanel {
     localStorage.setItem("autobrix_cart_customer", this.customerName);
     localStorage.setItem("autobrix_cart_source", this.orderSource);
     localStorage.setItem("autobrix_cart_priority", this.orderPriority);
+    if (this.modifyingOrderId) {
+      localStorage.setItem("autobrix_modifying_order_id", this.modifyingOrderId);
+    } else {
+      localStorage.removeItem("autobrix_modifying_order_id");
+    }
   }
 
   init() {
@@ -239,7 +248,18 @@ class POSPanel {
       { id: "cold_drink", name: "Cold Drink" }
     ];
 
-    list.innerHTML = categories.map(cat => {
+    const svgMap = {
+      all: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>`,
+      rolls: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><path d="M8.5 7h7M7.5 12h9M8.5 17h7"></path></svg>`,
+      pasta: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12a10 10 0 0 0 20 0H2Z"></path><path d="M12 2v10M8 3v9M16 3v9M6 5v7M18 5v7M12 12c0 3 2 4 2 4"></path></svg>`,
+      chowmein: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11a9 9 0 0 0 18 0H3Z"></path><path d="m19 2-8 8M21 4 13 12M8 11s0-4-2-4M12 11s0-5-3-5M16 11s0-3-1-3"></path></svg>`,
+      moghlai: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 0 20M2 12a15.3 15.3 0 0 1 20 0"></path></svg>`,
+      others: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>`,
+      egg: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.5 2 6 7.5 6 12s2.5 10 6 10 6-5.5 6-10S15.5 2 12 2Z"></path></svg>`,
+      cold_drink: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8H7l1 13h8zM6 8h12M15 8l1-5"></path></svg>`
+    };
+
+    const catsHTML = categories.map(cat => {
       let count = 0;
       if (cat.id === "all") {
         count = Object.values(menuItems).filter(item => item.active).length;
@@ -248,12 +268,36 @@ class POSPanel {
       }
 
       return `
-        <button class="category-btn ${this.activeCategory === cat.id ? "active" : ""}" data-category="${cat.id}">
-          <span>${cat.name}</span>
-          <span class="category-count">${count}</span>
+        <button class="category-btn ${this.activeCategory === cat.id ? "active" : ""}" data-category="${cat.id}" title="${cat.name}" style="display:flex; justify-content:center; align-items:center; width:52px; height:52px; padding:0; border-radius:12px; position:relative; flex-shrink:0; margin: 0 auto 0.25rem auto;">
+          ${svgMap[cat.id] || ""}
+          <span class="category-count" style="position:absolute; top:-4px; right:-4px; font-size:0.65rem; padding:1px 5px; border-radius:10px; font-weight:800; border:2px solid var(--bg-card);">${count}</span>
         </button>
       `;
     }).join("");
+
+    const activeDineInOrders = (window.AutoBrixStore.state.orders || []).filter(o => 
+      (o.source === "DINE_IN" || o.source === "BOTH") && 
+      o.paymentStatus === "UNPAID" && 
+      ["ACCEPTED", "COOKING", "READY", "COMPLETED"].includes(o.fulfillmentStatus)
+    );
+
+    const dividerHTML = activeDineInOrders.length > 0 ? `<div style="width:28px; height:1px; background:rgba(255,255,255,0.1); margin:0.75rem auto;"></div>` : "";
+
+    const dineInHTML = activeDineInOrders.map(order => {
+      const mainItem = order.items[0];
+      const mainCat = mainItem ? this.getItemCategory(mainItem.id) : "all";
+      const icon = svgMap[mainCat] || svgMap.all;
+      const displaySerial = order.id.split('-').pop();
+
+      return `
+        <button class="active-dine-circle" onclick="posPanel.loadOrderForModification('${order.id}')" title="Modify Order ${order.id}" style="display:flex; justify-content:center; align-items:center; width:44px; height:44px; border-radius:50%; border:2px solid var(--accent-color); background:rgba(88,80,236,0.1); color:var(--accent-color); cursor:pointer; position:relative; flex-shrink:0; margin:0.35rem auto; transition:all 0.2s ease;">
+          ${icon}
+          <span style="position:absolute; bottom:-4px; right:-4px; background:var(--bg-card); color:var(--text-primary); border:1px solid rgba(255,255,255,0.08); font-size:0.55rem; font-weight:800; padding:0 3px; border-radius:4px; transform:scale(0.85);">${displaySerial}</span>
+        </button>
+      `;
+    }).join("");
+
+    list.innerHTML = catsHTML + dividerHTML + dineInHTML;
   }
 
   isItemInCat(item, categoryId) {
@@ -291,6 +335,70 @@ class POSPanel {
              !this.isItemInCat(item, "cold_drink");
     }
     return false;
+  }
+
+  getItemCategory(itemId) {
+    const item = window.AutoBrixStore.state.config.menuItems[itemId];
+    if (!item) return "all";
+    if (this.isItemInCat(item, "rolls")) return "rolls";
+    if (this.isItemInCat(item, "pasta")) return "pasta";
+    if (this.isItemInCat(item, "chowmein")) return "chowmein";
+    if (this.isItemInCat(item, "moghlai")) return "moghlai";
+    if (this.isItemInCat(item, "egg")) return "egg";
+    if (this.isItemInCat(item, "cold_drink")) return "cold_drink";
+    return "others";
+  }
+
+  loadOrderForModification(orderId) {
+    const cleanId = (orderId || "").toString().trim();
+    const order = window.AutoBrixStore.state.orders.find(o =>
+      o.id === cleanId ||
+      o.id === "#" + cleanId ||
+      "#" + o.id === cleanId ||
+      (o.id && cleanId && o.id.replace(/^#/, "") === cleanId.replace(/^#/, ""))
+    );
+    if (order) {
+      this.cart = window.AutoBrixStore.sortOrderItems(order.items.map(it => {
+        const itemConfig = window.AutoBrixStore.state.config.menuItems[it.id] || {};
+        return {
+          id: it.id,
+          name: it.name,
+          variant: it.variant,
+          modifiers: it.modifiers || [],
+          modifierNames: (it.modifiers || []).map(mId => {
+            const mod = window.AutoBrixStore.state.config.modifiers[mId];
+            return mod ? mod.name : "";
+          }).filter(Boolean),
+          price: it.price || it.unitPrice,
+          quantity: it.quantity,
+          prepTime: it.prepTime || itemConfig.prepTime || 5,
+          station: it.station || itemConfig.station || 'prep',
+          type: it.type || 'DINE_IN',
+          is_new: false,
+          status: it.status || 'PENDING'
+        };
+      }));
+      this.customerName = order.customerName || "";
+      this.orderSource = order.source || "DINE_IN";
+      this.orderPriority = order.priority || "NORMAL";
+      this.modifyingOrderId = order.id;
+      this.saveCart();
+
+      const nameInput = document.getElementById("cart-cust-name");
+      if (nameInput) nameInput.value = this.customerName;
+      const sourceSelect = document.getElementById("cart-order-source");
+      if (sourceSelect) sourceSelect.value = this.orderSource;
+      const prioritySelect = document.getElementById("cart-order-priority");
+      if (prioritySelect) prioritySelect.value = this.orderPriority;
+
+      // Automatically open cart drawer if it is hidden (useful for Control Hub cart hiding)
+      const cartEl = document.querySelector(".pos-cart");
+      if (cartEl) {
+        cartEl.style.display = "flex";
+      }
+
+      this.renderCart();
+    }
   }
 
   renderMenuGrid() {
@@ -661,12 +769,16 @@ class POSPanel {
     const existingIndex = this.cart.findIndex(c => 
       c.id === itemId && 
       c.variant === variantId && 
+      (!this.modifyingOrderId || c.is_new) &&
+      c.status !== 'READY' &&
       JSON.stringify(c.modifiers.sort()) === JSON.stringify(modifierIds.sort())
     );
 
     if (existingIndex > -1) {
       this.cart[existingIndex].quantity += 1;
     } else {
+      const sourceSelect = document.getElementById("cart-order-source");
+      const defaultType = (sourceSelect && sourceSelect.value === "PARCEL") ? "PARCEL" : "DINE_IN";
       this.cart.push({
         id: itemId,
         name: nameString,
@@ -676,16 +788,46 @@ class POSPanel {
         price: finalPrice,
         quantity: 1,
         prepTime: item.prepTime,
-        station: item.station
+        station: item.station,
+        type: defaultType,
+        is_new: !!this.modifyingOrderId,
+        status: 'PENDING'
       });
     }
 
+    this.autoUpdateOrderSource();
+    this.cart = window.AutoBrixStore.sortOrderItems(this.cart);
     this.renderCart();
   }
 
   renderCart() {
     const list = document.getElementById("pos-cart-items-list");
+    const container = document.getElementById(this.containerId);
+    const cartEl = container ? container.querySelector(".pos-cart") : null;
+    const gridEl = container ? container.querySelector(".receptionist-grid") : null;
+    const titleEl = this.container.querySelector(".pos-cart-title");
+    const confirmBtn = this.container.querySelector("#cart-confirm-btn");
+    const clearBtn = this.container.querySelector("#cart-clear-btn");
+
+    if (titleEl) {
+      titleEl.innerText = this.modifyingOrderId ? `Edit Order ${this.modifyingOrderId}` : "Current Order";
+    }
+    if (confirmBtn) {
+      confirmBtn.innerText = this.modifyingOrderId ? "Update Order (Space)" : "Confirm Order (Space)";
+    }
+    if (clearBtn) {
+      clearBtn.innerText = this.modifyingOrderId ? "Close Edit (Esc)" : "Cancel Order (Esc)";
+    }
+
     if (this.cart.length === 0) {
+      if (this.containerId === "hub-pos") {
+        if (cartEl) cartEl.style.display = "none";
+        if (gridEl) gridEl.style.gridTemplateColumns = "72px 1fr";
+      } else {
+        if (cartEl) cartEl.style.display = "flex";
+        if (gridEl) gridEl.style.gridTemplateColumns = "72px 1fr 360px";
+      }
+
       list.innerHTML = `
         <div style="flex-grow:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); gap:0.5rem; min-height:150px;">
           <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
@@ -702,30 +844,45 @@ class POSPanel {
       return;
     }
 
+    if (this.containerId === "hub-pos") {
+      if (cartEl) cartEl.style.display = "flex";
+      if (gridEl) gridEl.style.gridTemplateColumns = "72px 1fr 360px";
+    }
+
+    this.cart = window.AutoBrixStore.sortOrderItems(this.cart);
     list.innerHTML = this.cart.map((item, index) => {
       const subtotal = item.price * item.quantity;
       const modsHTML = item.modifierNames.length > 0 
         ? `<div class="cart-item-modifiers-list">${item.modifierNames.map(m => `<span>+ ${m}</span>`).join("")}</div>`
         : "";
 
+      const isDineIn = item.type !== "PARCEL";
+
+      const highlightBorder = item.is_new ? "border-left: 3px solid #d97706; padding-left: 8px; margin-left: -8px; background: rgba(245, 158, 11, 0.03);" : "";
+
       return `
-        <div class="cart-item">
+        <div class="cart-item" style="${highlightBorder}">
           <div class="cart-item-header">
             <div class="cart-item-info">
-              <span class="cart-item-name">${item.name}</span>
+              <span class="cart-item-name">${item.name} ${item.is_new ? `<span style="background:#d97706; color:white; font-size:0.6rem; font-weight:800; padding:1px 4px; border-radius:4px; margin-left:6px; text-transform:uppercase; vertical-align:middle;">New</span>` : ""}</span>
               ${modsHTML}
             </div>
             <span class="cart-item-price">₹${subtotal}</span>
           </div>
-          <div class="cart-item-controls">
-            <div class="cart-qty-buttons">
-              <button class="qty-btn" onclick="posPanel.changeQty(${index}, -1)">-</button>
-              <span class="cart-qty-val">${item.quantity}</span>
-              <button class="qty-btn" onclick="posPanel.changeQty(${index}, 1)">+</button>
-            </div>
-            <button class="cart-item-delete" onclick="posPanel.deleteItem(${index})">
-              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          <div class="cart-item-controls" style="display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%;">
+            <button style="padding:4px 10px; font-size:0.7rem; font-weight:700; border:1px solid rgba(255,255,255,0.12); border-radius:6px; cursor:pointer; font-family:var(--font-sans); transition:all 0.15s ease; background:${isDineIn ? "rgba(88,80,236,0.15)" : "rgba(255,255,255,0.04)"}; color:${isDineIn ? "var(--accent-color)" : "var(--text-muted)"}; flex-shrink:0;" onclick="posPanel.toggleItemType(${index}, '${isDineIn ? 'PARCEL' : 'DINE_IN'}')">
+              ${isDineIn ? 'Dine-In' : 'Parcel'}
             </button>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div class="cart-qty-buttons">
+                <button class="qty-btn" onclick="posPanel.changeQty(${index}, -1)">-</button>
+                <span class="cart-qty-val">${item.quantity}</span>
+                <button class="qty-btn" onclick="posPanel.changeQty(${index}, 1)">+</button>
+              </div>
+              <button class="cart-item-delete" onclick="posPanel.deleteItem(${index})">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -733,6 +890,22 @@ class POSPanel {
 
     this.calculateTotals();
     this.updateCartETA();
+
+    const holdBtn = document.getElementById("cart-hold-btn");
+    if (holdBtn) {
+      if (this.modifyingOrderId) {
+        holdBtn.innerText = "Settle Payment";
+        holdBtn.style.background = "#d97706";
+        holdBtn.style.color = "#ffffff";
+        holdBtn.style.borderColor = "#b45309";
+      } else {
+        holdBtn.innerText = "Hold Order";
+        holdBtn.style.background = "";
+        holdBtn.style.color = "";
+        holdBtn.style.borderColor = "";
+      }
+    }
+
     this.saveCart();
   }
 
@@ -751,7 +924,32 @@ class POSPanel {
 
   deleteItem(index) {
     this.cart.splice(index, 1);
+    this.autoUpdateOrderSource();
     this.renderCart();
+  }
+
+  toggleItemType(index, type) {
+    if (this.cart[index]) {
+      this.cart[index].type = type;
+      this.autoUpdateOrderSource();
+      this.renderCart();
+    }
+  }
+
+  autoUpdateOrderSource() {
+    if (["SWIGGY", "ZOMATO", "TAKEAWAY"].includes(this.orderSource)) return;
+    const hasDineIn = this.cart.some(it => it.type === "DINE_IN");
+    const hasParcel = this.cart.some(it => it.type === "PARCEL");
+    const select = document.getElementById("cart-order-source");
+    if (!select) return;
+    if (hasDineIn && hasParcel) {
+      select.value = "BOTH";
+    } else if (hasDineIn) {
+      select.value = "DINE_IN";
+    } else if (hasParcel) {
+      select.value = "PARCEL";
+    }
+    this.orderSource = select.value;
   }
 
   calculateTotals() {
@@ -788,11 +986,34 @@ class POSPanel {
 
   updateCartETA() {
     // Standard mapping of items to station schema
-    const etaVal = window.AutoBrixStore.calculateCartWaitTime(this.cart);
+    const etaVal = window.AutoBrixStore.calculateCartWaitTime(this.cart, { excludeOrderId: this.modifyingOrderId, editingOrderId: this.modifyingOrderId });
     document.getElementById("pos-cart-eta-value").innerText = `${etaVal} Mins`;
+
+    const deliveryTimeEl = document.getElementById("pos-cart-delivery-time");
+    if (deliveryTimeEl) {
+      if (this.cart.length === 0) {
+        deliveryTimeEl.innerText = "--:--";
+      } else {
+        const now = new Date();
+        const deliveryTime = new Date(now.getTime() + etaVal * 60 * 1000);
+        
+        let hours = deliveryTime.getHours();
+        const minutes = deliveryTime.getMinutes().toString().padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        const formatted = `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+        
+        deliveryTimeEl.innerText = formatted;
+      }
+    }
   }
 
   clearCart() {
+    if (this.modifyingOrderId) {
+      this.modifyingOrderId = null;
+    }
+
     this.cart = [];
     this.customerName = "";
     document.getElementById("cart-cust-name").value = "";
@@ -800,11 +1021,16 @@ class POSPanel {
     document.getElementById("cart-order-source").value = "DINE_IN";
     this.orderPriority = "NORMAL";
     document.getElementById("cart-order-priority").value = "NORMAL";
+    this.modifyingOrderId = null;
     
     this.renderCart();
   }
 
   holdOrder() {
+    if (this.modifyingOrderId) {
+      this.confirmOrder(true);
+      return;
+    }
     if (this.cart.length === 0) return;
     
     this.heldCarts.push({
@@ -848,11 +1074,13 @@ class POSPanel {
     }
   }
 
-  confirmOrder() {
+  confirmOrder(forceSettle = false) {
     if (this.cart.length === 0) {
       alert("Cart is empty!");
       return;
     }
+
+    const editingOrderId = this.modifyingOrderId;
 
     // Totals calculations
     let subtotal = 0;
@@ -869,7 +1097,7 @@ class POSPanel {
     const commission = subtotal * (commPct / 100);
     const netRevenue = total - commission;
 
-    const etaVal = window.AutoBrixStore.calculateCartWaitTime(this.cart);
+    const etaVal = window.AutoBrixStore.calculateCartWaitTime(this.cart, { excludeOrderId: editingOrderId, editingOrderId: editingOrderId });
     
     // Generate order ID like #7-7-26-0001
     const now = new Date();
@@ -880,14 +1108,14 @@ class POSPanel {
     const todayOrders = window.AutoBrixStore.state.orders.filter(o => o.id.startsWith("#" + datePrefix) || o.id.startsWith(datePrefix));
     const nextSerial = todayOrders.length + 1;
     const serialStr = nextSerial.toString().padStart(4, '0');
-    const orderId = `#${datePrefix}${serialStr}`;
+    const orderId = editingOrderId || `#${datePrefix}${serialStr}`;
 
     const orderData = {
       id: orderId,
       customerName: this.customerName || "Walk-In Customer",
       source: this.orderSource,
       priority: this.orderPriority,
-      items: this.cart.map(item => ({
+      items: window.AutoBrixStore.sortOrderItems(this.cart).map(item => ({
         id: item.id,
         name: item.name,
         variant: item.variant,
@@ -895,7 +1123,10 @@ class POSPanel {
         quantity: item.quantity,
         price: item.price,
         prepTime: item.prepTime,
-        station: item.station
+        station: item.station,
+        type: item.type || 'DINE_IN',
+        is_new: item.is_new || false,
+        status: item.status || 'PENDING'
       })),
       subtotal: subtotal,
       tax: tax,
@@ -906,38 +1137,7 @@ class POSPanel {
       paymentStatus: (this.orderSource === "SWIGGY" || this.orderSource === "ZOMATO") ? "PAID" : "UNPAID"
     };
 
-    // Show Payment Mode Selection Modal instead of printing
-    const paymentModal = document.createElement("div");
-    paymentModal.className = "custom-modal-backdrop";
-    paymentModal.style = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:2000; font-family:var(--font-sans);";
-    paymentModal.innerHTML = `
-      <div style="background:var(--bg-card); border:1px solid rgba(255,255,255,0.08); border-radius:12px; width:360px; padding:1.5rem; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
-        <h3 style="font-size:1.15rem; font-weight:700; margin-bottom:0.5rem; color:var(--text-primary);">Select Payment Mode</h3>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem;">Choose the payment method for Order ${orderId}</p>
-        
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:1.5rem;">
-          <button id="pay-online" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; height:80px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); border-radius:8px; cursor:pointer; color:var(--text-primary); font-weight:600; font-size:0.9rem; transition:all 0.15s ease;">
-            <svg width="24" height="24" fill="none" stroke="var(--accent-color)" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20m-5 4h.01M13 14h.01"/></svg>
-            <span>Online</span>
-          </button>
-          
-          <button id="pay-offline" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; height:80px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); border-radius:8px; cursor:pointer; color:var(--text-primary); font-weight:600; font-size:0.9rem; transition:all 0.15s ease;">
-            <svg width="24" height="24" fill="none" stroke="#10b981" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
-            <span>Offline (Cash)</span>
-          </button>
-        </div>
-        
-        <button id="pay-cancel" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.85rem; font-weight:500;">Cancel</button>
-      </div>
-    `;
-
-    document.body.appendChild(paymentModal);
-
-    const buttons = paymentModal.querySelectorAll("button:not(#pay-cancel)");
-    buttons.forEach(btn => {
-      btn.onmouseenter = () => btn.style.background = "rgba(255,255,255,0.06)";
-      btn.onmouseleave = () => btn.style.background = "rgba(255,255,255,0.02)";
-    });
+    const hasDineIn = this.cart.some(it => it.type === "DINE_IN");
 
     const finalizeCheckout = (paymentStatus) => {
       orderData.paymentStatus = paymentStatus;
@@ -945,16 +1145,21 @@ class POSPanel {
       const success = window.AutoBrixStore.reserveInventoryAtomically(orderData);
       if (success) {
         if (window.AlokaAPI.isOnline()) {
-          const itemsPayload = orderData.items.map(it => ({
+           const itemsPayload = window.AutoBrixStore.sortOrderItems(orderData.items).map(it => ({
             id: it.id,
             name: it.name,
             variant: it.variant,
             variantName: it.variant === 'single' ? 'Single' : (it.variant === 'half' ? 'Half' : 'Full'),
             quantity: it.quantity,
             unitPrice: it.price,
-            modifiers: it.modifiers
+            modifiers: it.modifiers,
+            type: it.type || 'DINE_IN',
+            is_new: it.is_new || false,
+            status: it.status || 'PENDING'
           }));
-          window.AlokaAPI.post('/orders', {
+          const method = editingOrderId ? 'put' : 'post';
+          const path = editingOrderId ? `/orders/${encodeURIComponent(editingOrderId)}` : '/orders';
+          window.AlokaAPI[method](path, {
             id: orderData.id,
             customer_name: orderData.customerName,
             source: orderData.source,
@@ -975,25 +1180,68 @@ class POSPanel {
           });
         }
         
-        // Clean up POS (No printing!)
+        // Reset modifyingOrderId BEFORE calling clearCart to avoid cancel prompt!
+        this.modifyingOrderId = null;
         this.clearCart();
-        paymentModal.remove();
         
         // Show success notification/toast
         const successToast = document.createElement("div");
         successToast.style = "position:fixed; bottom:24px; right:24px; background:#10b981; color:white; font-weight:700; font-size:0.9rem; padding:12px 24px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:9999;";
-        successToast.innerText = `Order ${orderId} Placed Successfully (${paymentStatus === 'PAID' ? 'Online' : 'Offline'})!`;
+        successToast.innerText = `Order ${orderId} Placed Successfully (${paymentStatus === 'PAID' ? 'Paid' : 'Unpaid'})!`;
         document.body.appendChild(successToast);
         setTimeout(() => successToast.remove(), 3000);
       } else {
         alert("Checkout failed: Insufficient ingredient stock!");
-        paymentModal.remove();
       }
     };
 
-    paymentModal.querySelector("#pay-online").onclick = () => finalizeCheckout("PAID");
-    paymentModal.querySelector("#pay-offline").onclick = () => finalizeCheckout("UNPAID");
-    paymentModal.querySelector("#pay-cancel").onclick = () => paymentModal.remove();
+    if (hasDineIn && !forceSettle) {
+      // Dine-In orders bypass modal payment selection and are directly checked out unpaid
+      finalizeCheckout("UNPAID");
+    } else {
+      // Show Payment Mode Selection Modal for full parcel orders OR settled Dine-In orders
+      const paymentModal = document.createElement("div");
+      paymentModal.className = "custom-modal-backdrop";
+      paymentModal.style = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:2000; font-family:var(--font-sans);";
+      paymentModal.innerHTML = `
+        <div style="background:var(--bg-card); border:1px solid rgba(255,255,255,0.08); border-radius:12px; width:360px; padding:1.5rem; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+          <h3 style="font-size:1.15rem; font-weight:700; margin-bottom:0.5rem; color:var(--text-primary);">Select Payment Mode</h3>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem;">Choose the payment method for Order ${orderId}</p>
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:1.5rem;">
+            <button id="pay-online" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; height:80px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); border-radius:8px; cursor:pointer; color:var(--text-primary); font-weight:600; font-size:0.9rem; transition:all 0.15s ease;">
+              <svg width="24" height="24" fill="none" stroke="var(--accent-color)" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20m-5 4h.01M13 14h.01"/></svg>
+              <span>Online</span>
+            </button>
+            
+            <button id="pay-offline" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; height:80px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); border-radius:8px; cursor:pointer; color:var(--text-primary); font-weight:600; font-size:0.9rem; transition:all 0.15s ease;">
+              <svg width="24" height="24" fill="none" stroke="#10b981" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+              <span>Offline (Cash)</span>
+            </button>
+          </div>
+          
+          <button id="pay-cancel" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.85rem; font-weight:500;">Cancel</button>
+        </div>
+      `;
+
+      document.body.appendChild(paymentModal);
+
+      const buttons = paymentModal.querySelectorAll("button:not(#pay-cancel)");
+      buttons.forEach(btn => {
+        btn.onmouseenter = () => btn.style.background = "rgba(255,255,255,0.06)";
+        btn.onmouseleave = () => btn.style.background = "rgba(255,255,255,0.02)";
+      });
+
+      paymentModal.querySelector("#pay-online").onclick = () => {
+        finalizeCheckout("PAID");
+        paymentModal.remove();
+      };
+      paymentModal.querySelector("#pay-offline").onclick = () => {
+        finalizeCheckout("PAID"); // Forced paid when settling
+        paymentModal.remove();
+      };
+      paymentModal.querySelector("#pay-cancel").onclick = () => paymentModal.remove();
+    }
   }
 
   printBillReceipt(order) {

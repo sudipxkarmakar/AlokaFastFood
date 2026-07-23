@@ -1,20 +1,21 @@
 @echo off
+set "PATH=C:\Program Files\nodejs;%PATH%"
 title AlokaFastFood Launcher
 echo ===================================================
 echo   AlokaFastFood OS Launcher
 echo ===================================================
 echo.
 
-echo Starting MySQL80 service...
+echo Starting MySQL service / daemon...
 net start MySQL80 2>nul
 if %errorLevel% neq 0 (
-    echo MySQL80 already running or starting...
+    start /B "" "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqld.exe" --datadir="C:\ProgramData\MySQL\MySQL Server 8.4\Data" --port=3306 2>nul
 )
 timeout /t 2 >nul
 
 echo.
 echo Starting Backend API Server in a new window...
-start "AlokaFastFood Backend Server" cmd /k "cd /d "%~dp0server" && npm install && npm run dev"
+start "AlokaFastFood Backend Server" cmd /k "cd /d "%~dp0server" && set "PATH=C:\Program Files\nodejs;%%PATH%%" && npm run dev"
 
 echo.
 echo Waiting for server to start...

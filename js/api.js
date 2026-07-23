@@ -203,24 +203,28 @@ window.AlokaAPI = {
       paymentStatus: o.payment_status || "UNPAID",
       timestamp: o.created_at || new Date().toISOString(),
       ts_active: o.ts_active ? new Date(o.ts_active).toISOString() : null,
+      ts_queued: o.ts_queued ? new Date(o.ts_queued).toISOString() : null,
       timestamps: {
         accepted: o.ts_accepted ? new Date(o.ts_accepted).toISOString() : null,
         cooking: o.ts_cooking ? new Date(o.ts_cooking).toISOString() : null,
         ready: o.ts_ready ? new Date(o.ts_ready).toISOString() : null,
         completed: o.ts_completed ? new Date(o.ts_completed).toISOString() : null,
-        active: o.ts_active ? new Date(o.ts_active).toISOString() : null
+        active: o.ts_active ? new Date(o.ts_active).toISOString() : null,
+        queued: o.ts_queued ? new Date(o.ts_queued).toISOString() : null
       },
       items: (o.items || []).map(it => {
         const itemConfig = store.state.config.menuItems[it.menu_item_id] || {};
         return {
           id: it.menu_item_id,
           name: it.menu_item_name,
+          type: it.type || "DINE_IN",
           variant: it.variant_id,
           variantName: it.variant_name,
           quantity: it.quantity,
           price: +it.unit_price,
           modifiers: typeof it.modifiers === 'string' ? JSON.parse(it.modifiers) : (it.modifiers || []),
           status: it.status,
+          is_new: !!it.is_new,
           station: itemConfig.station || 'prep',
           prepTime: itemConfig.prepTime || 5
         };
@@ -308,4 +312,15 @@ window.AlokaAPI = {
       await tryConnect();
     }
   }, 30000);
+
+  // Poll state every 3s if online to keep KDS screens in sync
+  setInterval(async () => {
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        await window.AlokaAPI.loadAllState();
+      } catch (e) {
+        console.error('[AlokaAPI] Polling state failed:', e);
+      }
+    }
+  }, 3000);
 })();

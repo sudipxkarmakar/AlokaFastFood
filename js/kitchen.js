@@ -128,14 +128,22 @@ class KitchenDisplay {
     const priorityWeight = { VIP: 5, SWIGGY: 4, ZOMATO: 4, TAKEAWAY: 3, NORMAL: 2 };
     
     activeOrders.sort((a, b) => {
+      const aRunning = !!a.ts_active;
+      const bRunning = !!b.ts_active;
+      if (aRunning !== bRunning) {
+        return aRunning ? -1 : 1;
+      }
+
       const weightA = priorityWeight[a.priority] || 0;
       const weightB = priorityWeight[b.priority] || 0;
 
       if (weightA !== weightB) {
         return weightB - weightA; // Higher weight first
       }
-      // Oldest order first
-      return new Date(a.timestamp) - new Date(b.timestamp);
+
+      const queueA = a.ts_queued || (a.timestamps && a.timestamps.queued) || a.ts_active || a.timestamp;
+      const queueB = b.ts_queued || (b.timestamps && b.timestamps.queued) || b.ts_active || b.timestamp;
+      return new Date(queueA) - new Date(queueB);
     });
 
     // Update Header stats
@@ -172,10 +180,15 @@ class KitchenDisplay {
     container.innerHTML = activeOrders.map((order, idx) => {
       const isOnHold = idx > 0;
       const priorityClass = `priority-${order.priority}`;
+      const orderedItems = window.AutoBrixStore.sortOrderItems(order.items);
       
-      // Filter items in the card to show ONLY those handled by this screen
-      const itemsHTML = order.items.map((item, index) => {
-        if (!this.stations.includes(item.station) || item.status === "READY") return "";
+      // Filter items in the card (show other station items with lower opacity)
+      const itemsHTML = orderedItems.map((item, index) => {
+        if (item.status === "READY") return "";
+
+        const isOtherStation = !this.stations.includes(item.station);
+        const otherStyle = isOtherStation ? "opacity: 0.55; font-style: italic;" : "";
+        const stationBadge = isOtherStation ? `<span style="background: rgba(255,255,255,0.06); color: var(--text-muted); font-size: 0.6rem; padding: 1px 4px; border-radius: 4px; font-weight: 700; font-style: normal; margin-left: 6px; text-transform: uppercase; vertical-align: middle;">${item.station}</span>` : "";
 
         const modifiersConfig = state.config.modifiers;
         const getModifierImgHTML = (modId, size = 20) => {
@@ -203,13 +216,20 @@ class KitchenDisplay {
         
         const modsHTML = modsListHTML ? `<div class="k-item-modifiers" style="display:flex; flex-wrap:wrap; margin-top:2px;">${modsListHTML}</div>` : "";
 
+        const highlightStyle = item.is_new 
+          ? "background:rgba(245,158,11,0.08); border-left:4px solid #d97706; border-top:1px dashed rgba(245,158,11,0.25); border-bottom:1px dashed rgba(245,158,11,0.25); border-right:1px dashed rgba(245,158,11,0.25); padding:8px 12px; margin:4px -12px; border-radius:0 6px 6px 0;" 
+          : "padding:8px 0;";
+
         return `
-          <div class="k-item" style="padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+          <div class="k-item" style="border-bottom:1px solid rgba(255,255,255,0.04); ${highlightStyle} ${otherStyle}">
             <div class="k-item-header" style="margin-bottom:6px;">
               <div style="display:flex; align-items:center;">
                 <span class="k-item-qty" style="font-size:1.15rem; font-weight:800; color:var(--accent-color); margin-right:8px;">${item.quantity}x</span>
                 <div style="display:flex; flex-direction:column;">
-                  <span class="k-item-name" style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">${item.name}</span>
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <span class="k-item-name" style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">${item.name} ${stationBadge}</span>
+                    ${item.is_new ? '<span style="background:#d97706; color:white; font-size:0.6rem; font-weight:800; padding:1px 4px; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em;">New</span>' : ""}
+                  </div>
                   ${modsHTML}
                 </div>
               </div>
@@ -218,22 +238,54 @@ class KitchenDisplay {
         `;
       }).join("");
 
-      const totalItemPrepTime = order.items
-        .filter(it => this.stations.includes(it.station))
+      const subsetSum = order.items
+        .filter(it => this.stations.includes(it.station) && it.status !== "READY")
         .reduce((sum, it) => sum + (it.prepTime * it.quantity), 0);
+      const totalItemPrepTime = subsetSum || order.eta || 0;
+      const hasNewItemsForStation = order.items.some(it => this.stations.includes(it.station) && it.status !== "READY" && it.is_new);
+      const readyButtonStyle = hasNewItemsForStation
+        ? "background:#d97706; color:#ffffff; box-shadow:0 0 0 2px rgba(245,158,11,0.25);"
+        : "";
+      const readyButtonText = hasNewItemsForStation ? "Mark Added Items Ready" : "Mark Ready";
 
       // Calculate backwards timer values
-      const elapsedSec = Math.floor((new Date() - new Date(order.ts_active || order.timestamp)) / 1000);
+      const startTimestamp = order.ts_active ? new Date(order.ts_active) : new Date();
+      const elapsedSec = Math.floor((new Date() - startTimestamp) / 1000);
       const elapsedMin = Math.floor(elapsedSec / 60);
       const remainingSec = (totalItemPrepTime * 60) - (isOnHold ? 0 : elapsedSec);
       const isDelayed = !isOnHold && remainingSec < 0;
       const absSec = Math.abs(remainingSec);
       const min = Math.floor(absSec / 60);
       const sec = absSec % 60;
-      const formattedElapsed = `${isDelayed ? "-" : ""}${min}:${sec.toString().padStart(2, "0")}`;
+      const formattedElapsed = (isDelayed ? "-" : "") + min + ":" + sec.toString().padStart(2, "0");
         
       const delayMin = elapsedMin - totalItemPrepTime;
-      const delayText = isDelayed ? `DELAYED by ${delayMin}m` : `ETA: ${totalItemPrepTime}m`;
+      const delayText = isDelayed ? "DELAYED by " + delayMin + "m" : "ETA: " + totalItemPrepTime + "m";
+
+      const isRunningOrder = !!order.ts_active && ["ACCEPTED", "COOKING"].includes(order.fulfillmentStatus);
+      let deliveryTime;
+      if (isRunningOrder) {
+        const activeTime = new Date(order.ts_active);
+        const pendingPrep = order.items
+          .filter(it => it.status !== "READY")
+          .reduce((sum, it) => sum + (it.prepTime * it.quantity), 0);
+        const prepMin = pendingPrep || totalItemPrepTime;
+        deliveryTime = new Date(activeTime.getTime() + prepMin * 60 * 1000);
+      } else {
+        const queueTimeStr = order.ts_queued || (order.timestamps && order.timestamps.queued) || order.timestamp;
+        const queueTime = queueTimeStr ? new Date(queueTimeStr) : new Date();
+        const estMinutes = (typeof order.eta === "number" && order.eta > 0)
+          ? order.eta
+          : window.AutoBrixStore.calculateCartWaitTime(order.items, { excludeOrderId: order.id });
+        deliveryTime = new Date(queueTime.getTime() + estMinutes * 60 * 1000);
+      }
+
+      let dHours = deliveryTime.getHours();
+      const dMinutes = deliveryTime.getMinutes().toString().padStart(2, '0');
+      const dAmpm = dHours >= 12 ? 'PM' : 'AM';
+      dHours = dHours % 12;
+      dHours = dHours ? dHours : 12;
+      const formattedDelivery = dHours.toString().padStart(2, '0') + ":" + dMinutes + " " + dAmpm;
 
       // Compute dynamic card style based on elapsed time ratio (0 for on-hold)
       const ratio = (!isOnHold && totalItemPrepTime > 0) ? (elapsedMin / totalItemPrepTime) : 0;
@@ -247,12 +299,12 @@ class KitchenDisplay {
       }
 
       return `
-        <div class="kitchen-order-card ${priorityClass} ${isDelayed ? "delayed" : ""}" id="k-card-${order.id}" data-timestamp="${order.ts_active || order.timestamp}" data-preptime="${totalItemPrepTime}" style="${cardStyle} border-radius:8px; padding:12px; margin-bottom:12px; transition:all 0.3s ease; ${isOnHold ? "pointer-events: none; user-select: none; border-color: rgba(255,255,255,0.05);" : ""}">
+        <div class="kitchen-order-card ${priorityClass} ${isDelayed ? "delayed" : ""}" id="k-card-${order.id}" data-timestamp="${order.ts_active || ""}" data-preptime="${totalItemPrepTime}" style="${cardStyle} border-radius:8px; padding:12px; margin-bottom:12px; transition:all 0.3s ease; ${isOnHold ? "pointer-events: none; user-select: none; border-color: rgba(255,255,255,0.05);" : ""}">
           <div class="kitchen-card-header" style="border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:flex-start;">
             <div class="kitchen-card-meta" style="display:flex; flex-direction:column; gap:2px;">
               <div style="display:flex; align-items:center; gap:6px;">
                 <span class="kitchen-card-id" style="font-size:1rem; font-weight:800; color:var(--text-primary);">${order.id}</span>
-                ${isOnHold ? `<span style="background:rgba(255,255,255,0.08); color:var(--text-muted); border:1px solid rgba(255,255,255,0.12); font-size:0.65rem; font-weight:800; padding:1px 6px; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em;">On Hold</span>` : ""}
+                ${isOnHold ? '<span style="background:rgba(255,255,255,0.08); color:var(--text-muted); border:1px solid rgba(255,255,255,0.12); font-size:0.65rem; font-weight:800; padding:1px 6px; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em;">On Hold</span>' : ""}
               </div>
               <span class="kitchen-card-time" style="font-size:0.75rem; color:var(--text-muted);">${order.customerName} [${order.source}]</span>
             </div>
@@ -262,15 +314,16 @@ class KitchenDisplay {
             <div class="kitchen-card-items-list">
               ${itemsHTML}
             </div>
-            <button class="k-item-btn cooking" style="width:100%; border:none; padding:10px; border-radius:6px; font-weight:800; font-size:0.9rem; cursor:pointer; margin-top:12px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.02em;" onclick="kitchenDisplay${this.screenType}.markOrderAsReady('${order.id}')">
-              Mark Ready
+            <button class="k-item-btn cooking" style="width:100%; border:none; padding:10px; border-radius:6px; font-weight:800; font-size:0.9rem; cursor:pointer; margin-top:12px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.02em; ${readyButtonStyle}" onclick="kitchenDisplay${this.screenType}.markOrderAsReady('${order.id}')">
+              ${readyButtonText}
             </button>
           </div>
-          <div class="kitchen-card-footer" style="border-top:1px solid rgba(255,255,255,0.08); padding-top:6px; margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+          <div class="kitchen-card-footer" style="border-top:1px solid rgba(255,255,255,0.08); padding-top:6px; margin-top:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
             <span class="kitchen-timer-display ${isDelayed ? "delayed" : ""}" id="k-timer-${order.id}" style="display:inline-flex; align-items:center; gap:4px; font-weight:700; font-size:0.85rem;">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
               <span>${formattedElapsed}</span>
             </span>
+            <span style="font-size:0.75rem; font-weight:700; color:#fbbf24;">Delv: ${formattedDelivery}</span>
             <span style="font-size:0.8rem; font-weight:800; color:${isDelayed ? "var(--color-critical)" : "var(--text-secondary)"};" id="k-delay-text-${order.id}">
               ${delayText}
             </span>
@@ -287,10 +340,11 @@ class KitchenDisplay {
     const cards = container.querySelectorAll(".kitchen-order-card");
     cards.forEach((card, idx) => {
       const orderId = card.id.replace("k-card-", "");
-      const timestamp = new Date(card.dataset.timestamp);
+      const rawTimestamp = card.dataset.timestamp;
+      const timestamp = (rawTimestamp && rawTimestamp !== "null") ? new Date(rawTimestamp) : null;
       const prepTime = parseInt(card.dataset.preptime);
 
-      if (idx > 0) {
+      if (idx > 0 || !timestamp || isNaN(timestamp.getTime())) {
         const timerSpan = document.getElementById(`k-timer-${orderId}`);
         if (timerSpan) {
           timerSpan.querySelector("span").innerText = `${prepTime}:00`;

@@ -332,6 +332,8 @@ CREATE TABLE IF NOT EXISTS orders (
   ts_cooking DATETIME,
   ts_ready DATETIME,
   ts_completed DATETIME,
+  ts_active DATETIME,
+  ts_queued DATETIME,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

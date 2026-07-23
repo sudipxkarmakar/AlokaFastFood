@@ -28,8 +28,44 @@ const db = require('./db');
 // Auto-migration: ensure worker_stations and workers have required columns
 (async () => {
   try {
-    await db.query('ALTER TABLE orders ADD COLUMN ts_active TIMESTAMP NULL DEFAULT NULL');
+    await db.query('ALTER TABLE orders ADD COLUMN ts_active DATETIME NULL DEFAULT NULL');
     console.log('[Auto-Migration] Added COLUMN ts_active to orders');
+  } catch (e) {
+    if (e.code !== 'ER_DUP_COLUMN_NAME') {
+      console.warn('[Auto-Migration] Notice:', e.message);
+    }
+  }
+  try {
+    await db.query('ALTER TABLE orders MODIFY COLUMN ts_active DATETIME NULL DEFAULT NULL');
+    console.log('[Auto-Migration] Modified ts_active to DATETIME to prevent implicit ON UPDATE updates');
+  } catch (e) {
+    console.warn('[Auto-Migration] ts_active DATETIME alter notice:', e.message);
+  }
+  try {
+    await db.query('ALTER TABLE orders ADD COLUMN ts_queued DATETIME NULL DEFAULT NULL AFTER ts_active');
+    console.log('[Auto-Migration] Added COLUMN ts_queued to orders');
+  } catch (e) {
+    if (e.code !== 'ER_DUP_COLUMN_NAME') {
+      console.warn('[Auto-Migration] Notice:', e.message);
+    }
+  }
+  try {
+    await db.query('UPDATE orders SET ts_queued=COALESCE(ts_queued, ts_active, ts_accepted, created_at) WHERE fulfillment_status IN (\'ACCEPTED\', \'COOKING\', \'READY\')');
+    console.log('[Auto-Migration] Backfilled ts_queued for active orders');
+  } catch (e) {
+    console.warn('[Auto-Migration] ts_queued backfill notice:', e.message);
+  }
+  try {
+    await db.query("ALTER TABLE order_items ADD COLUMN type VARCHAR(32) DEFAULT 'DINE_IN'");
+    console.log('[Auto-Migration] Added COLUMN type to order_items');
+  } catch (e) {
+    if (e.code !== 'ER_DUP_COLUMN_NAME') {
+      console.warn('[Auto-Migration] Notice:', e.message);
+    }
+  }
+  try {
+    await db.query('ALTER TABLE order_items ADD COLUMN is_new TINYINT DEFAULT 0');
+    console.log('[Auto-Migration] Added COLUMN is_new to order_items');
   } catch (e) {
     if (e.code !== 'ER_DUP_COLUMN_NAME') {
       console.warn('[Auto-Migration] Notice:', e.message);

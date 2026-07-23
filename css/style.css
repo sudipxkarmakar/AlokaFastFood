@@ -337,7 +337,7 @@ main {
 /* ========================================== */
 .receptionist-grid {
   display: grid;
-  grid-template-columns: 180px 1fr 360px;
+  grid-template-columns: 72px 1fr 360px;
   gap: 0.75rem;
   height: 100%;
   padding: 1rem;
@@ -1742,6 +1742,35 @@ main {
   border-radius: 4px;
   font-weight: 600;
   text-shadow: none;
+}
+
+/* KDS Shrinking for Control Hub Dashboard Preview */
+#hub-kds-a .kitchen-order-card, #hub-kds-b .kitchen-order-card {
+  width: 190px !important;
+  font-size: 0.75rem !important;
+}
+#hub-kds-a .kitchen-orders-scroll, #hub-kds-b .kitchen-orders-scroll {
+  padding: 0.5rem !important;
+  gap: 0.5rem !important;
+}
+#hub-kds-a .kitchen-card-header, #hub-kds-b .kitchen-card-header {
+  padding: 0.4rem !important;
+}
+#hub-kds-a .kitchen-card-items, #hub-kds-b .kitchen-card-items {
+  padding: 0.4rem !important;
+}
+#hub-kds-a .kitchen-item-row, #hub-kds-b .kitchen-item-row {
+  padding: 0.2rem 0 !important;
+}
+#hub-kds-a .kds-btn-ready, #hub-kds-b .kds-btn-ready {
+  padding: 0.3rem 0.5rem !important;
+  font-size: 0.7rem !important;
+}
+#hub-kds-a .kitchen-header h3, #hub-kds-b .kitchen-header h3 {
+  font-size: 0.85rem !important;
+}
+#hub-kds-a .kitchen-header, #hub-kds-b .kitchen-header {
+  padding: 0.4rem !important;
 }
 
 

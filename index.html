@@ -77,11 +77,9 @@
                       <div class="form-group-flex">
                         <label class="form-label-xs">Order Source</label>
                         <select class="pos-select-sm" id="cart-order-source">
-                          <option value="DINE_IN" selected>Dine-In (0%)</option>
-                          <option value="TAKEAWAY">Takeaway (0%)</option>
-                          <option value="SWIGGY">Swiggy (+22%)</option>
-                          <option value="ZOMATO">Zomato (+22%)</option>
-                          <option value="PHONE_ORDER">Phone Order (0%)</option>
+                          <option value="DINE_IN" selected>Dine-In</option>
+                          <option value="PARCEL">Parcel</option>
+                          <option value="BOTH">Both</option>
                         </select>
                       </div>
                       <div class="form-group-flex">
@@ -102,6 +100,10 @@
                   <div class="pos-cart-eta">
                     <span class="eta-label">Estimated Cook Time:</span>
                     <span class="eta-value" id="pos-cart-eta-value">0 Min</span>
+                  </div>
+                  <div class="pos-cart-eta" style="margin-top: 4px; border-top: none; padding-top: 0; padding-bottom: 8px;">
+                    <span class="eta-label">Est. Delivery Time:</span>
+                    <span class="eta-value" id="pos-cart-delivery-time" style="color: #fbbf24;">--:--</span>
                   </div>
                   
                   <div class="pos-cart-summary">

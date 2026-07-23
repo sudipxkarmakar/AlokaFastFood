@@ -902,19 +902,94 @@ class AutoBrixStore {
     return multipliers[3]; // 1.5
   }
 
-  calculateCartWaitTime(cartItems) {
-    if (cartItems.length === 0) return 0;
-    
-    let totalPrepTime = 0;
-    cartItems.forEach(cartItem => {
-      const menuInfo = this.state.config.menuItems[cartItem.id];
-      if (!menuInfo) return;
-      const qty = parseInt(cartItem.quantity) || 1;
-      const itemPrep = menuInfo.prepTime || 0;
-      totalPrepTime += itemPrep * qty;
+  getItemStation(item) {
+    const menuInfo = this.state.config.menuItems[item.id];
+    return item.station || (menuInfo && menuInfo.station) || "prep";
+  }
+
+  getItemPrepMinutes(item) {
+    const menuInfo = this.state.config.menuItems[item.id];
+    const qty = parseInt(item.quantity) || 1;
+    return ((item.prepTime || (menuInfo && menuInfo.prepTime) || 0) * qty);
+  }
+
+  getOrderItemSortRank(item) {
+    if ((item.type || "DINE_IN") === "PARCEL") return 5;
+
+    const text = `${item.id || ""} ${item.name || ""}`.toLowerCase();
+    if (text.includes("chowmein") || text.includes("chowmean")) return 1;
+    if (text.includes("pasta")) return 2;
+    if (text.includes("roll")) return 3;
+    if (text.includes("paratha") || text.includes("paraha")) return 4;
+    return 4;
+  }
+
+  sortOrderItems(items) {
+    return [...items].sort((a, b) => {
+      const rankDiff = this.getOrderItemSortRank(a) - this.getOrderItemSortRank(b);
+      if (rankDiff !== 0) return rankDiff;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  }
+
+  getOrderQueueTime(order) {
+    return order.ts_queued || (order.timestamps && order.timestamps.queued) || order.ts_active || (order.timestamps && order.timestamps.active) || order.timestamp;
+  }
+
+  getOrderActiveTime(order) {
+    return order.ts_active || (order.timestamps && order.timestamps.active) || null;
+  }
+
+  calculateCartWaitTime(cartItems, options = {}) {
+    const newCartItems = cartItems.filter(item => item.status !== "READY");
+    if (newCartItems.length === 0) return 0;
+
+    const cartWorkByStation = {};
+    newCartItems.forEach(cartItem => {
+      const station = this.getItemStation(cartItem);
+      cartWorkByStation[station] = (cartWorkByStation[station] || 0) + this.getItemPrepMinutes(cartItem);
     });
 
-    return totalPrepTime;
+    const editingOrderId = options.editingOrderId || options.excludeOrderId;
+    const editingOrder = editingOrderId
+      ? this.state.orders.find(order => order.id === editingOrderId)
+      : null;
+    const editingActiveTime = editingOrder ? this.getOrderActiveTime(editingOrder) : null;
+    const isEditingRunningOrder = editingOrder &&
+      editingActiveTime &&
+      ["ACCEPTED", "COOKING"].includes(editingOrder.fulfillmentStatus);
+
+    const activeStatuses = ["ACCEPTED", "COOKING"];
+    const ordersAhead = isEditingRunningOrder ? [] : this.state.orders
+      .filter(order => order.id !== editingOrderId && activeStatuses.includes(order.fulfillmentStatus))
+      .sort((a, b) => new Date(this.getOrderQueueTime(a)) - new Date(this.getOrderQueueTime(b)));
+
+    const waitByStation = {};
+    ordersAhead.forEach(order => {
+      const activeTime = this.getOrderActiveTime(order);
+      const elapsedMin = activeTime ? Math.floor((new Date() - new Date(activeTime)) / 60000) : 0;
+
+      Object.keys(cartWorkByStation).forEach(station => {
+        const stationWork = order.items
+          .filter(item => item.status !== "READY" && this.getItemStation(item) === station)
+          .reduce((sum, item) => sum + this.getItemPrepMinutes(item), 0);
+
+        if (stationWork === 0) return;
+        const remaining = activeTime ? Math.max(0, stationWork - elapsedMin) : stationWork;
+        waitByStation[station] = (waitByStation[station] || 0) + remaining;
+      });
+    });
+
+    const stationEtas = Object.entries(cartWorkByStation).map(([station, prepTime]) => {
+      let adjustedPrepTime = prepTime;
+      if (isEditingRunningOrder) {
+        const elapsedMin = Math.floor((new Date() - new Date(editingActiveTime)) / 60000);
+        adjustedPrepTime = Math.max(0, prepTime - elapsedMin);
+      }
+      return (waitByStation[station] || 0) + adjustedPrepTime;
+    });
+
+    return Math.ceil(Math.max(...stationEtas, 0));
   }
 
   // --- Layer 1 Business Actions ---
@@ -978,36 +1053,76 @@ class AutoBrixStore {
           const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);
           inv.reserved += needed;
         }
-        
-        // 4. Create and push order
-        const newOrder = {
-          id: orderData.id || "AB-" + Math.floor(1000 + Math.random() * 9000),
-          timestamp: new Date().toISOString(),
-          customerName: orderData.customerName || "Walk-In",
-          source: orderData.source || "DINE_IN",
-          priority: orderData.priority || "NORMAL",
-          items: orderData.items.map(it => ({
+        const targetId = (orderData.id || "").toString().trim();
+        const existingIdx = state.orders.findIndex(o =>
+          o.id === targetId ||
+          o.id === "#" + targetId ||
+          "#" + o.id === targetId ||
+          (o.id && targetId && o.id.replace(/^#/, "") === targetId.replace(/^#/, ""))
+        );
+        if (existingIdx > -1) {
+          const wasRunning = !!state.orders[existingIdx].ts_active && ["ACCEPTED", "COOKING"].includes(state.orders[existingIdx].fulfillmentStatus);
+          state.orders[existingIdx].customerName = orderData.customerName || "Walk-In";
+          state.orders[existingIdx].source = orderData.source || "DINE_IN";
+          state.orders[existingIdx].priority = orderData.priority || "NORMAL";
+          state.orders[existingIdx].items = this.sortOrderItems(orderData.items.map(it => ({
             ...it,
-            status: "PENDING" // item-level status
-          })),
-          subtotal: orderData.subtotal,
-          tax: orderData.tax,
-          total: orderData.total,
-          commission: orderData.commission || 0,
-          netRevenue: orderData.netRevenue,
-          eta: orderData.eta,
-          fulfillmentStatus: "ACCEPTED",
-          paymentStatus: orderData.paymentStatus || "UNPAID",
-          timestamps: {
-            accepted: new Date().toISOString(),
-            cooking: null,
-            ready: null,
-            completed: null
+            status: it.status || "PENDING"
+          })));
+          state.orders[existingIdx].subtotal = orderData.subtotal;
+          state.orders[existingIdx].tax = orderData.tax;
+          state.orders[existingIdx].total = orderData.total;
+          state.orders[existingIdx].commission = orderData.commission || 0;
+          state.orders[existingIdx].netRevenue = orderData.netRevenue;
+          state.orders[existingIdx].eta = orderData.eta;
+          state.orders[existingIdx].fulfillmentStatus = state.orders[existingIdx].items.some(it => it.status !== "READY") ? (wasRunning ? state.orders[existingIdx].fulfillmentStatus : "ACCEPTED") : "READY";
+          state.orders[existingIdx].paymentStatus = orderData.paymentStatus || "UNPAID";
+          if (state.orders[existingIdx].fulfillmentStatus === "ACCEPTED" && !wasRunning) {
+            state.orders[existingIdx].ts_active = null;
+            state.orders[existingIdx].ts_queued = new Date().toISOString();
+            state.orders[existingIdx].timestamps = state.orders[existingIdx].timestamps || {};
+            state.orders[existingIdx].timestamps.active = null;
+            state.orders[existingIdx].timestamps.queued = state.orders[existingIdx].ts_queued;
+            state.orders[existingIdx].timestamps.accepted = state.orders[existingIdx].ts_queued;
+            state.orders[existingIdx].timestamps.cooking = null;
+            state.orders[existingIdx].timestamps.ready = null;
+            state.orders[existingIdx].timestamps.completed = null;
           }
-        };
-
-        state.orders.push(newOrder);
-        this.logAudit("Create Order", `Order #${newOrder.id} placed via ${newOrder.source}. Total: ₹${newOrder.total}`);
+          this.logAudit("Modify Order", `Order #${orderData.id} modified. Total: ₹${orderData.total}`);
+        } else {
+          const nowIso = new Date().toISOString();
+          const newOrder = {
+            id: orderData.id || "AB-" + Math.floor(1000 + Math.random() * 9000),
+            timestamp: nowIso,
+            ts_active: null,
+            ts_queued: nowIso,
+            customerName: orderData.customerName || "Walk-In",
+            source: orderData.source || "DINE_IN",
+            priority: orderData.priority || "NORMAL",
+            items: this.sortOrderItems(orderData.items.map(it => ({
+              ...it,
+              status: "PENDING" // item-level status
+            }))),
+            subtotal: orderData.subtotal,
+            tax: orderData.tax,
+            total: orderData.total,
+            commission: orderData.commission || 0,
+            netRevenue: orderData.netRevenue,
+            eta: orderData.eta,
+            fulfillmentStatus: "ACCEPTED",
+            paymentStatus: orderData.paymentStatus || "UNPAID",
+            timestamps: {
+              accepted: nowIso,
+              queued: nowIso,
+              active: null,
+              cooking: null,
+              ready: null,
+              completed: null
+            }
+          };
+          state.orders.push(newOrder);
+          this.logAudit("Create Order", `Order #${newOrder.id} placed via ${newOrder.source}. Total: ₹${newOrder.total}`);
+        }
         success = true;
       }
     });

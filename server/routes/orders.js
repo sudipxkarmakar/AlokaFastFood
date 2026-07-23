@@ -6,10 +6,14 @@ const db = require('../db');
 async function activateNextOrders() {
   try {
     const [orders] = await db.query(
-      "SELECT id, fulfillment_status, ts_active FROM orders WHERE fulfillment_status IN ('ACCEPTED', 'COOKING', 'READY') ORDER BY created_at"
+      "SELECT id, fulfillment_status, ts_active, ts_queued FROM orders WHERE fulfillment_status IN ('ACCEPTED', 'COOKING', 'READY') ORDER BY COALESCE(ts_active, ts_queued, created_at)"
     );
     if (orders.length === 0) return;
-    const [items] = await db.query("SELECT order_id, station, status FROM order_items");
+    const [items] = await db.query(`
+      SELECT oi.order_id, mi.station_id AS station, oi.status 
+      FROM order_items oi
+      JOIN menu_items mi ON oi.menu_item_id = mi.id
+    `);
     const stationsA = ["tawa", "chilley"];
     const stationsB = ["deep_fry", "moghlai", "kosha", "moghlai_tawa"];
     const activeA = orders.filter(o =>
@@ -52,21 +56,66 @@ router.post('/', async (req, res) => {
   const { id, customer_name, source, priority, subtotal, tax, total, commission, net_revenue, eta, items = [], payment_status } = req.body;
   try {
     await db.query(
-      `INSERT INTO orders (id, customer_name, source, priority, subtotal, tax, total, commission, net_revenue, eta, fulfillment_status, payment_status, ts_accepted)
-       VALUES (?,?,?,?,?,?,?,?,?,?,'ACCEPTED',?,NOW())`,
+      `INSERT INTO orders (id, customer_name, source, priority, subtotal, tax, total, commission, net_revenue, eta, fulfillment_status, payment_status, ts_accepted, ts_queued)
+       VALUES (?,?,?,?,?,?,?,?,?,?,'ACCEPTED',?,NOW(),NOW())`,
       [id, customer_name || 'Walk-In', source || 'DINE_IN', priority || 'NORMAL',
        subtotal, tax, total, commission || 0, net_revenue, eta, payment_status || 'UNPAID']
     );
     for (const item of items) {
       await db.query(
-        `INSERT INTO order_items (order_id, menu_item_id, menu_item_name, variant_id, variant_name, quantity, unit_price, modifiers, status)
-         VALUES (?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO order_items (order_id, menu_item_id, menu_item_name, variant_id, variant_name, quantity, unit_price, modifiers, status, type)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`,
         [id, item.id, item.name, item.variant || null, item.variantName || null,
-         item.quantity, item.unitPrice || 0, JSON.stringify(item.modifiers || []), 'PENDING']
+         item.quantity, item.unitPrice || 0, JSON.stringify(item.modifiers || []), 'PENDING', item.type || 'DINE_IN']
       );
     }
     await activateNextOrders();
     res.json({ success: true, id });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT update/modify entire order
+router.put('/:id', async (req, res) => {
+  const orderId = req.params.id;
+  const { customer_name, source, priority, subtotal, tax, total, commission, net_revenue, eta, items = [], payment_status } = req.body;
+  try {
+    const hasPending = items.some(it => it.status !== 'READY');
+    const [existingRows] = await db.query(
+      "SELECT id, fulfillment_status, ts_active FROM orders WHERE id=? OR REPLACE(id, '#', '') = REPLACE(?, '#', '')",
+      [orderId, orderId]
+    );
+    const existingOrder = existingRows[0] || {};
+    const actualOrderId = existingOrder.id || orderId;
+    const isRunningOrder = !!existingOrder.ts_active && ['ACCEPTED', 'COOKING'].includes(existingOrder.fulfillment_status);
+    const newFulfillmentStatus = hasPending
+      ? (isRunningOrder ? existingOrder.fulfillment_status : 'ACCEPTED')
+      : 'READY';
+
+    await db.query(
+      `UPDATE orders SET customer_name=?, source=?, priority=?, subtotal=?, tax=?, total=?, commission=?, net_revenue=?, eta=?, payment_status=?, fulfillment_status=?,
+        ts_queued=CASE WHEN ?=1 THEN NOW() ELSE ts_queued END,
+        ts_active=CASE WHEN ?=1 THEN NULL ELSE ts_active END,
+        ts_accepted=CASE WHEN ?=1 THEN NOW() ELSE ts_accepted END,
+        ts_cooking=CASE WHEN ?=1 THEN NULL ELSE ts_cooking END,
+        ts_ready=CASE WHEN ?=1 THEN NULL ELSE ts_ready END,
+        ts_completed=CASE WHEN ?=1 THEN NULL ELSE ts_completed END
+       WHERE id=? OR REPLACE(id, '#', '') = REPLACE(?, '#', '')`,
+      [customer_name, source, priority, subtotal, tax, total, commission, net_revenue, eta, payment_status, newFulfillmentStatus, hasPending && !isRunningOrder ? 1 : 0, hasPending && !isRunningOrder ? 1 : 0, hasPending && !isRunningOrder ? 1 : 0, hasPending && !isRunningOrder ? 1 : 0, hasPending && !isRunningOrder ? 1 : 0, hasPending && !isRunningOrder ? 1 : 0, actualOrderId, actualOrderId]
+    );
+    await db.query(
+      "DELETE FROM order_items WHERE order_id=? OR REPLACE(order_id, '#', '') = REPLACE(?, '#', '')",
+      [actualOrderId, actualOrderId]
+    );
+    for (const item of items) {
+      await db.query(
+        `INSERT INTO order_items (order_id, menu_item_id, menu_item_name, variant_id, variant_name, quantity, unit_price, modifiers, status, type, is_new)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        [orderId, item.id, item.name, item.variant || null, item.variantName || null,
+         item.quantity, item.unitPrice || 0, JSON.stringify(item.modifiers || []), item.status || 'PENDING', item.type || 'DINE_IN', item.is_new ? 1 : 0]
+      );
+    }
+    await activateNextOrders();
+    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -233,6 +282,7 @@ router.patch('/:id/items/:itemIndex/status', async (req, res) => {
 // DELETE order
 router.delete('/:id', async (req, res) => {
   try {
+    await db.query('DELETE FROM order_items WHERE order_id=?', [req.params.id]);
     await db.query('DELETE FROM orders WHERE id=?', [req.params.id]);
     await db.query("INSERT INTO audit_logs (action, payload) VALUES ('Order Deleted', ?)", [`Order #${req.params.id} has been deleted.`]);
     await activateNextOrders();
