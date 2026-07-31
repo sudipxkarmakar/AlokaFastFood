@@ -92,15 +92,9 @@ router.put('/:id', async (req, res) => {
       : 'READY';
 
     await db.query(
-      `UPDATE orders SET customer_name=?, source=?, priority=?, subtotal=?, tax=?, total=?, commission=?, net_revenue=?, eta=?, payment_status=?, fulfillment_status=?,
-        ts_queued=CASE WHEN ?=1 THEN NOW() ELSE ts_queued END,
-        ts_active=CASE WHEN ?=1 THEN NULL ELSE ts_active END,
-        ts_accepted=CASE WHEN ?=1 THEN NOW() ELSE ts_accepted END,
-        ts_cooking=CASE WHEN ?=1 THEN NULL ELSE ts_cooking END,
-        ts_ready=CASE WHEN ?=1 THEN NULL ELSE ts_ready END,
-        ts_completed=CASE WHEN ?=1 THEN NULL ELSE ts_completed END
+      `UPDATE orders SET customer_name=?, source=?, priority=?, subtotal=?, tax=?, total=?, commission=?, net_revenue=?, eta=?, payment_status=?, fulfillment_status=?
        WHERE id=? OR REPLACE(id, '#', '') = REPLACE(?, '#', '')`,
-      [customer_name, source, priority, subtotal, tax, total, commission, net_revenue, eta, payment_status, newFulfillmentStatus, hasPending && !isRunningOrder ? 1 : 0, hasPending && !isRunningOrder ? 1 : 0, hasPending && !isRunningOrder ? 1 : 0, hasPending && !isRunningOrder ? 1 : 0, hasPending && !isRunningOrder ? 1 : 0, hasPending && !isRunningOrder ? 1 : 0, actualOrderId, actualOrderId]
+      [customer_name, source, priority, subtotal, tax, total, commission, net_revenue, eta, payment_status, newFulfillmentStatus, actualOrderId, actualOrderId]
     );
     await db.query(
       "DELETE FROM order_items WHERE order_id=? OR REPLACE(order_id, '#', '') = REPLACE(?, '#', '')",

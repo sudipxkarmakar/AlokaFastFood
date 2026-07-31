@@ -599,7 +599,7 @@ class OwnerPanel {
     if (!confirm(`Are you sure you want to permanently delete Order #${orderId}? This will remove it from all revenues and operational logs.`)) {
       return;
     }
-    if (window.AlokaAPI.isOnline()) {
+    if (window.AlokaAPI.isOnline() && window.AlokaAPI.isDbOk()) {
       try {
         await window.AlokaAPI.del(`/orders/${encodeURIComponent(orderId)}`);
         await window.AlokaAPI.loadAllState();

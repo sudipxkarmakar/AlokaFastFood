@@ -1228,7 +1228,7 @@ class POSPanel {
       
       const success = window.AutoBrixStore.reserveInventoryAtomically(orderData);
       if (success) {
-        if (window.AlokaAPI.isOnline()) {
+        if (window.AlokaAPI.isOnline() && window.AlokaAPI.isDbOk()) {
            const itemsPayload = window.AutoBrixStore.sortOrderItems(orderData.items).map(it => ({
             id: it.id,
             name: it.name,

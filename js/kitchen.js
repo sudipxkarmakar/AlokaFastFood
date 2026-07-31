@@ -315,7 +315,7 @@ class KitchenDisplay {
       }
 
       return `
-        <div class="kitchen-order-card ${priorityClass} ${isDelayed ? "delayed" : ""}" id="k-card-${order.id}" data-timestamp="${order.ts_active || ""}" data-preptime="${totalItemPrepTime}" style="${cardStyle} border-radius:8px; padding:12px; margin-bottom:12px; transition:all 0.3s ease; ${isOnHold ? "pointer-events: none; user-select: none; border-color: rgba(255,255,255,0.05);" : ""}">
+        <div class="kitchen-order-card ${priorityClass} ${isDelayed ? "delayed" : ""}" id="k-card-${order.id}" data-timestamp="${order.ts_active || order.ts_queued || order.timestamp || new Date().toISOString()}" data-preptime="${totalItemPrepTime}" style="${cardStyle} border-radius:8px; padding:12px; margin-bottom:12px; transition:all 0.3s ease; ${isOnHold ? "pointer-events: none; user-select: none; border-color: rgba(255,255,255,0.05);" : ""}">
           <div class="kitchen-card-header" style="border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:flex-start;">
             <div class="kitchen-card-meta" style="display:flex; flex-direction:column; gap:2px;">
               <div style="display:flex; align-items:center; gap:6px;">

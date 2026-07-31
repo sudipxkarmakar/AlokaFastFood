@@ -1061,7 +1061,7 @@ class AutoBrixStore {
           (o.id && targetId && o.id.replace(/^#/, "") === targetId.replace(/^#/, ""))
         );
         if (existingIdx > -1) {
-          const wasRunning = !!state.orders[existingIdx].ts_active && ["ACCEPTED", "COOKING"].includes(state.orders[existingIdx].fulfillmentStatus);
+          const wasRunning = ["ACCEPTED", "COOKING"].includes(state.orders[existingIdx].fulfillmentStatus);
           state.orders[existingIdx].customerName = orderData.customerName || "Walk-In";
           state.orders[existingIdx].source = orderData.source || "DINE_IN";
           state.orders[existingIdx].priority = orderData.priority || "NORMAL";
@@ -1075,18 +1075,11 @@ class AutoBrixStore {
           state.orders[existingIdx].commission = orderData.commission || 0;
           state.orders[existingIdx].netRevenue = orderData.netRevenue;
           state.orders[existingIdx].eta = orderData.eta;
-          state.orders[existingIdx].fulfillmentStatus = state.orders[existingIdx].items.some(it => it.status !== "READY") ? (wasRunning ? state.orders[existingIdx].fulfillmentStatus : "ACCEPTED") : "READY";
+          state.orders[existingIdx].fulfillmentStatus = state.orders[existingIdx].items.some(it => it.status !== "READY") ? state.orders[existingIdx].fulfillmentStatus : "READY";
           state.orders[existingIdx].paymentStatus = orderData.paymentStatus || "UNPAID";
-          if (state.orders[existingIdx].fulfillmentStatus === "ACCEPTED" && !wasRunning) {
-            state.orders[existingIdx].ts_active = null;
-            state.orders[existingIdx].ts_queued = new Date().toISOString();
-            state.orders[existingIdx].timestamps = state.orders[existingIdx].timestamps || {};
-            state.orders[existingIdx].timestamps.active = null;
-            state.orders[existingIdx].timestamps.queued = state.orders[existingIdx].ts_queued;
-            state.orders[existingIdx].timestamps.accepted = state.orders[existingIdx].ts_queued;
-            state.orders[existingIdx].timestamps.cooking = null;
-            state.orders[existingIdx].timestamps.ready = null;
-            state.orders[existingIdx].timestamps.completed = null;
+          // Preserve original order timestamps so editing an active order does NOT reset its position or timer
+          if (!state.orders[existingIdx].ts_queued && !state.orders[existingIdx].ts_active) {
+            state.orders[existingIdx].ts_queued = state.orders[existingIdx].timestamp || new Date().toISOString();
           }
           this.logAudit("Modify Order", `Order #${orderData.id} modified. Total: ₹${orderData.total}`);
         } else {

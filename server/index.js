@@ -12,6 +12,11 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Instant Health Check Endpoints for Cloud Deployments (Render / Railway / Heroku)
+app.get(['/api/health', '/healthz', '/health'], (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' });
+});
+
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
