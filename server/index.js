@@ -308,6 +308,7 @@ app.use('/api/workers',   require('./routes/workers'));
 app.use('/api/inventory', require('./routes/inventory'));
 app.use('/api/expenses',  require('./routes/expenses'));
 app.use('/api/orders',    require('./routes/orders'));
+app.use('/api/sync',      require('./routes/sync'));
 
 // Error handler
 app.use((err, req, res, next) => {

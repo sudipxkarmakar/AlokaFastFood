@@ -246,6 +246,29 @@ window.AlokaAPI = {
     console.log('[AlokaAPI] State synced from MySQL ✓');
     store.saveToStorage();
     store.notifyListeners('mysql-sync');
+  },
+
+  async pullCloudSync(customCloudUrl = 'https://alokafastfood.onrender.com') {
+    try {
+      const baseUrl = (customCloudUrl || 'https://alokafastfood.onrender.com').replace(/\/+$/, '');
+      const syncUrl = `${baseUrl}/api/sync/export`;
+      
+      const r = await fetch(syncUrl);
+      if (!r.ok) throw new Error(`Cloud server returned HTTP ${r.status}`);
+      
+      const cloudData = await r.json();
+      
+      // Import into local MySQL API
+      const importRes = await this.post('/sync/import', cloudData);
+      await this.loadAllState();
+      
+      alert(`🎉 Cloud Sync Complete!\n\n${importRes.message || 'Updated local database from cloud.'}`);
+      return importRes;
+    } catch (err) {
+      console.error('[Cloud Sync Error]', err);
+      alert(`⚠️ Cloud Sync Failed:\n${err.message}\n\nPlease check your internet connection or cloud server URL.`);
+      throw err;
+    }
   }
 };
 
@@ -262,6 +285,31 @@ window.AlokaAPI = {
       cursor:default;
     `;
     document.body.appendChild(statusEl);
+  }
+
+  // Inject 1-click "Sync Cloud" button on localhost
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    let syncBtn = document.getElementById('btn-cloud-sync-pull');
+    if (!syncBtn) {
+      syncBtn = document.createElement('button');
+      syncBtn.id = 'btn-cloud-sync-pull';
+      syncBtn.innerHTML = '🔄 Sync Cloud';
+      syncBtn.title = 'Pull latest orders and data from Render online server into local MySQL database';
+      syncBtn.style.cssText = `
+        position:fixed; bottom:12px; right:150px; z-index:9999;
+        padding:5px 12px; border-radius:20px; font-size:0.7rem; font-weight:700;
+        letter-spacing:0.05em; background:linear-gradient(135deg, #5850ec, #4338ca); color:white;
+        border:1px solid rgba(255,255,255,0.2); cursor:pointer; box-shadow:0 4px 12px rgba(88,80,236,0.4);
+        transition:transform 0.15s ease;
+      `;
+      syncBtn.onclick = () => {
+        const cloudUrl = prompt("Enter your Render Cloud App URL to pull latest data:", "https://alokafastfood.onrender.com");
+        if (cloudUrl) {
+          window.AlokaAPI.pullCloudSync(cloudUrl);
+        }
+      };
+      document.body.appendChild(syncBtn);
+    }
   }
 
   const setStatus = (state, detail) => {
