@@ -276,9 +276,11 @@ router.patch('/:id/items/:itemIndex/status', async (req, res) => {
 // DELETE order
 router.delete('/:id', async (req, res) => {
   try {
-    await db.query('DELETE FROM order_items WHERE order_id=?', [req.params.id]);
-    await db.query('DELETE FROM orders WHERE id=?', [req.params.id]);
-    await db.query("INSERT INTO audit_logs (action, payload) VALUES ('Order Deleted', ?)", [`Order #${req.params.id} has been deleted.`]);
+    const rawId = req.params.id;
+    const cleanId = rawId.replace(/^#/, '');
+    await db.query("DELETE FROM order_items WHERE order_id=? OR order_id=? OR REPLACE(order_id, '#', '')=?", [rawId, `#${cleanId}`, cleanId]);
+    await db.query("DELETE FROM orders WHERE id=? OR id=? OR REPLACE(id, '#', '')=?", [rawId, `#${cleanId}`, cleanId]);
+    await db.query("INSERT INTO audit_logs (action, payload) VALUES ('Order Deleted', ?)", [`Order #${rawId} has been deleted.`]);
     await activateNextOrders();
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }

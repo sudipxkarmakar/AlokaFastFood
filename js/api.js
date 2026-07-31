@@ -269,6 +269,31 @@ window.AlokaAPI = {
       alert(`⚠️ Cloud Sync Failed:\n${err.message}\n\nPlease check your internet connection or cloud server URL.`);
       throw err;
     }
+  },
+
+  async pushCloudSync(customCloudUrl = 'https://alokafastfood.onrender.com') {
+    try {
+      const baseUrl = (customCloudUrl || 'https://alokafastfood.onrender.com').replace(/\/+$/, '');
+      const importUrl = `${baseUrl}/api/sync/import`;
+
+      const localData = await this.get('/sync/export');
+
+      const r = await fetch(importUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(localData)
+      });
+
+      if (!r.ok) throw new Error(`Cloud server returned HTTP ${r.status}`);
+      const res = await r.json();
+
+      alert(`🎉 Offline Data Uploaded to Cloud Successfully!\n\nAll your local pricing, menu catalog, recipes, workers, and inventory are now live online!`);
+      return res;
+    } catch (err) {
+      console.error('[Cloud Push Error]', err);
+      alert(`⚠️ Uploading Offline Data Failed:\n${err.message}`);
+      throw err;
+    }
   }
 };
 
@@ -309,6 +334,28 @@ window.AlokaAPI = {
         }
       };
       document.body.appendChild(syncBtn);
+    }
+
+    let pushBtn = document.getElementById('btn-cloud-sync-push');
+    if (!pushBtn) {
+      pushBtn = document.createElement('button');
+      pushBtn.id = 'btn-cloud-sync-push';
+      pushBtn.innerHTML = '⬆️ Upload Offline Data';
+      pushBtn.title = 'Upload all local pricing, menu catalog, inventory, and orders to Render online cloud database';
+      pushBtn.style.cssText = `
+        position:fixed; bottom:12px; right:270px; z-index:9999;
+        padding:5px 12px; border-radius:20px; font-size:0.7rem; font-weight:700;
+        letter-spacing:0.05em; background:linear-gradient(135deg, #10b981, #059669); color:white;
+        border:1px solid rgba(255,255,255,0.2); cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.4);
+        transition:transform 0.15s ease;
+      `;
+      pushBtn.onclick = () => {
+        const cloudUrl = prompt("Enter your Render Cloud App URL to upload offline data to:", "https://alokafastfood.onrender.com");
+        if (cloudUrl) {
+          window.AlokaAPI.pushCloudSync(cloudUrl);
+        }
+      };
+      document.body.appendChild(pushBtn);
     }
   }
 

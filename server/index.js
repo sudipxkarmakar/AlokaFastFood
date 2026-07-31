@@ -12,8 +12,17 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Instant Health Check Endpoints for Cloud Deployments (Render / Railway / Heroku)
-app.get(['/api/health', '/healthz', '/health'], (req, res) => {
+// Health Check Endpoint
+app.get('/api/health', async (req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.json({ status: 'ok', db: 'connected', timestamp: new Date().toISOString(), version: '1.0.0' });
+  } catch (e) {
+    res.json({ status: 'ok', db: 'disconnected', error: e.message, timestamp: new Date().toISOString(), version: '1.0.0' });
+  }
+});
+
+app.get(['/healthz', '/health'], (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' });
 });
 
@@ -27,18 +36,32 @@ app.use('/uploads', express.static(uploadsDir));
 // Serve the frontend from the parent directory
 app.use(express.static(path.join(__dirname, '..')));
 
-// Health check — also verifies DB connectivity
+// DB Pool
 const db = require('./db');
 
-// Auto-migration: ensure worker_stations and workers have required columns
+// Auto-migration: ensure base database tables and required columns exist
 (async () => {
   try {
-    await db.query('ALTER TABLE orders ADD COLUMN ts_active DATETIME NULL DEFAULT NULL');
-    console.log('[Auto-Migration] Added COLUMN ts_active to orders');
+    await db.query(`CREATE TABLE IF NOT EXISTS stations (id VARCHAR(64) PRIMARY KEY, name VARCHAR(128) NOT NULL, base_capacity INT DEFAULT 1, current_worker_id VARCHAR(64) DEFAULT NULL)`);
+    await db.query(`CREATE TABLE IF NOT EXISTS workers (id VARCHAR(64) PRIMARY KEY, name VARCHAR(128) NOT NULL, daily_salary INT DEFAULT 0, active TINYINT DEFAULT 1)`);
+    await db.query(`CREATE TABLE IF NOT EXISTS menu_items (id VARCHAR(64) PRIMARY KEY, name VARCHAR(128) NOT NULL, station_id VARCHAR(64), prep_time INT DEFAULT 5, active TINYINT DEFAULT 1, image_path VARCHAR(255) DEFAULT NULL, food_type VARCHAR(20) DEFAULT 'non-veg', sort_order INT DEFAULT 0)`);
+    await db.query(`CREATE TABLE IF NOT EXISTS menu_variants (id VARCHAR(64) PRIMARY KEY, menu_item_id VARCHAR(64), name VARCHAR(64), price DECIMAL(10,2) DEFAULT 0.00, recipe_multiplier DECIMAL(10,4) DEFAULT 1.0)`);
+    await db.query(`CREATE TABLE IF NOT EXISTS menu_recipes (id INT AUTO_INCREMENT PRIMARY KEY, menu_item_id VARCHAR(64), ingredient_id VARCHAR(64), ingredient_type VARCHAR(32), quantity DECIMAL(10,4), unit VARCHAR(32))`);
+    await db.query(`CREATE TABLE IF NOT EXISTS raw_ingredients (id VARCHAR(64) PRIMARY KEY, name VARCHAR(128) NOT NULL, stock DECIMAL(10,2) DEFAULT 0, reserved DECIMAL(10,2) DEFAULT 0, min_stock DECIMAL(10,2) DEFAULT 0, purchase_unit VARCHAR(32), stock_unit VARCHAR(32), conversion_factor DECIMAL(10,4) DEFAULT 1, cost_per_purchase_unit DECIMAL(10,2) DEFAULT 0, supplier VARCHAR(128))`);
+    await db.query(`CREATE TABLE IF NOT EXISTS intermediate_stock (id VARCHAR(64) PRIMARY KEY, name VARCHAR(128) NOT NULL, stock DECIMAL(10,2) DEFAULT 0, reserved DECIMAL(10,2) DEFAULT 0, min_stock DECIMAL(10,2) DEFAULT 0, unit VARCHAR(32), item_type VARCHAR(32) DEFAULT 'intermediate')`);
+    await db.query(`CREATE TABLE IF NOT EXISTS batch_recipes (id VARCHAR(64) PRIMARY KEY, name VARCHAR(128) NOT NULL, unit VARCHAR(32), expected_yield_ratio DECIMAL(10,4) DEFAULT 1, processing_type VARCHAR(64), fuel_type VARCHAR(32) DEFAULT 'none', fuel_cost DECIMAL(10,2) DEFAULT 0)`);
+    await db.query(`CREATE TABLE IF NOT EXISTS batch_recipe_ingredients (id INT AUTO_INCREMENT PRIMARY KEY, batch_recipe_id VARCHAR(64), raw_ingredient_id VARCHAR(64), ratio_per_unit DECIMAL(10,4), unit VARCHAR(32))`);
+    await db.query(`CREATE TABLE IF NOT EXISTS expenses (id VARCHAR(64) PRIMARY KEY, expense_date DATE, item_name VARCHAR(128), quantity DECIMAL(10,2), unit VARCHAR(32), cost DECIMAL(10,2), supplier VARCHAR(128), raw_ingredient_id VARCHAR(64))`);
+    await db.query(`CREATE TABLE IF NOT EXISTS orders (id VARCHAR(64) PRIMARY KEY, customer_name VARCHAR(128), source VARCHAR(32), priority VARCHAR(32), subtotal DECIMAL(10,2), tax DECIMAL(10,2), total DECIMAL(10,2), commission DECIMAL(10,2), net_revenue DECIMAL(10,2), eta INT, fulfillment_status VARCHAR(32), payment_status VARCHAR(32), created_at DATETIME DEFAULT CURRENT_TIMESTAMP, ts_active DATETIME DEFAULT NULL, ts_queued DATETIME DEFAULT NULL, ts_accepted DATETIME DEFAULT NULL, ts_cooking DATETIME DEFAULT NULL, ts_ready DATETIME DEFAULT NULL, ts_completed DATETIME DEFAULT NULL)`);
+    await db.query(`CREATE TABLE IF NOT EXISTS order_items (id INT AUTO_INCREMENT PRIMARY KEY, order_id VARCHAR(64), menu_item_id VARCHAR(64), menu_item_name VARCHAR(128), variant_id VARCHAR(64), variant_name VARCHAR(64), quantity INT, unit_price DECIMAL(10,2), modifiers TEXT, status VARCHAR(32), type VARCHAR(32) DEFAULT 'DINE_IN', is_new TINYINT DEFAULT 0)`);
+    await db.query(`CREATE TABLE IF NOT EXISTS audit_logs (id INT AUTO_INCREMENT PRIMARY KEY, log_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, actor VARCHAR(80) DEFAULT 'System Admin', action VARCHAR(80), payload TEXT)`);
+    await db.query(`CREATE TABLE IF NOT EXISTS day_history (id VARCHAR(64) PRIMARY KEY, report_date DATE, order_count INT, revenue DECIMAL(10,2), expenses DECIMAL(10,2), net_profit DECIMAL(10,2), source_breakdown TEXT, item_sales TEXT, inventory_snapshot TEXT)`);
+    await db.query(`CREATE TABLE IF NOT EXISTS egg_tracking (id INT AUTO_INCREMENT PRIMARY KEY, log_date DATE UNIQUE, opening_stock INT DEFAULT 0, purchased_stock INT DEFAULT 0, rotten_count INT DEFAULT 0, prep_consumed INT DEFAULT 0, raw_sold_count INT DEFAULT 0, closing_stock INT DEFAULT 0)`);
+    await db.query(`CREATE TABLE IF NOT EXISTS custom_expense_items (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(128) UNIQUE)`);
+    await db.query(`CREATE TABLE IF NOT EXISTS suppliers (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(128) UNIQUE)`);
+    console.log('[Auto-Migration] Base database schema created/verified');
   } catch (e) {
-    if (e.code !== 'ER_DUP_COLUMN_NAME') {
-      console.warn('[Auto-Migration] Notice:', e.message);
-    }
+    console.warn('[Auto-Migration] Base schema notice:', e.message);
   }
   try {
     await db.query('ALTER TABLE orders MODIFY COLUMN ts_active DATETIME NULL DEFAULT NULL');
