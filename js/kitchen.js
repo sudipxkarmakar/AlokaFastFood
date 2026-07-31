@@ -1,20 +1,35 @@
 // AutoBrix Kitchen Display Screen (KDS) Controller
 
 class KitchenDisplay {
-  constructor(containerId, screenType) {
+  constructor(containerId, screenTypeOrStations) {
     this.container = document.getElementById(containerId);
-    this.screenType = screenType; // "A" or "B"
-    this.timerInterval = null;
     
-    // Map screen types to assigned station IDs
-    // Screen A: Rolls, Paratha, Chinese (Pasta, Noodles, Chowmein)
-    // Screen B: Fry, Mughlai, Curry/Main courses
-    this.stations = this.screenType === "A" 
-      ? ["tawa", "chilley"] 
-      : ["deep_fry", "moghlai", "kosha", "moghlai_tawa"];
-      
+    if (Array.isArray(screenTypeOrStations)) {
+      this.stations = screenTypeOrStations;
+      this.screenType = screenTypeOrStations.includes("tawa") ? "A" : "B";
+    } else {
+      this.screenType = screenTypeOrStations || "A";
+      this.stations = this.screenType === "A" 
+        ? ["tawa", "chilley", "reception", "prep", "kitchen_a"] 
+        : ["deep_fry", "moghlai", "kosha", "moghlai_tawa", "kitchen_b"];
+    }
+
+    // Always include fallback stations so no ordered item is hidden
+    if (this.screenType === "A") {
+      if (!this.stations.includes("reception")) this.stations.push("reception");
+      if (!this.stations.includes("prep")) this.stations.push("prep");
+      if (!this.stations.includes("kitchen_a")) this.stations.push("kitchen_a");
+    } else {
+      if (!this.stations.includes("kitchen_b")) this.stations.push("kitchen_b");
+    }
+
+    this.timerInterval = null;
     this.chimeAudio = null;
     this.lastOrderCount = 0;
+
+    if (this.container) {
+      this.init();
+    }
   }
 
   init() {
@@ -32,8 +47,9 @@ class KitchenDisplay {
   }
 
   render() {
-    // If the wrapper is already statically defined in HTML, don't overwrite it
-    if (this.container.querySelector(".kitchen-view-wrapper")) {
+    // If the wrapper or orders container is already statically defined in HTML, don't overwrite it
+    if (this.container && (this.container.querySelector(".kitchen-view-wrapper") || this.container.querySelector("#kitchen-orders-container"))) {
+      this.renderOrdersGrid(window.AutoBrixStore.state);
       return;
     }
     const titleText = this.screenType === "A" 
@@ -314,7 +330,7 @@ class KitchenDisplay {
             <div class="kitchen-card-items-list">
               ${itemsHTML}
             </div>
-            <button class="k-item-btn cooking" style="width:100%; border:none; padding:10px; border-radius:6px; font-weight:800; font-size:0.9rem; cursor:pointer; margin-top:12px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.02em; ${readyButtonStyle}" onclick="kitchenDisplay${this.screenType}.markOrderAsReady('${order.id}')">
+            <button class="k-item-btn cooking" style="width:100%; border:none; padding:10px; border-radius:6px; font-weight:800; font-size:0.9rem; cursor:pointer; margin-top:12px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.02em; ${readyButtonStyle}" onclick="KitchenDisplay.markOrderAsReady('${order.id}')">
               ${readyButtonText}
             </button>
           </div>
@@ -416,29 +432,38 @@ class KitchenDisplay {
     }
   }
 
-  async markOrderAsReady(orderId) {
-    if (window.AlokaAPI.isOnline()) {
+  static async markOrderAsReady(orderId) {
+    if (window.AlokaAPI && window.AlokaAPI.isOnline()) {
       try {
         await window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/status`, { fulfillment_status: "READY" });
         await window.AlokaAPI.loadAllState();
       } catch (err) {
-        alert("Error marking order ready: " + err.message);
+        console.warn("API order status update error, falling back to store:", err);
+        window.AutoBrixStore.updateState(state => {
+          const order = state.orders.find(o => o.id === orderId);
+          if (order) {
+            order.fulfillmentStatus = "READY";
+            order.items.forEach(it => { it.status = "READY"; });
+          }
+        });
       }
     } else {
       window.AutoBrixStore.updateState(state => {
         const order = state.orders.find(o => o.id === orderId);
         if (order) {
           order.fulfillmentStatus = "READY";
-          order.items.forEach(it => {
-            if (this.stations.includes(it.station)) {
-              it.status = "READY";
-            }
-          });
+          order.items.forEach(it => { it.status = "READY"; });
         }
       });
     }
+  }
+
+  async markOrderAsReady(orderId) {
+    return KitchenDisplay.markOrderAsReady(orderId);
   }
 }
 
 // Bind globally for inline action buttons
 window.KitchenDisplay = KitchenDisplay;
+window.KitchenPanel = KitchenDisplay;
+window.AutoBrixKitchen = KitchenDisplay;

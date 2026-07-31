@@ -7,6 +7,10 @@ class OwnerPanel {
     this.selectedRecipeItem = null;
     this.selectedBatchRecipe = null;
     this.menuFormTab = "single"; // single, generator
+
+    if (this.container) {
+      this.init();
+    }
   }
 
   init() {
@@ -22,8 +26,9 @@ class OwnerPanel {
   }
 
   render() {
-    // If the wrapper is already statically defined in HTML, don't overwrite it
-    if (this.container.querySelector(".owner-grid")) {
+    // If the wrapper or workspace is already statically defined in HTML, don't overwrite it
+    if (this.container && (this.container.querySelector(".owner-grid") || this.container.querySelector("#owner-workspace"))) {
+      this.updateActiveTabContent();
       return;
     }
     this.container.innerHTML = `
@@ -56,14 +61,27 @@ class OwnerPanel {
         this.container.querySelectorAll(".owner-tab-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         
-        this.updateActiveTabContent();
+        this.updateActiveTabContent(true);
       }
     });
   }
 
-  async updateActiveTabContent() {
+  async updateActiveTabContent(force = false) {
     const workspace = document.getElementById("owner-workspace");
     if (!workspace) return;
+
+    if (!force) {
+      const activeEl = document.activeElement;
+      if (activeEl && workspace.contains(activeEl) && ["INPUT", "TEXTAREA", "SELECT"].includes(activeEl.tagName)) {
+        return;
+      }
+      const inputs = workspace.querySelectorAll("input[type='text'], input[type='number'], textarea");
+      for (const input of inputs) {
+        if (input.value && input.value.trim() !== "" && input.defaultValue !== input.value) {
+          return;
+        }
+      }
+    }
 
     const state = window.AutoBrixStore.state;
 
@@ -195,10 +213,10 @@ class OwnerPanel {
       </div>
 
       <!-- Egg Stock & Dynamic Pricing Dashboard -->
-      <div class="glass-card" style="margin-bottom:1.5rem; display:grid; grid-template-columns:1fr 1.8fr; gap:1.5rem;">
+      <div class="glass-card" style="margin-bottom:1.5rem; display:flex; flex-direction:column; gap:1.5rem; width:100%; box-sizing:border-box;">
         
-        <!-- Left: Rotten logger & suggestions -->
-        <div style="border-right: 1px solid rgba(255,255,255,0.06); padding-right:1.5rem;">
+        <!-- Top: Rotten logger & suggestions -->
+        <div style="border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom:1.5rem; width:100%;">
           <h4 class="modal-section-title" style="margin-bottom:0.5rem;">Egg Tracking & Dynamic Pricing</h4>
           <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:1rem;">Maintains 5% overall profit on raw egg sales by adjusting for wastage and purchase cost fluctuations.</span>
           
@@ -219,17 +237,17 @@ class OwnerPanel {
           <div style="display:flex; flex-direction:column; gap:8px; background:rgba(255,255,255,0.02); padding:0.75rem; border-radius:6px;">
             <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-secondary);">Log Egg Wastage / Rotten</span>
             <div style="display:flex; gap:0.5rem; align-items:center;">
-              <input type="date" class="pos-input-sm" id="egg-log-date" value="${new Date().toISOString().split("T")[0]}" style="font-size:0.75rem; padding:2px; height:28px;">
+              <input type="date" class="pos-input-sm" id="egg-log-date" value="${new Date().toISOString().split("T")[0]}" style="font-size:0.75rem; padding:2px; height:28px; flex:1;">
               <input type="number" class="pos-input-sm" id="egg-rotten-count" placeholder="Qty pcs" min="0" value="${state.eggTrackingRotten || ''}" style="width:80px; font-size:0.75rem; padding:2px; height:28px; text-align:center;">
             </div>
             <button class="pos-action-btn" onclick="ownerPanel.handleSaveEggTracking()" style="padding:6px; font-size:0.75rem; font-weight:600; grid-column:auto; height:30px; margin:0; width:100%;">Save Egg Journal</button>
           </div>
         </div>
 
-        <!-- Right: Egg history table -->
-        <div>
+        <!-- Bottom: Egg history table -->
+        <div style="width:100%;">
           <h4 class="modal-section-title" style="margin-bottom:0.5rem;">Egg Reconciliation Ledger</h4>
-          <div class="owner-table-wrapper" style="border:none; max-height:220px; overflow-y:auto;">
+          <div class="owner-table-wrapper" style="border:none; max-height:220px; overflow-x:auto; -webkit-overflow-scrolling:touch; width:100%;">
             <table class="owner-table" style="font-size:0.75rem;">
               <thead>
                 <tr>
@@ -631,33 +649,12 @@ class OwnerPanel {
     ];
 
     const categorySectionsHTML = categories.map(cat => `
-      <div class="category-section" style="margin-bottom: 0.8rem; padding: 0.75rem;">
-        <h3 class="category-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+      <div class="category-section" style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+        <h3 class="category-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; font-size: 1.05rem; font-weight: 700; color: var(--accent-color);">
           <span>${cat.name}</span>
-          <span style="font-size:0.75rem; color:var(--text-muted); background:rgba(255,255,255,0.05); padding:3px 10px; border-radius:12px; font-weight:normal; letter-spacing:0.02em;">Drag handle ⠿ to sort</span>
+          <span style="font-size:0.75rem; color:var(--text-muted); background:rgba(255,255,255,0.05); padding:3px 10px; border-radius:12px; font-weight:normal;">Catalog Items</span>
         </h3>
-        <div class="owner-table-wrapper" style="border:none; background:transparent;">
-          <table class="owner-table">
-            <thead>
-              <tr>
-                <th style="width: 40px; text-align:center;"></th>
-                <th style="width: 60px; text-align:center;">Image</th>
-                <th style="min-width: 150px;">Menu Item</th>
-                <th style="width: 110px;">Station</th>
-                <th style="width: 90px; text-align:center;">Prep (Min)</th>
-                <th style="width: 100px;">Variant</th>
-                <th style="width: 95px; text-align:center;">Price (₹)</th>
-                <th style="width: 110px; text-align:right;">Food Cost</th>
-                <th style="width: 110px; text-align:right;">Gross Margin</th>
-                <th style="width: 90px; text-align:center;">Margin %</th>
-                <th style="width: 90px; text-align:center;">Live Stock</th>
-                <th style="width: 70px; text-align:center;">Active</th>
-                <th style="width: 100px; text-align:center;">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="menu-rows-category-container" data-category="${cat.id}" id="menu-rows-${cat.id}"></tbody>
-          </table>
-        </div>
+        <div class="owner-menu-card-grid" id="menu-rows-${cat.id}" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;"></div>
       </div>
     `).join("");
 
@@ -740,7 +737,7 @@ class OwnerPanel {
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns: 1fr 2fr; gap:0.75rem; align-items:start;">
+          <div style="display:flex; flex-direction:column; gap:0.75rem; width:100%; box-sizing:border-box;">
             <div style="display:flex; flex-direction:column; gap:0.5rem;">
               <span class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Portion Configurations:</span>
               <div style="display:flex; flex-direction:column; gap:6px; padding:0.5rem; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); border-radius:8px;">
@@ -817,155 +814,51 @@ class OwnerPanel {
     `;
 
     categories.forEach(cat => {
-      const tbody = document.getElementById(`menu-rows-${cat.id}`);
-      if (!tbody) return;
+      const grid = document.getElementById(`menu-rows-${cat.id}`);
+      if (!grid) return;
 
       const catItems = Object.values(state.config.menuItems)
         .filter(item => this.getItemCategory(item) === cat.id)
         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
       if (catItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No items in this category.</td></tr>`;
+        grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; color:var(--text-muted); padding:1rem; font-size:0.85rem;">No items in this category.</div>`;
         return;
       }
 
-      tbody.innerHTML = catItems.map(item => {
-        const imageUrl = item.image ? (item.image.startsWith('http') || item.image.startsWith('data:') ? item.image : `http://localhost:3001${item.image}`) : '';
-        const hasHalfAndFull = item.variants && item.variants.half && item.variants.full;
-        
-        if (hasHalfAndFull) {
-          const marginHalf = window.AutoBrixStore.calculateMenuItemMargin(item.id, 'half');
-          const marginFull = window.AutoBrixStore.calculateMenuItemMargin(item.id, 'full');
-          const availableHalf = window.AutoBrixStore.getMenuItemAvailableStock(item.id, 'half');
-          const availableFull = window.AutoBrixStore.getMenuItemAvailableStock(item.id, 'full');
-          
-          const marginHalfClass = marginHalf.marginPct >= 0 ? "good" : "poor";
-          const marginFullClass = marginFull.marginPct >= 0 ? "good" : "poor";
-          
-          return `
-            <tr draggable="false" data-id="${item.id}" class="draggable-row">
-              <td class="drag-handle" style="cursor: grab; text-align: center; color: var(--text-muted); font-size: 1.1rem; user-select: none; vertical-align: middle;">⠿</td>
-              <td style="cursor: pointer; position: relative; text-align: center; vertical-align: middle;" onclick="ownerPanel.openImageActionsModal('${item.id}')" title="Click to manage image">
-                <div style="position: relative; width: 40px; height: 40px; margin: 0 auto;">
-                  ${item.image 
-                    ? `<img src="${imageUrl}" style="width:40px; height:40px; border-radius:6px; object-fit:cover; border:1px solid rgba(255,255,255,0.08);">` 
-                    : `<div style="width:40px; height:40px; border-radius:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; font-size:0.65rem; color:var(--text-muted); font-weight:600;">No Img</div>`}
-                  <div class="food-type-indicator ${item.foodType || 'non-veg'}" style="position: absolute; top: -3px; right: -3px; z-index: 1;"></div>
-                </div>
-              </td>
-              <td style="vertical-align: middle;"><strong>${item.name}</strong></td>
-              <td style="vertical-align: middle;">
-                <select class="pos-select-sm" onchange="ownerPanel.updateItemStation('${item.id}', this.value)" style="width:100%; height:28px; font-size:0.8rem; padding:0 6px;">
-                  ${Object.keys(state.config.stations).map(s => `<option value="${s}" ${item.station === s ? "selected" : ""}>${state.config.stations[s].name}</option>`).join("")}
-                </select>
-              </td>
-              <td style="vertical-align: middle; text-align:center;">
-                <input type="number" class="owner-input-cell" value="${item.prepTime}" onchange="ownerPanel.updateItemPrepTime('${item.id}', this.value)" style="width:50px; text-align: center; height:28px; padding:2px;">
-              </td>
-              <td style="vertical-align: middle;"><span class="badge badge-normal" style="font-size:0.65rem; letter-spacing:0.02em; padding:2px 6px;">Half / Full</span></td>
-              <td style="vertical-align: middle;">
-                <div style="display:flex; flex-direction:column; gap:6px;">
-                  <div class="variant-price-wrapper" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">
-                    <span style="font-size:0.65rem; font-weight:700; color:var(--text-muted); width:10px;">H</span>
-                    <input type="number" class="owner-input-cell" value="${item.variants.half.price}" onchange="ownerPanel.updateItemPrice('${item.id}', 'half', this.value)" style="width:45px; border:none; background:transparent; padding:0; text-align:center; font-family:var(--font-mono); font-size:0.8rem; outline:none; color:#fff;">
-                  </div>
-                  <div class="variant-price-wrapper" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">
-                    <span style="font-size:0.65rem; font-weight:700; color:var(--text-muted); width:10px;">F</span>
-                    <input type="number" class="owner-input-cell" value="${item.variants.full.price}" onchange="ownerPanel.updateItemPrice('${item.id}', 'full', this.value)" style="width:45px; border:none; background:transparent; padding:0; text-align:center; font-family:var(--font-mono); font-size:0.8rem; outline:none; color:#fff;">
-                  </div>
-                </div>
-              </td>
-              <td style="vertical-align: middle; text-align:right;">
-                <div style="display:flex; flex-direction:column; gap:4px; font-family:var(--font-mono); font-size:0.8rem; line-height:1.2;">
-                  <div><span style="color:var(--text-muted); font-size:0.65rem; padding-right:4px;">H:</span>₹${marginHalf.cost.toFixed(2)}</div>
-                  <div><span style="color:var(--text-muted); font-size:0.65rem; padding-right:4px;">F:</span>₹${marginFull.cost.toFixed(2)}</div>
-                </div>
-              </td>
-              <td style="vertical-align: middle; text-align:right;">
-                <div style="display:flex; flex-direction:column; gap:4px; font-family:var(--font-mono); font-size:0.8rem; line-height:1.2; font-weight:600;">
-                  <div style="color:var(--color-success);"><span style="color:var(--text-muted); font-size:0.65rem; font-weight:normal; padding-right:4px;">H:</span>₹${marginHalf.margin.toFixed(2)}</div>
-                  <div style="color:var(--color-success);"><span style="color:var(--text-muted); font-size:0.65rem; font-weight:normal; padding-right:4px;">F:</span>₹${marginFull.margin.toFixed(2)}</div>
-                </div>
-              </td>
-              <td style="vertical-align: middle; text-align:center;">
-                <div style="display:flex; flex-direction:column; gap:6px; align-items:center;">
-                  <span class="margin-badge ${marginHalfClass}" style="font-size:0.65rem; font-weight:700; width:45px; text-align:center; display:inline-block; padding:2px 0;">${marginHalf.marginPct}%</span>
-                  <span class="margin-badge ${marginFullClass}" style="font-size:0.65rem; font-weight:700; width:45px; text-align:center; display:inline-block; padding:2px 0;">${marginFull.marginPct}%</span>
-                </div>
-              </td>
-              <td style="vertical-align: middle; text-align:center;">
-                <div style="display:flex; flex-direction:column; gap:6px; align-items:center;">
-                  <span class="stock-badge ${availableHalf > 10 ? 'in-stock' : availableHalf > 0 ? 'low-stock' : 'no-stock'}" style="font-size:0.65rem; font-weight:700; padding:2px 6px; width:45px; text-align:center; display:inline-block;">
-                    ${availableHalf}
-                  </span>
-                  <span class="stock-badge ${availableFull > 10 ? 'in-stock' : availableFull > 0 ? 'low-stock' : 'no-stock'}" style="font-size:0.65rem; font-weight:700; padding:2px 6px; width:45px; text-align:center; display:inline-block;">
-                    ${availableFull}
-                  </span>
-                </div>
-              </td>
-              <td style="vertical-align: middle; text-align:center;">
-                <input type="checkbox" ${item.active ? "checked" : ""} onchange="ownerPanel.toggleItemActive('${item.id}', this.checked)" style="width:16px; height:16px; accent-color:var(--accent-color); cursor:pointer;">
-              </td>
-              <td style="vertical-align: middle; text-align:center;">
-                <button class="k-item-btn" onclick="ownerPanel.deleteMenuItem('${item.id}')" style="color:var(--color-critical); padding:4px 10px; margin:0; font-size:0.75rem; background:var(--color-critical-bg); border-color:rgba(239,68,68,0.2); border-radius:6px; font-weight:600;">Delete</button>
-              </td>
-            </tr>
-          `;
-        } else {
-          return Object.entries(item.variants || {})
-            .sort((a, b) => parseFloat(a[1].price) - parseFloat(b[1].price))
-            .map(([vId, v]) => {
-            const marginInfo = window.AutoBrixStore.calculateMenuItemMargin(item.id, vId);
-            const availableSingle = window.AutoBrixStore.getMenuItemAvailableStock(item.id, vId);
-            
-            let marginClass = marginInfo.marginPct >= 0 ? "good" : "poor";
-            
-            return `
-              <tr draggable="false" data-id="${item.id}" class="draggable-row">
-                <td class="drag-handle" style="cursor: grab; text-align: center; color: var(--text-muted); font-size: 1.1rem; user-select: none; vertical-align: middle;">⠿</td>
-                <td style="cursor: pointer; position: relative; text-align: center; vertical-align: middle;" onclick="ownerPanel.openImageActionsModal('${item.id}')" title="Click to manage image">
-                  <div style="position: relative; width: 40px; height: 40px; margin: 0 auto;">
-                    ${item.image 
-                      ? `<img src="${imageUrl}" style="width:40px; height:40px; border-radius:6px; object-fit:cover; border:1px solid rgba(255,255,255,0.08);">` 
-                      : `<div style="width:40px; height:40px; border-radius:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; font-size:0.65rem; color:var(--text-muted); font-weight:600;">No Img</div>`}
-                    <div class="food-type-indicator ${item.foodType || 'non-veg'}" style="position: absolute; top: -3px; right: -3px; z-index: 1;"></div>
-                  </div>
-                </td>
-                <td style="vertical-align: middle;"><strong>${item.name}</strong></td>
-                <td style="vertical-align: middle;">
-                  <select class="pos-select-sm" onchange="ownerPanel.updateItemStation('${item.id}', this.value)" style="width:100%; height:28px; font-size:0.8rem; padding:0 6px;">
-                    ${Object.keys(state.config.stations).map(s => `<option value="${s}" ${item.station === s ? "selected" : ""}>${state.config.stations[s].name}</option>`).join("")}
-                  </select>
-                </td>
-                <td style="vertical-align: middle; text-align:center;">
-                  <input type="number" class="owner-input-cell" value="${item.prepTime}" onchange="ownerPanel.updateItemPrepTime('${item.id}', this.value)" style="width:50px; padding:2px; text-align: center; height:28px;">
-                </td>
-                <td style="vertical-align: middle;"><span class="badge badge-normal" style="font-size:0.65rem; padding:2px 6px; text-transform: capitalize;">${v.name || vId}</span></td>
-                <td style="vertical-align: middle;">
-                  <div class="variant-price-wrapper" style="display:flex; align-items:center; gap:6px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">
-                    <input type="number" class="owner-input-cell" value="${v.price}" onchange="ownerPanel.updateItemPrice('${item.id}', '${vId}', this.value)" style="width:60px; border:none; background:transparent; padding:0; text-align:center; font-family:var(--font-mono); font-size:0.8rem; outline:none; color:#fff;">
-                  </div>
-                </td>
-                <td style="vertical-align: middle; text-align:right; font-family:var(--font-mono); font-size:0.8rem; color:var(--text-secondary);">₹${marginInfo.cost.toFixed(2)}</td>
-                <td style="vertical-align: middle; text-align:right; font-family:var(--font-mono); font-size:0.8rem; color:var(--color-success); font-weight:600;">₹${marginInfo.margin.toFixed(2)}</td>
-                <td style="vertical-align: middle; text-align:center;">
-                  <span class="margin-badge ${marginClass}" style="font-size:0.65rem; font-weight:700; width:45px; text-align:center; display:inline-block; padding:2px 0;">${marginInfo.marginPct}%</span>
-                </td>
-                <td style="vertical-align: middle; text-align:center;">
-                  <span class="stock-badge ${availableSingle > 10 ? 'in-stock' : availableSingle > 0 ? 'low-stock' : 'no-stock'}" style="font-size:0.65rem; font-weight:700; padding:2px 6px; width:45px; text-align:center; display:inline-block;">
-                    ${availableSingle}
-                  </span>
-                </td>
-                <td style="vertical-align: middle; text-align:center;">
-                  <input type="checkbox" ${item.active ? "checked" : ""} onchange="ownerPanel.toggleItemActive('${item.id}', this.checked)" style="width:16px; height:16px; accent-color:var(--accent-color); cursor:pointer;">
-                </td>
-                <td style="vertical-align: middle; text-align:center;">
-                  <button class="k-item-btn" onclick="ownerPanel.deleteMenuItem('${item.id}')" style="color:var(--color-critical); padding:4px 10px; margin:0; font-size:0.75rem; background:var(--color-critical-bg); border-color:rgba(239,68,68,0.2); border-radius:6px; font-weight:600;">Delete</button>
-                </td>
-              </tr>
-            `;
-          }).join("");
-        }
+      const defaultImages = {
+        chowmein: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400",
+        pasta: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400",
+        roll: "https://images.unsplash.com/photo-1626700051175-6518c4793f4f?w=400",
+        egg: "https://images.unsplash.com/photo-1516448424440-9dbca97779c1?w=400"
+      };
+
+      grid.innerHTML = catItems.map(item => {
+        const matchedKey = Object.keys(defaultImages).find(k => item.id.toLowerCase().includes(k) || item.name.toLowerCase().includes(k));
+        const fallbackUrl = "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400";
+        const imageUrl = item.image ? (item.image.startsWith('http') || item.image.startsWith('data:') ? item.image : `http://localhost:3001${item.image}`) : (matchedKey ? defaultImages[matchedKey] : fallbackUrl);
+
+        const variants = item.variants || {};
+        const variantSummary = Object.values(variants).map(v => `${v.name || 'Price'}: ₹${v.price}`).join(" | ") || "₹0";
+
+        return `
+          <div class="owner-menu-card glass-card" style="padding: 10px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; position: relative; background: #141b2b; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <div style="position: relative; width: 46px; height: 46px; flex-shrink: 0;" onclick="ownerPanel.openImageActionsModal('${item.id}')" title="Change Image">
+                <img src="${imageUrl}" onerror="this.onerror=null; this.src='${fallbackUrl}';" style="width: 46px; height: 46px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(255,255,255,0.1);">
+                <div class="food-type-indicator ${item.foodType || 'non-veg'}" style="position: absolute; top: -3px; right: -3px; z-index: 1;"></div>
+              </div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 700; font-size: 0.88rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</div>
+                <div style="font-size: 0.76rem; color: #10b981; font-family: var(--font-mono); font-weight: 600; margin-top: 2px;">${variantSummary}</div>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 6px; margin-top: 2px;">
+              <span style="background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">Station: ${item.station}</span>
+              <button class="pos-action-btn primary" onclick="ownerPanel.openEditMenuModal('${item.id}')" style="padding: 3px 10px; font-size: 0.72rem; font-weight: 700; border-radius: 6px; margin: 0; grid-column: auto; height: 26px;">✏️ Edit</button>
+            </div>
+          </div>
+        `;
       }).join("");
     });
 
@@ -1243,6 +1136,112 @@ class OwnerPanel {
       }
       this.updateActiveTabContent();
     }
+  }
+
+  openEditMenuModal(itemId) {
+    const item = window.AutoBrixStore.state.config.menuItems[itemId];
+    if (!item) return;
+
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:10005; display:flex; align-items:center; justify-content:center; padding:12px;";
+
+    const variants = item.variants || {};
+    const defaultImages = {
+      chowmein: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400",
+      pasta: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400",
+      roll: "https://images.unsplash.com/photo-1626700051175-6518c4793f4f?w=400",
+      egg: "https://images.unsplash.com/photo-1516448424440-9dbca97779c1?w=400"
+    };
+    const matchedKey = Object.keys(defaultImages).find(k => item.id.toLowerCase().includes(k) || item.name.toLowerCase().includes(k));
+    const fallbackUrl = "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400";
+    const imageUrl = item.image ? (item.image.startsWith('http') || item.image.startsWith('data:') ? item.image : `http://localhost:3001${item.image}`) : (matchedKey ? defaultImages[matchedKey] : fallbackUrl);
+
+    overlay.innerHTML = `
+      <div class="glass-card" style="width:100%; max-width:480px; max-height:90vh; overflow-y:auto; padding:16px; background:#141b2b; border:1px solid rgba(255,255,255,0.1); border-radius:16px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
+          <h3 style="font-size:1.1rem; font-weight:700; color:#fff; margin:0;">Edit Menu Item: ${item.name}</h3>
+          <button id="close-edit-modal" style="background:none; border:none; color:var(--text-muted); font-size:1.4rem; cursor:pointer;">&times;</button>
+        </div>
+
+        <div style="display:flex; gap:12px; align-items:center;">
+          <img src="${imageUrl}" onerror="this.onerror=null; this.src='${fallbackUrl}';" style="width:64px; height:64px; border-radius:10px; object-fit:cover; border:1px solid rgba(255,255,255,0.1);">
+          <div style="flex:1;">
+            <label class="form-label-xs" style="color:var(--text-secondary); font-weight:600;">Food Category</label>
+            <select class="pos-select-sm" id="edit-modal-foodtype" style="width:100%; height:32px;">
+              <option value="non-veg" ${item.foodType === 'non-veg' ? 'selected' : ''}>Non-Veg</option>
+              <option value="veg" ${item.foodType === 'veg' ? 'selected' : ''}>Veg</option>
+              <option value="egg" ${item.foodType === 'egg' ? 'selected' : ''}>Egg</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div>
+            <label class="form-label-xs" style="color:var(--text-secondary); font-weight:600;">Station</label>
+            <select class="pos-select-sm" id="edit-modal-station" style="width:100%; height:32px;">
+              ${Object.keys(window.AutoBrixStore.state.config.stations).map(s => `<option value="${s}" ${item.station === s ? "selected" : ""}>${window.AutoBrixStore.state.config.stations[s].name}</option>`).join("")}
+            </select>
+          </div>
+          <div>
+            <label class="form-label-xs" style="color:var(--text-secondary); font-weight:600;">Prep Time (Min)</label>
+            <input type="number" class="owner-input-cell" id="edit-modal-preptime" value="${item.prepTime}" min="1" style="width:100%; height:32px; text-align:center;">
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label-xs" style="color:var(--text-secondary); font-weight:600; margin-bottom:4px; display:block;">Variants & Prices (₹)</label>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            ${Object.entries(variants).map(([vKey, v]) => `
+              <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+                <span style="font-size:0.85rem; font-weight:600; color:#fff; text-transform:capitalize;">${v.name || vKey}</span>
+                <input type="number" class="owner-input-cell edit-variant-price-input" data-variant-id="${vKey}" value="${v.price}" style="width:80px; height:28px; text-align:center; font-family:var(--font-mono);">
+              </div>
+            `).join("")}
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); padding:8px 12px; border-radius:8px;">
+          <span style="font-size:0.85rem; font-weight:600; color:#fff;">Item Active Status</span>
+          <input type="checkbox" id="edit-modal-active" ${item.active ? "checked" : ""} style="width:18px; height:18px; accent-color:var(--accent-color); cursor:pointer;">
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:8px;">
+          <button class="k-item-btn" id="edit-modal-delete-btn" style="color:var(--color-critical); padding:8px 14px; font-size:0.8rem; background:var(--color-critical-bg); border-color:rgba(239,68,68,0.2); border-radius:8px; font-weight:600;">Delete Item</button>
+          <button class="pos-action-btn primary" id="edit-modal-save-btn" style="flex:1; padding:8px; font-size:0.85rem; font-weight:700; border-radius:8px; margin:0;">Save Changes</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector("#close-edit-modal").onclick = () => overlay.remove();
+
+    overlay.querySelector("#edit-modal-save-btn").onclick = async () => {
+      const station = overlay.querySelector("#edit-modal-station").value;
+      const prepTime = parseInt(overlay.querySelector("#edit-modal-preptime").value) || 3;
+      const foodType = overlay.querySelector("#edit-modal-foodtype").value;
+      const active = overlay.querySelector("#edit-modal-active").checked;
+
+      await this.updateItemStation(itemId, station);
+      await this.updateItemPrepTime(itemId, prepTime);
+      await this.toggleItemActive(itemId, active);
+
+      const priceInputs = overlay.querySelectorAll(".edit-variant-price-input");
+      for (const input of priceInputs) {
+        const vId = input.dataset.variantId;
+        const newPrice = parseFloat(input.value) || 0;
+        await this.updateItemPrice(itemId, vId, newPrice);
+      }
+
+      overlay.remove();
+      this.updateActiveTabContent();
+    };
+
+    overlay.querySelector("#edit-modal-delete-btn").onclick = async () => {
+      overlay.remove();
+      await this.deleteMenuItem(itemId);
+    };
   }
 
   updateGenPricingGrid() {
@@ -2230,32 +2229,30 @@ class OwnerPanel {
   // ==========================================
   renderRecipesTab(container, state) {
     container.innerHTML = `
-      <div class="glass-card">
+      <div class="glass-card" style="width:100%; box-sizing:border-box;">
         <h4 class="modal-section-title" style="margin-bottom:0.75rem;">Interactive Recipe & Portions Editor</h4>
         
-        <div class="batch-editor-panel" style="display:grid; grid-template-columns: 240px 1fr; gap:1.5rem;">
-          <!-- Left: Menu Item List -->
-          <div class="glass-card" style="max-height: 480px; overflow-y: auto; padding:0.5rem; background:rgba(0,0,0,0.15); display:flex; flex-direction:column; gap:4px;">
-            <h5 style="font-size:0.75rem; color:var(--text-muted); padding:0 0.5rem 0.5rem 0.5rem; border-bottom:1px solid rgba(255,255,255,0.05); text-transform:uppercase; letter-spacing:0.05em;">Menu Catalog</h5>
+        <div class="batch-editor-panel" style="display:flex; flex-direction:column; gap:1.2rem; width:100%; box-sizing:border-box;">
+          <!-- Top: Menu Item Selector Pills Bar -->
+          <div style="width: 100%; overflow-x: auto; display: flex; gap: 8px; padding-bottom: 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch;">
             ${Object.values(state.config.menuItems).map(it => {
               const activeClass = this.selectedRecipeItem === it.id ? "active" : "";
               return `
-                <button class="owner-tab-btn ${activeClass}" 
+                <button class="cat-pill ${activeClass}" 
                         onclick="ownerPanel.selectRecipeItem('${it.id}')" 
-                        style="text-align:left; width:100%; padding:8px 12px; border-radius:4px; font-size:0.85rem; font-weight:600; display:flex; justify-content:space-between; align-items:center; background:none; border:none; color:var(--text-secondary); cursor:pointer;">
+                        style="white-space: nowrap; flex-shrink: 0; padding: 6px 14px; border-radius: 20px;">
                   <span>${it.name}</span>
-                  <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
                 </button>
               `;
             }).join("")}
           </div>
 
-          <!-- Right: Ingredient Configurator -->
-          <div class="glass-card" style="background:rgba(255,255,255,0.02); display:flex; flex-direction:column; justify-content:space-between;">
+          <!-- Bottom: Ingredient Configurator taking 100% full width -->
+          <div class="glass-card" style="background:rgba(255,255,255,0.02); display:flex; flex-direction:column; justify-content:space-between; width:100%; box-sizing:border-box;">
             <div>
               <h4 id="recipe-editor-title" style="font-size:1.1rem; font-weight:700; color:var(--accent-color); margin-bottom:1rem;"></h4>
               
-              <div class="owner-table-wrapper" style="border:none; max-height: 280px; overflow-y:auto;">
+              <div class="owner-table-wrapper" style="border:none; max-height: 320px; overflow-x:auto; -webkit-overflow-scrolling:touch; width:100%;">
                 <table class="owner-table">
                   <thead>
                     <tr>
@@ -2761,7 +2758,7 @@ class OwnerPanel {
   // ==========================================
   renderInventoryTab(container, state) {
     container.innerHTML = `
-      <div class="batch-editor-panel" style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem;">
+      <div class="batch-editor-panel" style="display:flex; flex-direction:column; gap:1.5rem; width:100%; box-sizing:border-box;">
         
         <!-- Left Pane: Morning Prep Form & Recipe Config -->
         <div style="display:flex; flex-direction:column; gap:1.5rem;">
@@ -2943,7 +2940,7 @@ class OwnerPanel {
             <!-- Create New Raw Ingredient Form -->
             <div style="background:rgba(255,255,255,0.03); padding:0.75rem; border-radius:6px; margin-top:1rem;">
               <span class="form-label-xs" style="font-weight:700; display:block; margin-bottom:0.5rem;">Create New Raw Material:</span>
-              <form id="raw-add-form" style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem;">
+              <form id="raw-add-form" style="display:flex; flex-direction:column; gap:0.5rem; width:100%; box-sizing:border-box;">
                 <input type="text" class="pos-input-sm" id="raw-add-name" placeholder="Ingredient Name" style="grid-column: span 2;" required>
                 
                 <div style="display:flex; flex-direction:column; gap:2px;">
@@ -3470,7 +3467,7 @@ class OwnerPanel {
         </div>
       </div>
 
-      <div class="batch-editor-panel" style="display:grid; grid-template-columns: 1.1fr 0.9fr; gap:1.5rem;">
+      <div class="batch-editor-panel" style="display:flex; flex-direction:column; gap:1.5rem; width:100%; box-sizing:border-box;">
         
         <!-- Left: Form to record expense -->
         <div class="glass-card">
@@ -3574,7 +3571,7 @@ class OwnerPanel {
 
           <div style="display:flex; flex-direction:column; gap:0.25rem;">
             <label class="form-label-xs">Volume / Size Presets (Edit labels, select one to purchase)</label>
-            <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:4px; background:rgba(0,0,0,0.1); padding:4px; border-radius:6px;">
+            <div style="display:flex; flex-wrap:wrap; gap:6px; background:rgba(0,0,0,0.1); padding:6px; border-radius:6px; width:100%; box-sizing:border-box;">
               ${this.bevSizes.map((sz, idx) => `
                 <div style="display:flex; flex-direction:column; align-items:center; gap:4px; background:rgba(255,255,255,0.02); padding:4px; border-radius:4px; border: 1px solid ${this.selectedBevSizeIdx === idx ? 'var(--accent-color)' : 'transparent'};">
                   <input type="radio" name="bev-size-select-radio" value="${idx}" ${this.selectedBevSizeIdx === idx ? 'checked' : ''} style="cursor:pointer; accent-color:var(--accent-color);">
@@ -4030,3 +4027,4 @@ class OwnerPanel {
 
 // Bind globally
 window.OwnerPanel = OwnerPanel;
+window.AutoBrixOwner = OwnerPanel;

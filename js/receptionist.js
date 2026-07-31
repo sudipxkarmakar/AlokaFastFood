@@ -27,6 +27,10 @@ class POSPanel {
     this.selectedVariant = "single";
     this.selectedModifiers = [];
     this.lastModifiers = [];
+
+    if (this.container) {
+      this.init();
+    }
   }
 
   saveCart() {
@@ -54,8 +58,8 @@ class POSPanel {
   }
 
   render() {
-    // If the wrapper is already statically defined in HTML, don't overwrite it
-    if (this.container.querySelector(".receptionist-grid")) {
+    // If the wrapper or pos-menu-items is already statically defined in HTML, don't overwrite it
+    if (this.container && (this.container.querySelector(".receptionist-grid") || this.container.querySelector("#pos-menu-items"))) {
       this.renderCategories();
       this.renderMenuGrid();
       this.renderCart();
@@ -161,14 +165,17 @@ class POSPanel {
 
   bindEvents() {
     // Category click handler
-    document.getElementById("pos-categories-list").addEventListener("click", (e) => {
-      const btn = e.target.closest(".category-btn");
-      if (btn) {
-        this.activeCategory = btn.dataset.category;
-        this.renderCategories();
-        this.renderMenuGrid();
-      }
-    });
+    const catList = document.getElementById("pos-categories-list");
+    if (catList) {
+      catList.addEventListener("click", (e) => {
+        const btn = e.target.closest(".cat-pill") || e.target.closest(".category-btn");
+        if (btn) {
+          this.activeCategory = btn.dataset.category;
+          this.renderCategories();
+          this.renderMenuGrid();
+        }
+      });
+    }
 
     // Search filter
     document.getElementById("pos-search").addEventListener("input", (e) => {
@@ -234,78 +241,40 @@ class POSPanel {
 
   renderCategories() {
     const list = document.getElementById("pos-categories-list");
-    const menuItems = window.AutoBrixStore.state.config.menuItems;
+    if (!list) return;
     
-    // Count items in each category
     const categories = [
-      { id: "all", name: "All Menu" },
+      { id: "all", name: "All" },
       { id: "rolls", name: "Roll" },
+      { id: "chowmein", name: "Chowmein" },
       { id: "pasta", name: "Pasta" },
-      { id: "chowmein", name: "Chowmean" },
-      { id: "moghlai", name: "Moghlai" },
-      { id: "others", name: "Others" },
-      { id: "egg", name: "Egg" },
-      { id: "cold_drink", name: "Cold Drink" }
+      { id: "moghlai", name: "Mughlai" },
+      { id: "paratha", name: "Paratha" },
+      { id: "cold_drink", name: "Drinks" }
     ];
 
-    const svgMap = {
-      all: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>`,
-      rolls: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><path d="M8.5 7h7M7.5 12h9M8.5 17h7"></path></svg>`,
-      pasta: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12a10 10 0 0 0 20 0H2Z"></path><path d="M12 2v10M8 3v9M16 3v9M6 5v7M18 5v7M12 12c0 3 2 4 2 4"></path></svg>`,
-      chowmein: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11a9 9 0 0 0 18 0H3Z"></path><path d="m19 2-8 8M21 4 13 12M8 11s0-4-2-4M12 11s0-5-3-5M16 11s0-3-1-3"></path></svg>`,
-      moghlai: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 0 20M2 12a15.3 15.3 0 0 1 20 0"></path></svg>`,
-      others: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>`,
-      egg: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.5 2 6 7.5 6 12s2.5 10 6 10 6-5.5 6-10S15.5 2 12 2Z"></path></svg>`,
-      cold_drink: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8H7l1 13h8zM6 8h12M15 8l1-5"></path></svg>`
-    };
+    const pillsHTML = categories.map(cat => `
+      <button class="cat-pill ${this.activeCategory === cat.id ? "active" : ""}" data-category="${cat.id}">
+        ${cat.name}
+      </button>
+    `).join("");
 
-    const catsHTML = categories.map(cat => {
-      let count = 0;
-      if (cat.id === "all") {
-        count = Object.values(menuItems).filter(item => item.active).length;
-      } else {
-        count = Object.values(menuItems).filter(item => item.active && this.isItemInCat(item, cat.id)).length;
-      }
+    const filterBtnHTML = `
+      <button class="cat-pill-icon-btn" id="cat-filter-btn" title="Filter Settings">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
+    `;
 
-      return `
-        <button class="category-btn ${this.activeCategory === cat.id ? "active" : ""}" data-category="${cat.id}" title="${cat.name}" style="display:flex; justify-content:center; align-items:center; width:52px; height:52px; padding:0; border-radius:12px; position:relative; flex-shrink:0; margin: 0 auto 0.25rem auto;">
-          ${svgMap[cat.id] || ""}
-          <span class="category-count" style="position:absolute; top:-4px; right:-4px; font-size:0.65rem; padding:1px 5px; border-radius:10px; font-weight:800; border:2px solid var(--bg-card);">${count}</span>
-        </button>
-      `;
-    }).join("");
-
-    const activeDineInOrders = (window.AutoBrixStore.state.orders || []).filter(o => 
-      (o.source === "DINE_IN" || o.source === "BOTH") && 
-      o.paymentStatus === "UNPAID" && 
-      ["ACCEPTED", "COOKING", "READY", "COMPLETED"].includes(o.fulfillmentStatus)
-    );
-
-    const dividerHTML = activeDineInOrders.length > 0 ? `<div style="width:28px; height:1px; background:rgba(255,255,255,0.1); margin:0.75rem auto;"></div>` : "";
-
-    const dineInHTML = activeDineInOrders.map(order => {
-      const mainItem = order.items[0];
-      const mainCat = mainItem ? this.getItemCategory(mainItem.id) : "all";
-      const icon = svgMap[mainCat] || svgMap.all;
-      const displaySerial = order.id.split('-').pop();
-
-      return `
-        <button class="active-dine-circle" onclick="posPanel.loadOrderForModification('${order.id}')" title="Modify Order ${order.id}" style="display:flex; justify-content:center; align-items:center; width:44px; height:44px; border-radius:50%; border:2px solid var(--accent-color); background:rgba(88,80,236,0.1); color:var(--accent-color); cursor:pointer; position:relative; flex-shrink:0; margin:0.35rem auto; transition:all 0.2s ease;">
-          ${icon}
-          <span style="position:absolute; bottom:-4px; right:-4px; background:var(--bg-card); color:var(--text-primary); border:1px solid rgba(255,255,255,0.08); font-size:0.55rem; font-weight:800; padding:0 3px; border-radius:4px; transform:scale(0.85);">${displaySerial}</span>
-        </button>
-      `;
-    }).join("");
-
-    list.innerHTML = catsHTML + dividerHTML + dineInHTML;
+    list.className = "pos-categories-pills";
+    list.innerHTML = pillsHTML + filterBtnHTML;
   }
 
   isItemInCat(item, categoryId) {
     if (categoryId === "rolls") {
-      return item.id.toLowerCase().includes("roll");
+      return item.id.toLowerCase().includes("roll") || item.name.toLowerCase().includes("roll");
     }
     if (categoryId === "pasta") {
-      return item.id.toLowerCase().includes("pasta");
+      return item.id.toLowerCase().includes("pasta") || item.name.toLowerCase().includes("pasta");
     }
     if (categoryId === "chowmein") {
       return item.id.toLowerCase().includes("chowmein") || item.id.toLowerCase().includes("chowmean") || item.name.toLowerCase().includes("chowmein") || item.name.toLowerCase().includes("chowmean");
@@ -313,16 +282,18 @@ class POSPanel {
     if (categoryId === "moghlai") {
       return item.id.toLowerCase().includes("moghlai") || item.id.toLowerCase().includes("mughlai") || item.name.toLowerCase().includes("moghlai") || item.name.toLowerCase().includes("mughlai");
     }
+    if (categoryId === "paratha") {
+      return item.id.toLowerCase().includes("paratha") || item.name.toLowerCase().includes("paratha");
+    }
     if (categoryId === "egg") {
       const lowerId = item.id.toLowerCase();
       const lowerName = item.name.toLowerCase();
       const isEggWord = lowerId.includes("egg") || lowerName.includes("egg");
-      const isCooked = lowerId.includes("roll") || lowerId.includes("pasta") || lowerId.includes("chowmein") || lowerId.includes("chowmean") || lowerId.includes("moghlai") || lowerId.includes("mughlai") ||
-                       lowerName.includes("roll") || lowerName.includes("pasta") || lowerName.includes("chowmein") || lowerName.includes("chowmean") || lowerName.includes("moghlai") || lowerName.includes("mughlai");
+      const isCooked = lowerId.includes("roll") || lowerId.includes("pasta") || lowerId.includes("chowmein") || lowerId.includes("chowmean") || lowerId.includes("moghlai") || lowerId.includes("mughlai") || lowerId.includes("paratha") ||
+                       lowerName.includes("roll") || lowerName.includes("pasta") || lowerName.includes("chowmein") || lowerName.includes("chowmean") || lowerName.includes("moghlai") || lowerName.includes("mughlai") || lowerName.includes("paratha");
       return isEggWord && !isCooked;
     }
     if (categoryId === "cold_drink") {
-      // Exclude raw egg items from cold drinks even if assigned to reception station
       if (this.isItemInCat(item, "egg")) return false;
       return item.id.toLowerCase().includes("pepsi") || item.id.toLowerCase().includes("7up") || item.id.toLowerCase().includes("mirinda") || item.id.toLowerCase().includes("dew") || item.id.toLowerCase().includes("water") || item.id.toLowerCase().includes("beverage") || item.station === "reception";
     }
@@ -331,6 +302,7 @@ class POSPanel {
              !this.isItemInCat(item, "pasta") && 
              !this.isItemInCat(item, "chowmein") && 
              !this.isItemInCat(item, "moghlai") && 
+             !this.isItemInCat(item, "paratha") && 
              !this.isItemInCat(item, "egg") && 
              !this.isItemInCat(item, "cold_drink");
     }
@@ -344,6 +316,7 @@ class POSPanel {
     if (this.isItemInCat(item, "pasta")) return "pasta";
     if (this.isItemInCat(item, "chowmein")) return "chowmein";
     if (this.isItemInCat(item, "moghlai")) return "moghlai";
+    if (this.isItemInCat(item, "paratha")) return "paratha";
     if (this.isItemInCat(item, "egg")) return "egg";
     if (this.isItemInCat(item, "cold_drink")) return "cold_drink";
     return "others";
@@ -403,6 +376,7 @@ class POSPanel {
 
   renderMenuGrid() {
     const grid = document.getElementById("pos-menu-items");
+    if (!grid) return;
     const menuItems = window.AutoBrixStore.state.config.menuItems;
     
     let filtered = Object.values(menuItems).filter(item => item.active);
@@ -420,61 +394,59 @@ class POSPanel {
       const isEggOrDrink = item.id === "egg" || item.station === "reception" || item.id.includes("pepsi") || item.id.includes("7up") || item.id.includes("mirinda") || item.id.includes("water") || item.id.includes("beverage");
       
       const defaultImages = {
-        egg: "https://images.unsplash.com/photo-1516448424440-9dbca97779c1?w=400",
         chowmein: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400",
         pasta: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400",
         roll: "https://images.unsplash.com/photo-1626700051175-6518c4793f4f?w=400",
+        moghlai: "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?w=400",
+        paratha: "https://images.unsplash.com/photo-1626700051175-6518c4793f4f?w=400",
         pepsi: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400",
         mirinda: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400",
         '7up': "https://images.unsplash.com/photo-1543257580-7269da773bf5?w=400",
-        water: "https://images.unsplash.com/photo-1548839130-3bf6047b9609?w=400"
+        water: "https://images.unsplash.com/photo-1548839130-3bf6047b9609?w=400",
+        egg: "https://images.unsplash.com/photo-1516448424440-9dbca97779c1?w=400"
       };
       
       const matchedKey = Object.keys(defaultImages).find(k => item.id.toLowerCase().includes(k) || item.name.toLowerCase().includes(k));
-      const imageSrc = item.image || defaultImages[matchedKey] || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400";
+      const fallbackUrl = "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400";
+      const imageSrc = item.image || (matchedKey ? defaultImages[matchedKey] : fallbackUrl);
 
       if (isEggOrDrink) {
-        // Render a card for each variant sorted by price
         Object.keys(item.variants)
           .sort((a, b) => parseFloat(item.variants[a].price) - parseFloat(item.variants[b].price))
           .forEach(varKey => {
           const v = item.variants[varKey];
           const available = window.AutoBrixStore.getMenuItemAvailableStock(item.id, varKey);
-          let stockClass = "good";
-          if (available <= 0) stockClass = "empty";
-          else if (available < 10) stockClass = "low";
           
           cardHTMLs.push(`
-            <div class="menu-card" data-item-id="${item.id}" data-variant-key="${varKey}">
-              <div class="menu-card-image-bg" style="background-image: url('${imageSrc}');"></div>
-              <div class="menu-card-overlay">
-                <div class="menu-card-title-white">${item.name} - ${v.name}</div>
-                <div class="menu-card-meta-row">
-                  <span class="menu-card-price-white">₹${v.price}</span>
-                  <span class="stock-badge ${stockClass} menu-card-stock-white">${available} Avail</span>
+            <div class="menu-card-full-img menu-card" data-item-id="${item.id}" data-variant-key="${varKey}">
+              <img class="menu-card-bg-img" src="${imageSrc}" alt="${item.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
+              <div class="menu-card-gradient-overlay"></div>
+              <div class="menu-card-content">
+                <div class="menu-card-name">${item.name} - ${v.name}</div>
+                <div class="menu-card-price-green">₹${v.price}</div>
+                <div class="menu-card-avail">
+                  <span class="avail-dot ${available > 0 ? "has-stock" : ""}"></span>
+                  <span>Avail ${available}</span>
                 </div>
               </div>
             </div>
           `);
         });
       } else {
-        // Standard item
         const defaultVariant = Object.keys(item.variants)[0];
         const available = window.AutoBrixStore.getMenuItemAvailableStock(item.id, defaultVariant);
-        let stockClass = "good";
-        if (available <= 0) stockClass = "empty";
-        else if (available < 10) stockClass = "low";
-        
         const priceText = item.variants[defaultVariant].price;
         
         cardHTMLs.push(`
-          <div class="menu-card" data-item-id="${item.id}" data-variant-key="${defaultVariant}">
-            <div class="menu-card-image-bg" style="background-image: url('${imageSrc}');"></div>
-            <div class="menu-card-overlay">
-              <div class="menu-card-title-white">${item.name}</div>
-              <div class="menu-card-meta-row">
-                <span class="menu-card-price-white">₹${priceText}</span>
-                <span class="stock-badge ${stockClass} menu-card-stock-white">${available} Avail</span>
+          <div class="menu-card-full-img menu-card" data-item-id="${item.id}" data-variant-key="${defaultVariant}">
+            <img class="menu-card-bg-img" src="${imageSrc}" alt="${item.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
+            <div class="menu-card-gradient-overlay"></div>
+            <div class="menu-card-content">
+              <div class="menu-card-name">${item.name}</div>
+              <div class="menu-card-price-green">₹${priceText}</div>
+              <div class="menu-card-avail">
+                <span class="avail-dot ${available > 0 ? "has-stock" : ""}"></span>
+                <span>Avail ${available}</span>
               </div>
             </div>
           </div>
@@ -482,9 +454,15 @@ class POSPanel {
       }
     });
 
-    grid.innerHTML = cardHTMLs.join("");
+    const newHTML = cardHTMLs.join("");
+    if (grid.innerHTML !== newHTML) {
+      grid.innerHTML = newHTML;
+      this.attachMenuCardEvents();
+    }
+  }
 
-    // Click / Long-press handler for menu cards
+  attachMenuCardEvents() {
+    const grid = document.getElementById("pos-menu-items");
     grid.querySelectorAll(".menu-card").forEach(card => {
       let pressTimer = null;
       let isLongPress = false;
@@ -787,8 +765,8 @@ class POSPanel {
         modifierNames: modifierNames,
         price: finalPrice,
         quantity: 1,
-        prepTime: item.prepTime,
-        station: item.station,
+        prepTime: item.prepTime || 3,
+        station: item.station || 'tawa',
         type: defaultType,
         is_new: !!this.modifyingOrderId,
         status: 'PENDING'
@@ -987,7 +965,8 @@ class POSPanel {
   updateCartETA() {
     // Standard mapping of items to station schema
     const etaVal = window.AutoBrixStore.calculateCartWaitTime(this.cart, { excludeOrderId: this.modifyingOrderId, editingOrderId: this.modifyingOrderId });
-    document.getElementById("pos-cart-eta-value").innerText = `${etaVal} Mins`;
+    const etaEl = document.getElementById("pos-cart-eta-value");
+    if (etaEl) etaEl.innerText = `${etaVal} Mins`;
 
     const deliveryTimeEl = document.getElementById("pos-cart-delivery-time");
     if (deliveryTimeEl) {
@@ -1007,6 +986,111 @@ class POSPanel {
         deliveryTimeEl.innerText = formatted;
       }
     }
+
+    this.updateFloatingCartBar();
+  }
+
+  updateFloatingCartBar() {
+    const etaVal = window.AutoBrixStore.calculateCartWaitTime(this.cart, { excludeOrderId: this.modifyingOrderId, editingOrderId: this.modifyingOrderId });
+    
+    let total = 0;
+    let itemCount = 0;
+    this.cart.forEach(item => {
+      total += item.price * item.quantity;
+      itemCount += item.quantity;
+    });
+
+    const cookTimeEl = document.getElementById("floating-cook-time-val");
+    if (cookTimeEl) cookTimeEl.innerText = `${etaVal} Mins`;
+
+    const totalEl = document.getElementById("floating-cart-total");
+    if (totalEl) totalEl.innerText = `₹${total.toFixed(2)}`;
+
+    const countBadgeEl = document.getElementById("floating-cart-badge");
+    if (countBadgeEl) countBadgeEl.innerText = `${itemCount}`;
+  }
+
+  toggleMobileCartDrawer(show = null) {
+    const backdrop = document.getElementById("mobile-cart-backdrop");
+    if (!backdrop) return;
+    if (show === true) {
+      backdrop.classList.add("open");
+    } else if (show === false) {
+      backdrop.classList.remove("open");
+    } else {
+      backdrop.classList.toggle("open");
+    }
+  }
+
+  toggleDineInModal(show = null) {
+    const modal = document.getElementById("dinein-modal-backdrop");
+    if (!modal) return;
+    
+    if (show === true || (show === null && !modal.classList.contains("open"))) {
+      this.renderDineInModalContent();
+      modal.classList.add("open");
+    } else {
+      modal.classList.remove("open");
+    }
+  }
+
+  renderDineInModalContent() {
+    const container = document.getElementById("dinein-orders-list-body");
+    if (!container) return;
+
+    const activeDineInOrders = (window.AutoBrixStore.state.orders || []).filter(o => 
+      (o.source === "DINE_IN" || o.source === "BOTH") && 
+      o.paymentStatus === "UNPAID" && 
+      ["ACCEPTED", "COOKING", "READY", "COMPLETED"].includes(o.fulfillmentStatus)
+    );
+
+    // Update count badges across UI
+    const badges = document.querySelectorAll("#pos-dinein-count-badge");
+    badges.forEach(b => b.innerText = activeDineInOrders.length);
+
+    if (activeDineInOrders.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center; padding:2rem 1rem; color:var(--text-muted);">
+          <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:8px; opacity:0.5;"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          <p style="font-size:0.85rem; font-weight:600;">No Active Unpaid Dine-In Orders</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Sort: Newest at top, 1st (earliest) order at the bottom!
+    activeDineInOrders.sort((a, b) => {
+      const tA = new Date(a.ts_active || a.timestamp || a.ts_queued || 0).getTime();
+      const tB = new Date(b.ts_active || b.timestamp || b.ts_queued || 0).getTime();
+      return tB - tA;
+    });
+
+    container.innerHTML = activeDineInOrders.map((order, idx) => {
+      const serial = order.id.split('-').pop();
+      const itemsSummary = (order.items || []).map(it => `${it.quantity}x ${it.name}`).join(', ');
+      const isSelected = this.modifyingOrderId === order.id;
+      const isEarliest = idx === activeDineInOrders.length - 1; // 1st order at bottom
+      
+      return `
+        <div class="dinein-order-card ${isSelected ? "selected" : ""}" 
+             onclick="posPanel.loadOrderForModification('${order.id}'); posPanel.renderDineInModalContent();"
+             onmouseenter="posPanel.loadOrderForModification('${order.id}'); posPanel.renderDineInModalContent();"
+             style="cursor:pointer; border:1px solid ${isSelected ? "var(--accent-color)" : "rgba(255,255,255,0.08)"}; background:${isSelected ? "rgba(245,158,11,0.14)" : "rgba(0,0,0,0.2)"}; padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; transition:all 0.15s ease; position:relative;">
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="background:${isSelected ? "#d97706" : "var(--accent-color)"}; color:white; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:6px;">#${serial}</span>
+              <span style="font-weight:700; font-size:0.9rem; color:white;">${order.customerName || "Walk-in Customer"}</span>
+              ${isEarliest ? '<span style="background:rgba(16,185,129,0.2); color:#10b981; border:1px solid rgba(16,185,129,0.3); font-size:0.6rem; font-weight:800; padding:1px 5px; border-radius:4px; text-transform:uppercase;">1st Order (Oldest)</span>' : ''}
+            </div>
+            <span style="font-size:0.75rem; color:var(--text-secondary); line-clamp:1; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden;">${itemsSummary}</span>
+          </div>
+          <div style="text-align:right;">
+            <span style="font-weight:800; font-size:0.95rem; color:#10b981; font-family:var(--font-mono); display:block;">₹${order.total}</span>
+            <span style="font-size:0.65rem; color:${isSelected ? "var(--accent-color)" : "var(--text-muted)"}; font-weight:700; text-transform:uppercase;">${isSelected ? "Active Cart" : "Slide/Tap"}</span>
+          </div>
+        </div>
+      `;
+    }).join("");
   }
 
   clearCart() {
@@ -1183,6 +1267,10 @@ class POSPanel {
         // Reset modifyingOrderId BEFORE calling clearCart to avoid cancel prompt!
         this.modifyingOrderId = null;
         this.clearCart();
+
+        // Automatically minimize Dine-In modal and mobile cart drawer upon placing order
+        this.toggleDineInModal(false);
+        this.toggleMobileCartDrawer(false);
         
         // Show success notification/toast
         const successToast = document.createElement("div");
@@ -1317,3 +1405,4 @@ class POSPanel {
 
 // Bind globally
 window.POSPanel = POSPanel;
+window.AutoBrixReceptionist = POSPanel;

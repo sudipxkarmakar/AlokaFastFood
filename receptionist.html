@@ -2,141 +2,202 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>POS Cashier — AutoBrix</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
   <div id="app-container">
-    <!-- Top Header Bar -->
-    <header>
-      <div class="logo-section">
-        <div class="logo-icon">A</div>
-        <h1 class="logo-text">AutoBrix</h1>
-        <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px; font-family:var(--font-mono);">v1.0.0</span>
+    <!-- Top Header Bar with Subtle Gradient Fade (No Straight Border) -->
+    <header style="padding: 8px 10px; background: linear-gradient(180deg, #0f131e 0%, rgba(15, 19, 30, 0.8) 70%, rgba(15, 19, 30, 0) 100%); border-bottom: none; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box; overflow: hidden;">
+      <div class="logo-section" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+        <div class="logo-icon" style="width: 28px; height: 28px; background: #5850ec; color: #fff; font-weight: 800; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 1rem;">A</div>
+        <h1 class="logo-text" style="font-size: 1rem; font-weight: 800; color: #fff; margin: 0; letter-spacing: -0.02em; white-space: nowrap;">AutoBrix</h1>
+        <span style="font-size:0.6rem; font-weight:700; color:var(--text-muted); background:rgba(255,255,255,0.06); padding:2px 5px; border-radius:4px; font-family:var(--font-mono); white-space: nowrap;">v1.0.0</span>
       </div>
 
-      <div class="nav-controls">
-        <div class="nav-buttons">
-          <a href="index.html" class="nav-btn">Control Hub</a>
-          <a href="receptionist.html" class="nav-btn active">POS Cashier</a>
-          <a href="kitchen-a.html" class="nav-btn">Kitchen A (Fast Food)</a>
-          <a href="kitchen-b.html" class="nav-btn">Kitchen B (Mains)</a>
-          <a href="operations.html" class="nav-btn">Operations</a>
-          <a href="owner.html" class="nav-btn">Owner Admin</a>
-        </div>
-
-        <div id="db-status-badge"></div>
-
-        <button class="theme-btn" id="theme-toggle" title="Toggle Theme"></button>
-        
-        <button class="theme-btn" id="reset-toggle" title="Reset All Data" style="color:var(--color-critical); border-color:rgba(239,68,68,0.2);">
-          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M16 3h5v5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 21H3v-5"></path></svg>
+      <div class="nav-controls" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; max-width: 60%; justify-content: flex-end;">
+        <div id="db-status-badge" style="flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
+        <button class="theme-btn" id="theme-toggle" title="Toggle Theme" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 4px; flex-shrink: 0;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
         </button>
       </div>
     </header>
 
-    <main>
+    <main style="padding-bottom: 120px;">
       <div id="single-pos" style="height:100%;">
-        <div class="receptionist-grid">
-          <!-- Left Categories Panel -->
-          <div class="pos-categories" id="pos-categories-list"></div>
-          
-          <!-- Center Menu Cards Panel -->
-          <div class="pos-menu-wrapper">
-            <div class="pos-search-bar">
-              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-              <input type="text" class="pos-search-input" id="pos-search" placeholder="Search menu item (e.g. Roll, Chowmein, Kosha)..." value="">
-            </div>
-            <div class="pos-menu-grid" id="pos-menu-items"></div>
+        <!-- Top Horizontal Categories Pill Bar -->
+        <div class="pos-categories-pills" id="pos-categories-list"></div>
+
+        <!-- Search Bar with Grid Toggle -->
+        <div class="pos-search-row">
+          <div class="pos-search-bar">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+            <input type="text" class="pos-search-input" id="pos-search" placeholder="Search menu item..." value="">
           </div>
-          
-          <!-- Right Cart Panel -->
-          <div class="pos-cart">
-            <div class="pos-cart-header">
-              <span class="pos-cart-title">Current Order</span>
-              <span class="badge badge-normal" id="pos-held-count" style="display:none; cursor:pointer;">Held: 0</span>
-            </div>
-            
-            <div class="pos-order-details">
-              <div class="form-row">
-                <div class="form-group-flex">
-                  <label class="form-label-xs">Customer Name</label>
-                  <input type="text" class="pos-input-sm" id="cart-cust-name" placeholder="Walk-in Customer" value="">
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group-flex">
-                  <label class="form-label-xs">Order Source</label>
-                  <select class="pos-select-sm" id="cart-order-source">
-                    <option value="DINE_IN" selected>Dine-In</option>
-                    <option value="PARCEL">Parcel</option>
-                    <option value="BOTH">Both</option>
-                  </select>
-                </div>
-                <div class="form-group-flex" style="display:none;">
-                  <label class="form-label-xs">Priority</label>
-                  <select class="pos-select-sm" id="cart-order-priority">
-                    <option value="NORMAL" selected>Dine-In/Normal</option>
-                    <option value="TAKEAWAY">Takeaway</option>
-                    <option value="VIP">🔴 VIP</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            
-            <div class="pos-cart-items" id="pos-cart-items-list"></div>
-            
-            <div class="pos-cart-eta">
-              <span class="eta-label">Estimated Cook Time:</span>
-              <span class="eta-value" id="pos-cart-eta-value">0 Min</span>
-            </div>
-            <div class="pos-cart-eta" style="margin-top: 4px; border-top: none; padding-top: 0; padding-bottom: 8px;">
-              <span class="eta-label">Est. Delivery Time:</span>
-              <span class="eta-value" id="pos-cart-delivery-time" style="color: #fbbf24;">--:--</span>
-            </div>
-            
-            <div class="pos-cart-summary">
-              <div class="summary-row">
-                <span>Subtotal:</span>
-                <span id="pos-subtotal">₹0.00</span>
-              </div>
-              <div class="summary-row">
-                <span>Taxes (0%):</span>
-                <span id="pos-tax">₹0.00</span>
-              </div>
-              <div class="summary-row" id="aggregator-row" style="display:none;">
-                <span id="aggregator-label">Aggregator Comm (22%):</span>
-                <span id="pos-commission">₹0.00</span>
-              </div>
-              <div class="summary-row total">
-                <span>Grand Total:</span>
-                <span id="pos-total">₹0.00</span>
+          <button class="grid-toggle-btn" id="grid-layout-toggle" title="Toggle Grid View">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>
+          </button>
+        </div>
+
+        <!-- Menu Item Cards Grid -->
+        <div class="pos-menu-grid" id="pos-menu-items"></div>
+      </div>
+    </main>
+
+    <!-- Floating Bottom Cart Action Bar with attached "All carts ▲" tab -->
+    <div class="floating-cart-bar" id="floating-cart-action-bar">
+      <button class="floating-all-carts-tab" onclick="posPanel.toggleDineInModal()" title="View All Active Dine-In Orders">
+        <span>All carts</span>
+        <span style="font-size: 0.65rem;">▲</span>
+      </button>
+
+      <div class="floating-cook-time">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <div class="cook-time-labels">
+          <span class="cook-time-title">Est. Cook Time</span>
+          <span class="cook-time-val" id="floating-cook-time-val">0 Mins</span>
+        </div>
+      </div>
+      <button class="floating-view-cart-btn" onclick="posPanel.toggleMobileCartDrawer(true)">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+        <span>View Cart <strong id="floating-cart-total" style="margin-left: 2px;">₹0.00</strong></span>
+        <span class="floating-cart-badge" id="floating-cart-badge">0</span>
+      </button>
+    </div>
+
+    <!-- Slide-Up Mobile Cart Drawer Overlay -->
+    <div class="mobile-cart-backdrop" id="mobile-cart-backdrop" onclick="if(event.target===this) posPanel.toggleMobileCartDrawer(false)">
+      <div class="mobile-cart-drawer">
+        <div class="mobile-cart-drawer-header">
+          <span class="mobile-cart-drawer-title">Current Order</span>
+          <span class="badge badge-normal" id="pos-held-count" style="display:none; cursor:pointer;">Held: 0</span>
+          <button class="mobile-cart-drawer-close" onclick="posPanel.toggleMobileCartDrawer(false)">&times;</button>
+        </div>
+
+        <div class="mobile-cart-drawer-body">
+          <div class="pos-order-details" style="margin-bottom: 10px;">
+            <div class="form-row">
+              <div class="form-group-flex">
+                <label class="form-label-xs">Customer Name</label>
+                <input type="text" class="pos-input-sm" id="cart-cust-name" placeholder="Walk-in Customer" value="">
               </div>
             </div>
-            
-            <div class="pos-cart-actions">
-              <button class="pos-action-btn primary" id="cart-confirm-btn">Confirm Order (Space)</button>
-              <button class="pos-action-btn secondary" id="cart-hold-btn">Hold Order</button>
-              <button class="pos-action-btn danger" id="cart-clear-btn">Cancel Order (Esc)</button>
+            <div class="form-row" style="margin-top: 6px;">
+              <div class="form-group-flex">
+                <label class="form-label-xs">Order Source</label>
+                <select class="pos-select-sm" id="cart-order-source">
+                  <option value="DINE_IN" selected>Dine-In</option>
+                  <option value="PARCEL">Parcel</option>
+                  <option value="BOTH">Both</option>
+                </select>
+              </div>
+              <div class="form-group-flex" style="display:none;">
+                <label class="form-label-xs">Priority</label>
+                <select class="pos-select-sm" id="cart-order-priority">
+                  <option value="NORMAL" selected>Dine-In/Normal</option>
+                  <option value="TAKEAWAY">Takeaway</option>
+                  <option value="VIP">🔴 VIP</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Items List -->
+          <div class="pos-cart-items" id="pos-cart-items-list" style="max-height: 220px; overflow-y: auto;"></div>
+
+          <div class="pos-cart-eta" style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+            <span class="eta-label">Estimated Cook Time:</span>
+            <span class="eta-value" id="pos-cart-eta-value">0 Min</span>
+          </div>
+          <div class="pos-cart-eta" style="margin-top: 4px; border-top: none; padding-top: 0; padding-bottom: 8px;">
+            <span class="eta-label">Est. Delivery Time:</span>
+            <span class="eta-value" id="pos-cart-delivery-time" style="color: #fbbf24;">--:--</span>
+          </div>
+
+          <div class="pos-cart-summary" style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+            <div class="summary-row">
+              <span>Subtotal:</span>
+              <span id="pos-subtotal">₹0.00</span>
+            </div>
+            <div class="summary-row">
+              <span>Taxes (0%):</span>
+              <span id="pos-tax">₹0.00</span>
+            </div>
+            <div class="summary-row" id="aggregator-row" style="display:none;">
+              <span id="aggregator-label">Aggregator Comm (22%):</span>
+              <span id="pos-commission">₹0.00</span>
+            </div>
+            <div class="summary-row total" style="font-size: 1.1rem; font-weight: 800; color: #10b981; margin-top: 4px;">
+              <span>Grand Total:</span>
+              <span id="pos-total">₹0.00</span>
+            </div>
+          </div>
+
+          <div class="pos-cart-actions" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <button class="pos-action-btn primary" id="cart-confirm-btn" style="height: 44px; font-size: 1rem; font-weight: 800;">Confirm Order</button>
+            <div style="display: flex; gap: 8px;">
+              <button class="pos-action-btn secondary" id="cart-hold-btn" style="flex: 1;">Hold Order</button>
+              <button class="pos-action-btn danger" id="cart-clear-btn" style="flex: 1;">Clear Cart</button>
             </div>
           </div>
         </div>
-        
-        <!-- Variant/Modifier Selection Modal Overlay (hidden by default) -->
-        <div class="modal-overlay" id="pos-customize-modal" style="display:none;"></div>
-        
-        <!-- Receipt print workspace (hidden from screen, visible for printer) -->
-        <div id="invoice-print-area" style="display:none;"></div>
       </div>
-    </main>
+    </div>
+
+    <!-- Active Dine-In Orders Popup Modal -->
+    <div class="dinein-modal-backdrop" id="dinein-modal-backdrop" onclick="if(event.target===this) posPanel.toggleDineInModal(false)">
+      <div class="dinein-modal-container">
+        <div class="dinein-modal-header">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--accent-color);"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            <span style="font-size:1rem; font-weight:800; color:#fff;">Active Dine-In Orders</span>
+          </div>
+          <button class="mobile-cart-drawer-close" onclick="posPanel.toggleDineInModal(false)">&times;</button>
+        </div>
+        <div class="dinein-modal-body" id="dinein-orders-list-body"></div>
+      </div>
+    </div>
+
+    <!-- Fixed Bottom View Switcher Navigation Bar Across Pages -->
+    <nav class="bottom-nav-bar">
+      <a href="receptionist.html" class="bottom-nav-item active">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 10h18M3 14h18M5 6h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"></path></svg>
+        <span>POS Cashier</span>
+      </a>
+      <a href="kitchen-a.html" class="bottom-nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-5 5c0 2 1.5 3.5 3 4.5V19a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2v-7.5c1.5-1 3-2.5 3-4.5a5 5 0 0 0-5-5z"></path></svg>
+        <span>Kitchen A</span>
+      </a>
+      <a href="kitchen-b.html" class="bottom-nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-5 5c0 2 1.5 3.5 3 4.5V19a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2v-7.5c1.5-1 3-2.5 3-4.5a5 5 0 0 0-5-5z"></path></svg>
+        <span>Kitchen B</span>
+      </a>
+      <a href="operations.html" class="bottom-nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+        <span>Operations</span>
+      </a>
+      <a href="owner.html" class="bottom-nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <span>Owner Admin</span>
+      </a>
+    </nav>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Customizer Modal -->
+  <div class="modal-overlay" id="pos-customize-modal" style="display:none;"></div>
+  <!-- Print Area -->
+  <div id="invoice-print-area" style="display:none;"></div>
+
+  <!-- Scripts -->
   <script src="js/store.js?v=3"></script>
   <script src="js/api.js?v=3"></script>
   <script src="js/receptionist.js?v=3"></script>
-  <script src="js/app.js?v=3"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      window.posPanel = new AutoBrixReceptionist('single-pos');
+    });
+  </script>
 </body>
 </html>

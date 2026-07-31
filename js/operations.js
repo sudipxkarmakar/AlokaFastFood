@@ -3,6 +3,9 @@
 class OperationsPanel {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
+    if (this.container) {
+      this.init();
+    }
   }
 
   init() {
@@ -26,8 +29,9 @@ class OperationsPanel {
   }
 
   render() {
-    // If the wrapper is already statically defined in HTML, don't overwrite it
-    if (this.container.querySelector(".ops-grid")) {
+    // If the wrapper or alerts list is already statically defined in HTML, don't overwrite it
+    if (this.container && (this.container.querySelector(".ops-grid") || this.container.querySelector("#ops-alerts-list"))) {
+      this.updateOperations();
       return;
     }
     this.container.innerHTML = `
@@ -355,3 +359,4 @@ class OperationsPanel {
 
 // Bind globally
 window.OperationsPanel = OperationsPanel;
+window.AutoBrixOperations = OperationsPanel;
