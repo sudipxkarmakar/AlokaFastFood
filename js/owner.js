@@ -617,12 +617,12 @@ class OwnerPanel {
   }
 
   getItemCategory(item) {
-    if (item.category) return item.category === "paratha" ? "combos" : item.category;
+    if (item.category && item.category !== "others") return item.category === "paratha" ? "combos" : item.category;
     const name = item.name.toLowerCase();
     const id = item.id.toLowerCase();
     if (name.includes("chowmein") || id.includes("chowmein") || name.includes("chamine") || id.includes("chamine") || name.includes("charming") || id.includes("charming")) return "chowmein";
     if (name.includes("pasta") || id.includes("pasta")) return "pasta";
-    if (name.includes("roll") || id.includes("roll")) return "roll";
+    if (name.includes("roll") || id.includes("roll")) return "rolls";
     if (name.includes("mughlai") || id.includes("mughlai") || name.includes("moghlai") || id.includes("moghlai")) return "mughlai";
     if (name.includes("pakora") || id.includes("pakora") || name.includes("pagoda") || id.includes("pagoda")) return "pakora";
     if (name.includes("chicken paratha") || id.includes("chicken_paratha") ||
@@ -630,7 +630,7 @@ class OwnerPanel {
         name.includes("chola") || id.includes("chola") || name.includes("bhatura") || id.includes("bhatura")) {
       return "combos";
     }
-    if (name.includes("pepsi") || id.includes("pepsi") || name.includes("7up") || id.includes("7up") || name.includes("mirinda") || id.includes("mirinda") || name.includes("dew") || id.includes("dew") || name.includes("water") || id.includes("water") || name.includes("beverage") || id.includes("beverage")) return "beverage";
+    if (name.includes("pepsi") || id.includes("pepsi") || name.includes("7up") || id.includes("7up") || name.includes("mirinda") || id.includes("mirinda") || name.includes("dew") || id.includes("dew") || name.includes("water") || id.includes("water") || name.includes("beverage") || id.includes("beverage")) return "cold_drink";
     return "others";
   }
 
@@ -1257,20 +1257,31 @@ class OwnerPanel {
       const foodType = overlay.querySelector("#edit-modal-foodtype").value;
       const active = overlay.querySelector("#edit-modal-active").checked;
 
-      await this.updateItemStation(itemId, station);
-      await this.updateItemCategory(itemId, category);
-      await this.updateItemPrepTime(itemId, prepTime);
-      await this.toggleItemActive(itemId, active);
-
       const priceInputs = overlay.querySelectorAll(".edit-variant-price-input");
-      for (const input of priceInputs) {
-        const vId = input.dataset.variantId;
-        const newPrice = parseFloat(input.value) || 0;
-        await this.updateItemPrice(itemId, vId, newPrice);
-      }
-
       overlay.remove();
+      const itemState = window.AutoBrixStore.state.config.menuItems[itemId];
+      if (itemState) Object.assign(itemState, { station, category, prepTime, foodType, active });
       this.updateActiveTabContent();
+
+      try {
+        if (window.AlokaAPI.isOnline()) {
+          const requests = [window.AlokaAPI.patch(`/menu/${itemId}`, {
+            station_id: station, category, prep_time: prepTime, food_type: foodType, active
+          })];
+          priceInputs.forEach(input => {
+            const variant = itemState && itemState.variants[input.dataset.variantId];
+            if (variant) {
+              variant.price = parseFloat(input.value) || 0;
+              requests.push(window.AlokaAPI.patch(`/menu/${itemId}/variants/${variant.id}`, { price: variant.price }));
+            }
+          });
+          await Promise.all(requests);
+          await window.AlokaAPI.loadAllState();
+        }
+      } catch (error) {
+        alert(`Menu changes could not be saved: ${error.message}`);
+        await window.AlokaAPI.loadAllState();
+      }
     };
 
     overlay.querySelector("#edit-modal-delete-btn").onclick = async () => {

@@ -218,6 +218,7 @@ window.AlokaAPI = {
       items: (o.items || []).map(it => {
         const itemConfig = store.state.config.menuItems[it.menu_item_id] || {};
         return {
+          dbId: it.id,
           id: it.menu_item_id,
           name: it.menu_item_name,
           type: it.type || "DINE_IN",

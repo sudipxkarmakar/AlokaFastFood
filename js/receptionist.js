@@ -122,6 +122,7 @@ class POSPanel {
           <div class="pos-cart-eta">
             <span class="eta-label">Estimated Cook Time:</span>
             <span class="eta-value" id="pos-cart-eta-value">0 Min</span>
+            <span id="pos-selected-order-id" style="display:${this.modifyingOrderId ? 'inline-flex' : 'none'}; margin-left:auto; background:rgba(245,158,11,0.16); color:var(--accent-color); border:1px solid rgba(245,158,11,0.35); padding:3px 8px; border-radius:999px; font-size:0.75rem; font-weight:800;">Order #${this.modifyingOrderId || ''}</span>
           </div>
           
           <div class="pos-cart-summary">
@@ -272,7 +273,7 @@ class POSPanel {
   }
 
   isItemInCat(item, categoryId) {
-    if (item.category) return (item.category === "paratha" ? "combos" : item.category) === categoryId;
+    if (item.category && item.category !== "others") return (item.category === "paratha" ? "combos" : item.category) === categoryId;
     if (categoryId === "rolls") {
       return item.id.toLowerCase().includes("roll") || item.name.toLowerCase().includes("roll");
     }
@@ -315,7 +316,7 @@ class POSPanel {
   getItemCategory(itemId) {
     const item = window.AutoBrixStore.state.config.menuItems[itemId];
     if (!item) return "all";
-    if (item.category) return item.category === "paratha" ? "combos" : item.category;
+    if (item.category && item.category !== "others") return item.category === "paratha" ? "combos" : item.category;
     if (this.isItemInCat(item, "rolls")) return "rolls";
     if (this.isItemInCat(item, "pasta")) return "pasta";
     if (this.isItemInCat(item, "chowmein")) return "chowmein";
@@ -478,13 +479,7 @@ class POSPanel {
           // Long press: open customization modal
           const itemId = card.dataset.itemId;
           const variantKey = card.dataset.variantKey;
-          const item = menuItems[itemId];
-          const isEggOrDrink = itemId === "egg" || item.station === "reception" || itemId.includes("pepsi") || itemId.includes("7up") || itemId.includes("mirinda") || itemId.includes("water") || itemId.includes("beverage");
-          
-          if (!isEggOrDrink) {
-            this.selectedVariant = variantKey; // Set target variant for customizer
-            this.openCustomizerModal(itemId);
-          }
+          this.openCustomizerModal(itemId, variantKey);
         }, 500); // 500ms threshold for long press
       };
 
@@ -516,10 +511,10 @@ class POSPanel {
     });
   }
 
-  openCustomizerModal(itemId) {
+  openCustomizerModal(itemId, variantKey) {
     const item = window.AutoBrixStore.state.config.menuItems[itemId];
     this.selectedMenuItem = item;
-    this.selectedVariant = Object.keys(item.variants)[0];
+    this.selectedVariant = variantKey || Object.keys(item.variants)[0];
     this.selectedModifiers = [];
 
     const modal = document.getElementById("pos-customize-modal");

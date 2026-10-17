@@ -247,13 +247,16 @@ router.get('/audit-logs', async (req, res) => {
 
 // PATCH update order item status
 router.patch('/:id/items/:itemIndex/status', async (req, res) => {
-  const { status } = req.body;
+  const { status, item_id: itemId } = req.body;
   const orderId = req.params.id;
   const itemIndex = parseInt(req.params.itemIndex);
   try {
-    const [items] = await db.query('SELECT id FROM order_items WHERE order_id=? ORDER BY id', [orderId]);
-    if (items[itemIndex]) {
-      await db.query('UPDATE order_items SET status=? WHERE id=?', [status, items[itemIndex].id]);
+    const [items] = itemId
+      ? await db.query('SELECT id FROM order_items WHERE order_id=? AND id=?', [orderId, itemId])
+      : await db.query('SELECT id FROM order_items WHERE order_id=? ORDER BY id', [orderId]);
+    const targetItem = itemId ? items[0] : items[itemIndex];
+    if (targetItem) {
+      await db.query('UPDATE order_items SET status=? WHERE id=?', [status, targetItem.id]);
       
       if (status === 'COOKING') {
         await db.query('UPDATE orders SET fulfillment_status=?, ts_cooking=COALESCE(ts_cooking, NOW()) WHERE id=?', ['COOKING', orderId]);

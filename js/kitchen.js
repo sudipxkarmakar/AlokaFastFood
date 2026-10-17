@@ -199,6 +199,7 @@ class KitchenDisplay {
       const orderedItems = window.AutoBrixStore.sortOrderItems(
         order.items.filter(item => this.stations.includes(item.station) && item.status !== "READY")
       );
+      const otherKitchenItems = order.items.filter(item => !this.stations.includes(item.station) && item.status !== "READY");
       
       // Filter items in the card (show other station items with lower opacity)
       const itemsHTML = orderedItems.map((item, index) => {
@@ -328,6 +329,7 @@ class KitchenDisplay {
           <div class="kitchen-card-body">
             <div class="kitchen-card-items-list">
               ${itemsHTML}
+              ${otherKitchenItems.length ? `<div style="margin-top:8px; padding:7px 8px; border-radius:6px; background:rgba(96,165,250,0.10); border:1px solid rgba(96,165,250,0.20); color:#bfdbfe; font-size:0.75rem; line-height:1.4;"><strong>Also being prepared elsewhere:</strong> ${otherKitchenItems.map(item => `${item.quantity}x ${item.name}`).join(', ')}</div>` : ''}
             </div>
             <button class="k-item-btn cooking" style="width:100%; border:none; padding:10px; border-radius:6px; font-weight:800; font-size:0.9rem; cursor:pointer; margin-top:12px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.02em; ${readyButtonStyle}" onclick="KitchenDisplay.markOrderAsReady('${order.id}', '${this.screenType}')">
               ${readyButtonText}
@@ -440,13 +442,12 @@ class KitchenDisplay {
 
     const itemIndexes = order.items
       .map((item, index) => ({ item, index }))
-      .filter(({ item }) => stations.includes(item.station) && item.status !== "READY")
-      .map(({ index }) => index);
+      .filter(({ item }) => stations.includes(item.station) && item.status !== "READY");
 
     if (window.AlokaAPI && window.AlokaAPI.isOnline()) {
       try {
-        await Promise.all(itemIndexes.map(itemIndex =>
-          window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/items/${itemIndex}/status`, { status: "READY" })
+        await Promise.all(itemIndexes.map(({ item, index }) =>
+          window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/items/${index}/status`, { status: "READY", item_id: item.dbId })
         ));
         await window.AlokaAPI.loadAllState();
         return;
@@ -455,7 +456,7 @@ class KitchenDisplay {
       }
     }
 
-    itemIndexes.forEach(itemIndex => window.AutoBrixStore.updateOrderItemStatus(orderId, itemIndex, "READY"));
+    itemIndexes.forEach(({ index }) => window.AutoBrixStore.updateOrderItemStatus(orderId, index, "READY"));
   }
 
   async markOrderAsReady(orderId) {

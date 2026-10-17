@@ -39,6 +39,29 @@ app.use(express.static(path.join(__dirname, '..')));
 // DB Pool
 const db = require('./db');
 
+// Assign sensible sections to existing menu items that were imported without one.
+(async () => {
+  try {
+    await db.query(`
+      UPDATE menu_items
+      SET category = CASE
+        WHEN LOWER(id || ' ' || name) ~ 'pakora|pagoda' THEN 'pakora'
+        WHEN LOWER(id || ' ' || name) ~ 'chowmein|chowmean|charming' THEN 'chowmein'
+        WHEN LOWER(id || ' ' || name) ~ 'pasta' THEN 'pasta'
+        WHEN LOWER(id || ' ' || name) ~ 'mughlai|moghlai' THEN 'moghlai'
+        WHEN LOWER(id || ' ' || name) ~ 'chicken paratha|gogni|ghugni|chola|bhatura' THEN 'combos'
+        WHEN LOWER(id || ' ' || name) ~ 'paratha' THEN 'combos'
+        WHEN LOWER(id || ' ' || name) ~ 'roll' THEN 'rolls'
+        WHEN LOWER(id || ' ' || name) ~ 'pepsi|7up|mirinda|dew|water|beverage' THEN 'cold_drink'
+        ELSE category
+      END
+      WHERE category IS NULL OR category = 'others'
+    `);
+  } catch (error) {
+    console.warn('[Menu category backfill] Skipped:', error.message);
+  }
+})();
+
 // Legacy MySQL migration retained for reference only. Apply schema.postgres.sql
 // through the Supabase SQL Editor before deploying this PostgreSQL server.
 if (false) (async () => {
