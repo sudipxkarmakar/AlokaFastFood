@@ -244,8 +244,7 @@ class POSPanel {
     const list = document.getElementById("pos-categories-list");
     if (!list) return;
     
-    const categories = [
-      { id: "all", name: "All" },
+    const defaultCategories = [
       { id: "rolls", name: "Roll" },
       { id: "chowmein", name: "Chowmein" },
       { id: "pasta", name: "Pasta" },
@@ -255,6 +254,12 @@ class POSPanel {
       { id: "cold_drink", name: "Beverages" },
       { id: "others", name: "Others / Mains" }
     ];
+    const configuredCategories = [...new Set(Object.values(window.AutoBrixStore.state.config.menuItems)
+      .map(item => item.category)
+      .filter(category => category && !defaultCategories.some(defaultCategory => defaultCategory.id === category)))]
+      .sort()
+      .map(category => ({ id: category, name: category.replace(/[_-]+/g, " ").replace(/\b\w/g, letter => letter.toUpperCase()) }));
+    const categories = [{ id: "all", name: "All" }, ...defaultCategories.slice(0, -1), ...configuredCategories, defaultCategories.at(-1)];
 
     const pillsHTML = categories.map(cat => `
       <button class="cat-pill ${this.activeCategory === cat.id ? "active" : ""}" data-category="${cat.id}">
@@ -393,6 +398,7 @@ class POSPanel {
     if (this.searchQuery) {
       filtered = filtered.filter(item => item.name.toLowerCase().includes(this.searchQuery));
     }
+    filtered = window.AutoBrixStore.sortMenuItems(filtered);
 
     const cardHTMLs = [];
     filtered.forEach(item => {
@@ -518,6 +524,15 @@ class POSPanel {
     this.selectedModifiers = [];
 
     const modal = document.getElementById("pos-customize-modal");
+    if (!modal.dataset.dismissBound) {
+      modal.addEventListener("click", event => {
+        if (event.target === modal) this.closeCustomizerModal();
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && modal.style.display !== "none") this.closeCustomizerModal();
+      });
+      modal.dataset.dismissBound = "true";
+    }
     modal.style.display = "flex";
     
     this.renderCustomizer();
@@ -1001,6 +1016,17 @@ class POSPanel {
 
     const cookTimeEl = document.getElementById("floating-cook-time-val");
     if (cookTimeEl) cookTimeEl.innerText = `${etaVal} Mins`;
+
+    const orderNumberEl = document.getElementById("floating-order-number");
+    if (orderNumberEl) {
+      const selectedOrderId = this.modifyingOrderId || "";
+      const orderDigits = selectedOrderId.match(/\d+/g)?.join("") || "";
+      const nextOrderNumber = Math.max(1, ...window.AutoBrixStore.state.orders
+        .map(order => Number((order.id || "").match(/\d+/g)?.join("") || 0) + 1));
+      const orderNumber = orderDigits ? Number(orderDigits) : nextOrderNumber;
+      const threeDigitNumber = ((orderNumber - 1) % 999) + 1;
+      orderNumberEl.innerText = `#${String(threeDigitNumber).padStart(3, "0")}`;
+    }
 
     const totalEl = document.getElementById("floating-cart-total");
     if (totalEl) totalEl.innerText = `₹${total.toFixed(2)}`;

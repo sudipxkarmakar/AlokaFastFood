@@ -634,20 +634,27 @@ class OwnerPanel {
     return "others";
   }
 
+  getCategoryOptions(state) {
+    const defaults = [
+      ["rolls", "Roll"], ["chowmein", "Chowmein"], ["pasta", "Pasta"], ["moghlai", "Mughlai"],
+      ["pakora", "Chicken Pokora"], ["combos", "Combos"], ["cold_drink", "Beverages"], ["others", "Others / Mains"]
+    ];
+    const knownIds = new Set(defaults.map(([id]) => id));
+    const custom = [...new Set(Object.values(state.config.menuItems).map(item => item.category).filter(category => category && !knownIds.has(category)))]
+      .sort()
+      .map(category => [category, category.replace(/[_-]+/g, " ").replace(/\b\w/g, letter => letter.toUpperCase())]);
+    return [...defaults.slice(0, -1), ...custom, defaults.at(-1)];
+  }
+
+  normalizeCategory(value) {
+    return (value || "others").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "others";
+  }
+
   // ==========================================
   // TAB: Menu Management & Pricing
   // ==========================================
   renderMenuTab(container, state) {
-    const categories = [
-      { id: "chowmein", name: "Chowmein" },
-      { id: "pasta", name: "Pasta" },
-      { id: "rolls", name: "Roll" },
-      { id: "moghlai", name: "Mughlai" },
-      { id: "pakora", name: "Chicken Pokora" },
-      { id: "combos", name: "Combos" },
-      { id: "cold_drink", name: "Beverages" },
-      { id: "others", name: "Others / Mains" }
-    ];
+    const categories = this.getCategoryOptions(state).map(([id, name]) => ({ id, name }));
 
     const categorySectionsHTML = categories.map(cat => `
       <div class="category-section" style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
@@ -688,9 +695,7 @@ class OwnerPanel {
           </div>
           <div style="display:flex; flex-direction:column; gap:0.4rem;">
             <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">POS Section</label>
-            <select class="pos-select-sm" id="menu-add-category" required style="height:32px; padding:0 10px; font-size:0.8rem;">
-              <option value="rolls">Roll</option><option value="chowmein">Chowmein</option><option value="pasta">Pasta</option><option value="moghlai">Mughlai</option><option value="pakora">Chicken Pokora</option><option value="combos">Combos</option><option value="cold_drink">Beverages</option><option value="others">Others / Mains</option>
-            </select>
+            <input class="owner-input-cell" id="menu-add-category" list="menu-category-options" value="others" required style="height:32px; padding:4px 10px;" title="Choose an existing category or type a new one">
           </div>
           <div style="display:flex; flex-direction:column; gap:0.4rem;">
             <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Variant Name</label>
@@ -703,9 +708,7 @@ class OwnerPanel {
           <div style="display:flex; flex-direction:column; gap:0.4rem;">
             <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Food Type</label>
             <select class="pos-select-sm" id="menu-add-foodtype" style="height:32px; padding:0 10px; font-size:0.8rem;">
-              <option value="non-veg">Non-Veg</option>
-              <option value="veg">Veg</option>
-              <option value="egg">Egg</option>
+              <option value="veg">Veg</option><option value="egg">Egg</option><option value="non-veg">Chicken</option><option value="paneer">Paneer</option><option value="egg-nonveg">Egg + Chicken / Paneer</option>
             </select>
           </div>
           <div style="display:flex; flex-direction:column; gap:0.4rem;">
@@ -820,15 +823,18 @@ class OwnerPanel {
       </div>
     `;
 
+    const categoryDatalist = `<datalist id="menu-category-options">${this.getCategoryOptions(state).map(([id, label]) => `<option value="${id}">${label}</option>`).join("")}</datalist>`;
+    container.insertAdjacentHTML("afterbegin", categoryDatalist);
+
     categories.forEach(cat => {
       const grid = document.getElementById(`menu-rows-${cat.id}`);
       if (!grid) return;
 
       const catItems = Object.values(state.config.menuItems)
-        .filter(item => this.getItemCategory(item) === cat.id)
-        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        .filter(item => this.getItemCategory(item) === cat.id);
+      const orderedItems = window.AutoBrixStore.sortMenuItems(catItems);
 
-      if (catItems.length === 0) {
+      if (orderedItems.length === 0) {
         grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; color:var(--text-muted); padding:1rem; font-size:0.85rem;">No items in this category.</div>`;
         return;
       }
@@ -840,7 +846,7 @@ class OwnerPanel {
         egg: "https://images.unsplash.com/photo-1516448424440-9dbca97779c1?w=400"
       };
 
-      grid.innerHTML = catItems.map(item => {
+      grid.innerHTML = orderedItems.map(item => {
         const matchedKey = Object.keys(defaultImages).find(k => item.id.toLowerCase().includes(k) || item.name.toLowerCase().includes(k));
         const fallbackUrl = "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400";
         const imageUrl = item.image ? (item.image.startsWith('http') || item.image.startsWith('data:') ? item.image : `http://localhost:3001${item.image}`) : (matchedKey ? defaultImages[matchedKey] : fallbackUrl);
@@ -853,7 +859,6 @@ class OwnerPanel {
             <div style="display: flex; gap: 10px; align-items: center;">
               <div style="position: relative; width: 46px; height: 46px; flex-shrink: 0;" onclick="ownerPanel.openImageActionsModal('${item.id}')" title="Change Image">
                 <img src="${imageUrl}" onerror="this.onerror=null; this.src='${fallbackUrl}';" style="width: 46px; height: 46px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(255,255,255,0.1);">
-                <div class="food-type-indicator ${item.foodType || 'non-veg'}" style="position: absolute; top: -3px; right: -3px; z-index: 1;"></div>
               </div>
               <div style="flex: 1; min-width: 0;">
                 <div style="font-weight: 700; font-size: 0.88rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</div>
@@ -908,7 +913,7 @@ class OwnerPanel {
         const name = document.getElementById("menu-add-name").value.trim();
         const prepTime = parseInt(document.getElementById("menu-add-preptime").value) || 3;
         const stationId = document.getElementById("menu-add-station").value;
-        const category = document.getElementById("menu-add-category").value;
+        const category = this.normalizeCategory(document.getElementById("menu-add-category").value);
         const variantName = document.getElementById("menu-add-variant").value.trim() || "Single";
         const foodType = document.getElementById("menu-add-foodtype").value;
         const price = parseFloat(document.getElementById("menu-add-price").value) || 0;
@@ -1196,9 +1201,7 @@ class OwnerPanel {
           <div style="flex:1;">
             <label class="form-label-xs" style="color:var(--text-secondary); font-weight:600;">Food Category</label>
             <select class="pos-select-sm" id="edit-modal-foodtype" style="width:100%; height:32px;">
-              <option value="non-veg" ${item.foodType === 'non-veg' ? 'selected' : ''}>Non-Veg</option>
-              <option value="veg" ${item.foodType === 'veg' ? 'selected' : ''}>Veg</option>
-              <option value="egg" ${item.foodType === 'egg' ? 'selected' : ''}>Egg</option>
+              <option value="veg" ${item.foodType === 'veg' ? 'selected' : ''}>Veg</option><option value="egg" ${item.foodType === 'egg' ? 'selected' : ''}>Egg</option><option value="non-veg" ${item.foodType === 'non-veg' ? 'selected' : ''}>Chicken</option><option value="paneer" ${item.foodType === 'paneer' ? 'selected' : ''}>Paneer</option><option value="egg-nonveg" ${item.foodType === 'egg-nonveg' ? 'selected' : ''}>Egg + Chicken / Paneer</option>
             </select>
           </div>
         </div>
@@ -1213,7 +1216,7 @@ class OwnerPanel {
           <div>
             <label class="form-label-xs" style="color:var(--text-secondary); font-weight:600;">POS Section</label>
             <select class="pos-select-sm" id="edit-modal-category" style="width:100%; height:32px;">
-              ${[['rolls','Roll'],['chowmein','Chowmein'],['pasta','Pasta'],['moghlai','Mughlai'],['pakora','Chicken Pokora'],['combos','Combos'],['cold_drink','Beverages'],['others','Others / Mains']].map(([id, label]) => `<option value="${id}" ${this.getItemCategory(item) === id ? "selected" : ""}>${label}</option>`).join("")}
+              ${this.getCategoryOptions(window.AutoBrixStore.state).map(([id, label]) => `<option value="${id}" ${this.getItemCategory(item) === id ? "selected" : ""}>${label}</option>`).join("")}
             </select>
           </div>
           <div>
@@ -1252,7 +1255,7 @@ class OwnerPanel {
 
     overlay.querySelector("#edit-modal-save-btn").onclick = async () => {
       const station = overlay.querySelector("#edit-modal-station").value;
-      const category = overlay.querySelector("#edit-modal-category").value;
+      const category = this.normalizeCategory(overlay.querySelector("#edit-modal-category").value);
       const prepTime = parseInt(overlay.querySelector("#edit-modal-preptime").value) || 3;
       const foodType = overlay.querySelector("#edit-modal-foodtype").value;
       const active = overlay.querySelector("#edit-modal-active").checked;
@@ -1376,7 +1379,8 @@ class OwnerPanel {
     const getFoodType = (cat) => {
       if (cat === 'veg') return 'veg';
       if (cat === 'egg' || cat === 'double_egg') return 'egg';
-      if (cat === 'paneer' || cat === 'egg_paneer') return 'veg';
+      if (cat === 'paneer') return 'veg';
+      if (cat === 'egg_chicken' || cat === 'egg_paneer') return 'egg-nonveg';
       return 'non-veg';
     };
 
@@ -1837,9 +1841,7 @@ class OwnerPanel {
           <div style="width: 100%; display: flex; flex-direction: column; gap: 0.25rem; align-self: stretch;">
             <label class="form-label-xs" style="color: var(--text-secondary); font-weight: 600;">Food Category</label>
             <select class="pos-select-sm" id="modal-foodtype-select" style="width: 100%;">
-              <option value="non-veg" ${item.foodType === 'non-veg' ? 'selected' : ''}>Non-Veg (Red Circle)</option>
-              <option value="veg" ${item.foodType === 'veg' ? 'selected' : ''}>Veg (Green Circle)</option>
-              <option value="egg" ${item.foodType === 'egg' ? 'selected' : ''}>Egg (Yellow Circle)</option>
+              <option value="veg" ${item.foodType === 'veg' ? 'selected' : ''}>Veg</option><option value="egg" ${item.foodType === 'egg' ? 'selected' : ''}>Egg</option><option value="non-veg" ${item.foodType === 'non-veg' ? 'selected' : ''}>Chicken</option><option value="paneer" ${item.foodType === 'paneer' ? 'selected' : ''}>Paneer</option><option value="egg-nonveg" ${item.foodType === 'egg-nonveg' ? 'selected' : ''}>Egg + Chicken / Paneer</option>
             </select>
           </div>
 

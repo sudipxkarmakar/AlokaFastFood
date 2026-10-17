@@ -11,6 +11,29 @@ class AppShell {
   }
 
   bindGlobalControls() {
+    const closeOpenPopup = () => {
+      const visibleOverlays = [...document.querySelectorAll(".modal-overlay")]
+        .filter(overlay => getComputedStyle(overlay).display !== "none");
+      const overlay = visibleOverlays.at(-1);
+      if (!overlay) return false;
+
+      if (overlay.id === "pos-customize-modal" && window.posPanel) {
+        window.posPanel.closeCustomizerModal();
+      } else {
+        overlay.remove();
+      }
+      return true;
+    };
+
+    document.addEventListener("click", event => {
+      const overlay = event.target.closest(".modal-overlay");
+      if (overlay && event.target === overlay) closeOpenPopup();
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && closeOpenPopup()) event.preventDefault();
+    });
+
     // Dark/Light Theme Switcher
     const themeBtn = document.getElementById("theme-toggle");
     if (themeBtn) {

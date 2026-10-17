@@ -924,8 +924,38 @@ class AutoBrixStore {
     return 4;
   }
 
+  getFoodType(item) {
+    const configuredItem = this.state.config.menuItems[item.id] || item;
+    const type = configuredItem.foodType || configuredItem.food_type || "non-veg";
+    const text = `${configuredItem.id || item.id || ""} ${configuredItem.name || item.name || ""}`.toLowerCase();
+    if (type === "non-veg" && text.includes("egg")) return "egg-nonveg";
+    if (type === "veg" && text.includes("paneer")) return "paneer";
+    return type;
+  }
+
+  getFoodTypeRank(item) {
+    const text = `${item.id || ""} ${item.name || ""}`.toLowerCase();
+    const hasEgg = text.includes("egg");
+    const hasChickenOrPaneer = text.includes("chicken") || text.includes("paneer");
+
+    if (hasEgg && hasChickenOrPaneer) return 4;
+    if (hasEgg) return 2;
+    if (hasChickenOrPaneer) return 3;
+    return this.getFoodType(item) === "veg" ? 1 : 3;
+  }
+
+  sortMenuItems(items) {
+    return [...items].sort((a, b) => {
+      const typeDifference = this.getFoodTypeRank(a) - this.getFoodTypeRank(b);
+      if (typeDifference !== 0) return typeDifference;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  }
+
   sortOrderItems(items) {
     return [...items].sort((a, b) => {
+      const typeDifference = this.getFoodTypeRank(a) - this.getFoodTypeRank(b);
+      if (typeDifference !== 0) return typeDifference;
       const rankDiff = this.getOrderItemSortRank(a) - this.getOrderItemSortRank(b);
       if (rankDiff !== 0) return rankDiff;
       return (a.name || "").localeCompare(b.name || "");

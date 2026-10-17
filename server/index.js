@@ -57,6 +57,16 @@ const db = require('./db');
       END
       WHERE category IS NULL OR category = 'others'
     `);
+    await db.query(`
+      UPDATE menu_items
+      SET food_type = 'egg-nonveg'
+      WHERE food_type = 'non-veg' AND LOWER(id || ' ' || name) ~ 'egg'
+    `);
+    await db.query(`
+      UPDATE menu_items
+      SET food_type = 'paneer'
+      WHERE food_type = 'veg' AND LOWER(id || ' ' || name) ~ 'paneer'
+    `);
   } catch (error) {
     console.warn('[Menu category backfill] Skipped:', error.message);
   }
