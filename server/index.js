@@ -39,12 +39,13 @@ app.use(express.static(path.join(__dirname, '..')));
 // DB Pool
 const db = require('./db');
 
-// Auto-migration: ensure base database tables and required columns exist
-(async () => {
+// Legacy MySQL migration retained for reference only. Apply schema.postgres.sql
+// through the Supabase SQL Editor before deploying this PostgreSQL server.
+if (false) (async () => {
   try {
     await db.query(`CREATE TABLE IF NOT EXISTS stations (id VARCHAR(64) PRIMARY KEY, name VARCHAR(128) NOT NULL, base_capacity INT DEFAULT 1, current_worker_id VARCHAR(64) DEFAULT NULL)`);
     await db.query(`CREATE TABLE IF NOT EXISTS workers (id VARCHAR(64) PRIMARY KEY, name VARCHAR(128) NOT NULL, daily_salary INT DEFAULT 0, active TINYINT DEFAULT 1)`);
-    await db.query(`CREATE TABLE IF NOT EXISTS menu_items (id VARCHAR(64) PRIMARY KEY, name VARCHAR(128) NOT NULL, station_id VARCHAR(64), prep_time INT DEFAULT 5, active TINYINT DEFAULT 1, image_path VARCHAR(255) DEFAULT NULL, food_type VARCHAR(20) DEFAULT 'non-veg', sort_order INT DEFAULT 0)`);
+    await db.query(`CREATE TABLE IF NOT EXISTS menu_items (id VARCHAR(64) PRIMARY KEY, name VARCHAR(128) NOT NULL, station_id VARCHAR(64), prep_time INT DEFAULT 5, active TINYINT DEFAULT 1, image_path VARCHAR(255) DEFAULT NULL, food_type VARCHAR(20) DEFAULT 'non-veg', category VARCHAR(32) DEFAULT 'others', sort_order INT DEFAULT 0)`);
     await db.query(`CREATE TABLE IF NOT EXISTS menu_variants (id VARCHAR(64) PRIMARY KEY, menu_item_id VARCHAR(64), name VARCHAR(64), price DECIMAL(10,2) DEFAULT 0.00, recipe_multiplier DECIMAL(10,4) DEFAULT 1.0)`);
     await db.query(`CREATE TABLE IF NOT EXISTS menu_recipes (id INT AUTO_INCREMENT PRIMARY KEY, menu_item_id VARCHAR(64), ingredient_id VARCHAR(64), ingredient_type VARCHAR(32), quantity DECIMAL(10,4), unit VARCHAR(32))`);
     await db.query(`CREATE TABLE IF NOT EXISTS raw_ingredients (id VARCHAR(64) PRIMARY KEY, name VARCHAR(128) NOT NULL, stock DECIMAL(10,2) DEFAULT 0, reserved DECIMAL(10,2) DEFAULT 0, min_stock DECIMAL(10,2) DEFAULT 0, purchase_unit VARCHAR(32), stock_unit VARCHAR(32), conversion_factor DECIMAL(10,4) DEFAULT 1, cost_per_purchase_unit DECIMAL(10,2) DEFAULT 0, supplier VARCHAR(128))`);
@@ -153,6 +154,40 @@ const db = require('./db');
     if (e.code !== 'ER_DUP_COLUMN_NAME') {
       console.warn('[Auto-Migration] Notice:', e.message);
     }
+  }
+  try {
+    await db.query("ALTER TABLE menu_items ADD COLUMN category VARCHAR(32) DEFAULT 'others'");
+    console.log("[Auto-Migration] Added COLUMN category to menu_items");
+  } catch (e) {
+    if (e.code !== 'ER_DUP_COLUMN_NAME') {
+      console.warn('[Auto-Migration] Notice:', e.message);
+    }
+  }
+  try {
+    await db.query(`
+      UPDATE menu_items
+      SET category = CASE
+        WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'pakora|pagoda' THEN 'pakora'
+        WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'chowmein|chowmean|charming' THEN 'chowmein'
+        WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'pasta' THEN 'pasta'
+        WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'mughlai|moghlai' THEN 'moghlai'
+        WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'chicken paratha|gogni|ghugni|chola|bhatura' THEN 'combos'
+        WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'paratha' THEN 'paratha'
+        WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'roll' THEN 'rolls'
+        WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'pepsi|7up|mirinda|dew|water|beverage' THEN 'cold_drink'
+        ELSE category
+      END
+      WHERE category IS NULL OR category = 'others'
+    `);
+    console.log('[Auto-Migration] Backfilled menu categories');
+  } catch (e) {
+    console.warn('[Auto-Migration] Category backfill notice:', e.message);
+  }
+  try {
+    await db.query("UPDATE menu_items SET category='combos' WHERE category='paratha'");
+    console.log('[Auto-Migration] Normalized paratha menu category to combos');
+  } catch (e) {
+    console.warn('[Auto-Migration] Category normalization notice:', e.message);
   }
   try {
     await db.query("ALTER TABLE menu_items ADD COLUMN sort_order INT DEFAULT 0");

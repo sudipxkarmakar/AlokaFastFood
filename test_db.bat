@@ -1,8 +1,8 @@
 @echo off
 set "PATH=C:\Program Files\nodejs;%PATH%"
-title DB Connection Test
+title PostgreSQL Connection Test
 echo ===================================================
-echo   AlokaFastFood — MySQL Connection Diagnostic
+echo   AlokaFastFood - PostgreSQL Connection Diagnostic
 echo ===================================================
 echo.
 cd /d "%~dp0server"

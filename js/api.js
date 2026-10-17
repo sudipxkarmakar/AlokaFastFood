@@ -124,6 +124,7 @@ window.AlokaAPI = {
         active: !!item.active,
         image: item.image_path || null,
         foodType: item.food_type || 'non-veg',
+        category: item.category || 'others',
         sortOrder: item.sort_order || 0,
         variants,
         recipe
@@ -312,8 +313,9 @@ window.AlokaAPI = {
     document.body.appendChild(statusEl);
   }
 
-  // Inject 1-click "Sync Cloud" button on localhost
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+  // Cloud administration is restricted to the Owner Admin screen.
+  const isOwnerAdmin = window.location.pathname.endsWith('/owner.html') || window.location.pathname.endsWith('owner.html');
+  if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && isOwnerAdmin) {
     let syncBtn = document.getElementById('btn-cloud-sync-pull');
     if (!syncBtn) {
       syncBtn = document.createElement('button');
@@ -411,13 +413,19 @@ window.AlokaAPI = {
   }, 30000);
 
   // Poll state every 3s if online to keep KDS screens in sync
+  let stateLoadInProgress = false;
   setInterval(async () => {
-    if (window.AlokaAPI.isOnline()) {
+    if (window.AlokaAPI.isOnline() && !stateLoadInProgress) {
+      stateLoadInProgress = true;
       try {
         await window.AlokaAPI.loadAllState();
       } catch (e) {
         console.error('[AlokaAPI] Polling state failed:', e);
+        window.AlokaAPI._online = false;
+        window.AlokaAPI._dbOk = false;
+      } finally {
+        stateLoadInProgress = false;
       }
     }
-  }, 3000);
+  }, 5000);
 })();

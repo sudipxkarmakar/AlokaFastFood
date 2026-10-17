@@ -32,23 +32,23 @@ router.get('/', async (req, res) => {
 
 // POST create new menu item
 router.post('/', upload.single('image'), async (req, res) => {
-  const { id, name, station_id, prep_time = 3, active = 1 } = req.body;
+  const { id, name, station_id, prep_time = 3, active = 1, food_type = 'non-veg', category = 'others' } = req.body;
   if (!id || !name) return res.status(400).json({ error: 'id and name required' });
   const image_path = req.file ? `/uploads/${req.file.filename}` : null;
   try {
     await db.query(
-      'INSERT INTO menu_items (id, name, station_id, prep_time, active, image_path) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, name, station_id || null, parseInt(prep_time), active ? 1 : 0, image_path]
+      'INSERT INTO menu_items (id, name, station_id, prep_time, active, image_path, food_type, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, name, station_id || null, parseInt(prep_time), active ? 1 : 0, image_path, food_type, category]
     );
     await db.query("INSERT INTO audit_logs (action, payload) VALUES ('Add Menu Item', ?)", [`Added: ${name}`]);
-    res.json({ id, name, station_id, prep_time, active, image_path });
+    res.json({ id, name, station_id, prep_time, active, image_path, food_type, category });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // PATCH update menu item fields (price, station, prepTime, active)
 router.patch('/:id', async (req, res) => {
   const { id } = req.params;
-  const { station_id, prep_time, active, food_type } = req.body;
+  const { station_id, prep_time, active, food_type, category } = req.body;
   try {
     const updates = [];
     const vals = [];
@@ -56,6 +56,7 @@ router.patch('/:id', async (req, res) => {
     if (prep_time !== undefined) { updates.push('prep_time=?'); vals.push(parseInt(prep_time)); }
     if (active !== undefined) { updates.push('active=?'); vals.push(active ? 1 : 0); }
     if (food_type !== undefined) { updates.push('food_type=?'); vals.push(food_type); }
+    if (category !== undefined) { updates.push('category=?'); vals.push(category); }
     if (updates.length) {
       vals.push(id);
       await db.query(`UPDATE menu_items SET ${updates.join(',')} WHERE id=?`, vals);

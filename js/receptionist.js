@@ -249,8 +249,10 @@ class POSPanel {
       { id: "chowmein", name: "Chowmein" },
       { id: "pasta", name: "Pasta" },
       { id: "moghlai", name: "Mughlai" },
-      { id: "paratha", name: "Paratha" },
-      { id: "cold_drink", name: "Drinks" }
+      { id: "pakora", name: "Chicken Pokora" },
+      { id: "combos", name: "Combos" },
+      { id: "cold_drink", name: "Beverages" },
+      { id: "others", name: "Others / Mains" }
     ];
 
     const pillsHTML = categories.map(cat => `
@@ -270,6 +272,7 @@ class POSPanel {
   }
 
   isItemInCat(item, categoryId) {
+    if (item.category) return (item.category === "paratha" ? "combos" : item.category) === categoryId;
     if (categoryId === "rolls") {
       return item.id.toLowerCase().includes("roll") || item.name.toLowerCase().includes("roll");
     }
@@ -312,6 +315,7 @@ class POSPanel {
   getItemCategory(itemId) {
     const item = window.AutoBrixStore.state.config.menuItems[itemId];
     if (!item) return "all";
+    if (item.category) return item.category === "paratha" ? "combos" : item.category;
     if (this.isItemInCat(item, "rolls")) return "rolls";
     if (this.isItemInCat(item, "pasta")) return "pasta";
     if (this.isItemInCat(item, "chowmein")) return "chowmein";
@@ -1073,8 +1077,7 @@ class POSPanel {
       
       return `
         <div class="dinein-order-card ${isSelected ? "selected" : ""}" 
-             onclick="posPanel.loadOrderForModification('${order.id}'); posPanel.renderDineInModalContent();"
-             onmouseenter="posPanel.loadOrderForModification('${order.id}'); posPanel.renderDineInModalContent();"
+             onclick="posPanel.loadOrderForModification('${order.id}'); posPanel.toggleDineInModal(false);"
              style="cursor:pointer; border:1px solid ${isSelected ? "var(--accent-color)" : "rgba(255,255,255,0.08)"}; background:${isSelected ? "rgba(245,158,11,0.14)" : "rgba(0,0,0,0.2)"}; padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; transition:all 0.15s ease; position:relative;">
           <div style="display:flex; flex-direction:column; gap:4px;">
             <div style="display:flex; align-items:center; gap:8px;">

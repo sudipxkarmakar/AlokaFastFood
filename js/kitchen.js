@@ -196,15 +196,14 @@ class KitchenDisplay {
     container.innerHTML = activeOrders.map((order, idx) => {
       const isOnHold = idx > 0;
       const priorityClass = `priority-${order.priority}`;
-      const orderedItems = window.AutoBrixStore.sortOrderItems(order.items);
+      const orderedItems = window.AutoBrixStore.sortOrderItems(
+        order.items.filter(item => this.stations.includes(item.station) && item.status !== "READY")
+      );
       
       // Filter items in the card (show other station items with lower opacity)
       const itemsHTML = orderedItems.map((item, index) => {
-        if (item.status === "READY") return "";
-
-        const isOtherStation = !this.stations.includes(item.station);
-        const otherStyle = isOtherStation ? "opacity: 0.55; font-style: italic;" : "";
-        const stationBadge = isOtherStation ? `<span style="background: rgba(255,255,255,0.06); color: var(--text-muted); font-size: 0.6rem; padding: 1px 4px; border-radius: 4px; font-weight: 700; font-style: normal; margin-left: 6px; text-transform: uppercase; vertical-align: middle;">${item.station}</span>` : "";
+        const otherStyle = "";
+        const stationBadge = "";
 
         const modifiersConfig = state.config.modifiers;
         const getModifierImgHTML = (modId, size = 20) => {
@@ -330,7 +329,7 @@ class KitchenDisplay {
             <div class="kitchen-card-items-list">
               ${itemsHTML}
             </div>
-            <button class="k-item-btn cooking" style="width:100%; border:none; padding:10px; border-radius:6px; font-weight:800; font-size:0.9rem; cursor:pointer; margin-top:12px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.02em; ${readyButtonStyle}" onclick="KitchenDisplay.markOrderAsReady('${order.id}')">
+            <button class="k-item-btn cooking" style="width:100%; border:none; padding:10px; border-radius:6px; font-weight:800; font-size:0.9rem; cursor:pointer; margin-top:12px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.02em; ${readyButtonStyle}" onclick="KitchenDisplay.markOrderAsReady('${order.id}', '${this.screenType}')">
               ${readyButtonText}
             </button>
           </div>
@@ -432,34 +431,35 @@ class KitchenDisplay {
     }
   }
 
-  static async markOrderAsReady(orderId) {
+  static async markOrderAsReady(orderId, screenType) {
+    const stations = screenType === "A"
+      ? ["tawa", "chilley", "reception", "prep", "kitchen_a"]
+      : ["deep_fry", "moghlai", "kosha", "moghlai_tawa", "kitchen_b"];
+    const order = window.AutoBrixStore.state.orders.find(item => item.id === orderId);
+    if (!order) return;
+
+    const itemIndexes = order.items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => stations.includes(item.station) && item.status !== "READY")
+      .map(({ index }) => index);
+
     if (window.AlokaAPI && window.AlokaAPI.isOnline()) {
       try {
-        await window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/status`, { fulfillment_status: "READY" });
+        await Promise.all(itemIndexes.map(itemIndex =>
+          window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/items/${itemIndex}/status`, { status: "READY" })
+        ));
         await window.AlokaAPI.loadAllState();
+        return;
       } catch (err) {
-        console.warn("API order status update error, falling back to store:", err);
-        window.AutoBrixStore.updateState(state => {
-          const order = state.orders.find(o => o.id === orderId);
-          if (order) {
-            order.fulfillmentStatus = "READY";
-            order.items.forEach(it => { it.status = "READY"; });
-          }
-        });
+        console.warn("API item status update error, falling back to store:", err);
       }
-    } else {
-      window.AutoBrixStore.updateState(state => {
-        const order = state.orders.find(o => o.id === orderId);
-        if (order) {
-          order.fulfillmentStatus = "READY";
-          order.items.forEach(it => { it.status = "READY"; });
-        }
-      });
     }
+
+    itemIndexes.forEach(itemIndex => window.AutoBrixStore.updateOrderItemStatus(orderId, itemIndex, "READY"));
   }
 
   async markOrderAsReady(orderId) {
-    return KitchenDisplay.markOrderAsReady(orderId);
+    return KitchenDisplay.markOrderAsReady(orderId, this.screenType);
   }
 }
 

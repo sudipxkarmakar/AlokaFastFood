@@ -1706,6 +1706,7 @@ class AutoBrixStore {
         active: true,
         image: itemData.image || null,
         foodType: itemData.foodType || "non-veg",
+        category: itemData.category || "others",
         sortOrder: itemData.sortOrder || order,
         variants: itemData.variants || {},
         recipe: itemData.recipe || {}

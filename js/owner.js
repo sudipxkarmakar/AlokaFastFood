@@ -617,6 +617,7 @@ class OwnerPanel {
   }
 
   getItemCategory(item) {
+    if (item.category) return item.category === "paratha" ? "combos" : item.category;
     const name = item.name.toLowerCase();
     const id = item.id.toLowerCase();
     if (name.includes("chowmein") || id.includes("chowmein") || name.includes("chamine") || id.includes("chamine") || name.includes("charming") || id.includes("charming")) return "chowmein";
@@ -640,11 +641,11 @@ class OwnerPanel {
     const categories = [
       { id: "chowmein", name: "Chowmein" },
       { id: "pasta", name: "Pasta" },
-      { id: "roll", name: "Roll" },
-      { id: "mughlai", name: "Mughlai" },
-      { id: "pakora", name: "Chicken Pakora" },
+      { id: "rolls", name: "Roll" },
+      { id: "moghlai", name: "Mughlai" },
+      { id: "pakora", name: "Chicken Pokora" },
       { id: "combos", name: "Combos" },
-      { id: "beverage", name: "Beverages" },
+      { id: "cold_drink", name: "Beverages" },
       { id: "others", name: "Others / Mains" }
     ];
 
@@ -683,6 +684,12 @@ class OwnerPanel {
             <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">Assigned Station</label>
             <select class="pos-select-sm" id="menu-add-station" required style="height:32px; padding:0 10px; font-size:0.8rem;">
               ${Object.keys(state.config.stations).map(s => `<option value="${s}">${state.config.stations[s].name}</option>`).join("")}
+            </select>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:0.4rem;">
+            <label class="form-label-xs" style="font-weight:600; color:var(--text-secondary);">POS Section</label>
+            <select class="pos-select-sm" id="menu-add-category" required style="height:32px; padding:0 10px; font-size:0.8rem;">
+              <option value="rolls">Roll</option><option value="chowmein">Chowmein</option><option value="pasta">Pasta</option><option value="moghlai">Mughlai</option><option value="pakora">Chicken Pokora</option><option value="combos">Combos</option><option value="cold_drink">Beverages</option><option value="others">Others / Mains</option>
             </select>
           </div>
           <div style="display:flex; flex-direction:column; gap:0.4rem;">
@@ -901,6 +908,7 @@ class OwnerPanel {
         const name = document.getElementById("menu-add-name").value.trim();
         const prepTime = parseInt(document.getElementById("menu-add-preptime").value) || 3;
         const stationId = document.getElementById("menu-add-station").value;
+        const category = document.getElementById("menu-add-category").value;
         const variantName = document.getElementById("menu-add-variant").value.trim() || "Single";
         const foodType = document.getElementById("menu-add-foodtype").value;
         const price = parseFloat(document.getElementById("menu-add-price").value) || 0;
@@ -927,6 +935,7 @@ class OwnerPanel {
               formData.append("prep_time", prepTime);
               formData.append("active", "1");
               formData.append("food_type", foodType);
+              formData.append("category", category);
               if (imageFile) {
                 formData.append("image", imageFile);
               }
@@ -968,6 +977,7 @@ class OwnerPanel {
               prepTime,
               image: null,
               foodType: foodType,
+              category,
               variants: {
                 [variantName.toLowerCase()]: { id: `${id}_${variantName.toLowerCase()}`, name: variantName, price, recipeMultiplier: 1.0 }
               },
@@ -1086,6 +1096,23 @@ class OwnerPanel {
     }
   }
 
+  async updateItemCategory(itemId, category) {
+    if (window.AlokaAPI.isOnline()) {
+      try {
+        await window.AlokaAPI.patch(`/menu/${itemId}`, { category });
+        await window.AlokaAPI.loadAllState();
+      } catch (err) { alert(err.message); }
+    } else {
+      window.AutoBrixStore.updateState(state => {
+        const item = state.config.menuItems[itemId];
+        if (item) {
+          item.category = category;
+          window.AutoBrixStore.logAudit("Menu Edit", `Moved ${item.name} to ${category}`);
+        }
+      });
+    }
+  }
+
   async updateItemPrice(itemId, variantId, price) {
     if (window.AlokaAPI.isOnline()) {
       try {
@@ -1184,6 +1211,12 @@ class OwnerPanel {
             </select>
           </div>
           <div>
+            <label class="form-label-xs" style="color:var(--text-secondary); font-weight:600;">POS Section</label>
+            <select class="pos-select-sm" id="edit-modal-category" style="width:100%; height:32px;">
+              ${[['rolls','Roll'],['chowmein','Chowmein'],['pasta','Pasta'],['moghlai','Mughlai'],['pakora','Chicken Pokora'],['combos','Combos'],['cold_drink','Beverages'],['others','Others / Mains']].map(([id, label]) => `<option value="${id}" ${this.getItemCategory(item) === id ? "selected" : ""}>${label}</option>`).join("")}
+            </select>
+          </div>
+          <div>
             <label class="form-label-xs" style="color:var(--text-secondary); font-weight:600;">Prep Time (Min)</label>
             <input type="number" class="owner-input-cell" id="edit-modal-preptime" value="${item.prepTime}" min="1" style="width:100%; height:32px; text-align:center;">
           </div>
@@ -1219,11 +1252,13 @@ class OwnerPanel {
 
     overlay.querySelector("#edit-modal-save-btn").onclick = async () => {
       const station = overlay.querySelector("#edit-modal-station").value;
+      const category = overlay.querySelector("#edit-modal-category").value;
       const prepTime = parseInt(overlay.querySelector("#edit-modal-preptime").value) || 3;
       const foodType = overlay.querySelector("#edit-modal-foodtype").value;
       const active = overlay.querySelector("#edit-modal-active").checked;
 
       await this.updateItemStation(itemId, station);
+      await this.updateItemCategory(itemId, category);
       await this.updateItemPrepTime(itemId, prepTime);
       await this.toggleItemActive(itemId, active);
 
@@ -1412,6 +1447,7 @@ class OwnerPanel {
             formData.append("prep_time", prepTime);
             formData.append("active", "1");
             formData.append("food_type", item.foodType);
+            formData.append("category", baseName.toLowerCase().includes("chowmein") ? "chowmein" : baseName.toLowerCase().includes("pasta") ? "pasta" : baseName.toLowerCase().includes("roll") ? "rolls" : "others");
 
             await window.AlokaAPI.postForm('/menu', formData);
           }
@@ -1506,6 +1542,7 @@ class OwnerPanel {
             active: true,
             image: null,
             foodType: item.foodType,
+            category: baseName.toLowerCase().includes("chowmein") ? "chowmein" : baseName.toLowerCase().includes("pasta") ? "pasta" : baseName.toLowerCase().includes("roll") ? "rolls" : "others",
             sortOrder: Object.keys(s.config.menuItems).length + 1,
             variants: variantsObj,
             recipe: getDefaultRecipe(baseName, item.cat)
@@ -1657,6 +1694,7 @@ class OwnerPanel {
           formData.append("station_id", "reception");
           formData.append("prep_time", "1");
           formData.append("active", "1");
+          formData.append("category", "cold_drink");
           await window.AlokaAPI.postForm('/menu', formData);
 
           await window.AlokaAPI.patch(`/menu/${menuItemId}`, { food_type: 'veg' });
@@ -1723,6 +1761,7 @@ class OwnerPanel {
             active: true,
             image: null,
             foodType: 'veg',
+            category: 'cold_drink',
             sortOrder: Object.keys(s.config.menuItems).length + 1,
             variants: {},
             recipe: {}
@@ -3856,6 +3895,7 @@ class OwnerPanel {
                 formData.append("station_id", "reception");
                 formData.append("prep_time", "1");
                 formData.append("active", "1");
+                formData.append("category", "cold_drink");
                 await window.AlokaAPI.postForm('/menu', formData);
                 await window.AlokaAPI.patch(`/menu/${brandVal}`, { food_type: 'veg' });
               }

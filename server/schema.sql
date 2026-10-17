@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
   active TINYINT(1) DEFAULT 1,
   image_path VARCHAR(255) DEFAULT NULL,
   food_type VARCHAR(20) DEFAULT 'non-veg',
+  category VARCHAR(32) DEFAULT 'others',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE SET NULL
 );
