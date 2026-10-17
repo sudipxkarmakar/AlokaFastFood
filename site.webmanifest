@@ -1,0 +1,9 @@
+{
+  "name": "AutoBrix POS",
+  "short_name": "AutoBrix",
+  "start_url": "./receptionist.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0f131e",
+  "theme_color": "#0f131e"
+}

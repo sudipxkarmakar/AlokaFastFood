@@ -2094,6 +2094,39 @@ header {
   color: #ffffff;
 }
 
+/* The legacy cart dropdown is replaced by swipeable active-order circles. */
+.floating-all-carts-tab { display: none; }
+.active-orders-strip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: flex;
+  gap: 8px;
+  padding: 2px 12px;
+  max-width: 238px;
+  margin: 0 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+.active-orders-strip::-webkit-scrollbar { display: none; }
+.active-order-circle {
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(20, 27, 43, 0.98);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+}
+.active-order-circle.selected { background: #5850ec; border-color: #a5b4fc; }
+.cat-pill.dragging { opacity: 0.45; }
+
 .floating-cook-time {
   display: flex;
   align-items: center;

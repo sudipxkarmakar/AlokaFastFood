@@ -7,6 +7,7 @@ class POSPanel {
     this.activeCategory = "all";
     this.searchQuery = "";
     this.modifyingOrderId = null;
+    this.categoryOrder = JSON.parse(localStorage.getItem("autobrix_category_order") || "[]");
     
     try {
       this.cart = JSON.parse(localStorage.getItem("autobrix_cart")) || [];
@@ -169,6 +170,10 @@ class POSPanel {
     const catList = document.getElementById("pos-categories-list");
     if (catList) {
       catList.addEventListener("click", (e) => {
+        if (this.suppressCategoryClick) {
+          this.suppressCategoryClick = false;
+          return;
+        }
         const btn = e.target.closest(".cat-pill") || e.target.closest(".category-btn");
         if (btn) {
           this.activeCategory = btn.dataset.category;
@@ -260,9 +265,13 @@ class POSPanel {
       .sort()
       .map(category => ({ id: category, name: category.replace(/[_-]+/g, " ").replace(/\b\w/g, letter => letter.toUpperCase()) }));
     const categories = [{ id: "all", name: "All" }, ...defaultCategories.slice(0, -1), ...configuredCategories, defaultCategories.at(-1)];
+    const byId = new Map(categories.map(category => [category.id, category]));
+    const ids = [...this.categoryOrder.filter(id => byId.has(id)), ...categories.map(category => category.id).filter(id => !this.categoryOrder.includes(id))];
+    const orderedCategories = ids.map(id => byId.get(id));
+    this.categoryOrder = ids;
 
-    const pillsHTML = categories.map(cat => `
-      <button class="cat-pill ${this.activeCategory === cat.id ? "active" : ""}" data-category="${cat.id}">
+    const pillsHTML = orderedCategories.map(cat => `
+      <button class="cat-pill ${this.activeCategory === cat.id ? "active" : ""}" data-category="${cat.id}" draggable="true" aria-label="${cat.name}. Hold and drag to reorder">
         ${cat.name}
       </button>
     `).join("");
@@ -275,6 +284,60 @@ class POSPanel {
 
     list.className = "pos-categories-pills";
     list.innerHTML = pillsHTML + filterBtnHTML;
+    this.bindCategoryReorder(list);
+  }
+
+  bindCategoryReorder(list) {
+    let dragged = null;
+    let holdTimer = null;
+    const saveOrder = () => {
+      this.categoryOrder = [...list.querySelectorAll(".cat-pill")].map(button => button.dataset.category);
+      localStorage.setItem("autobrix_category_order", JSON.stringify(this.categoryOrder));
+    };
+    list.querySelectorAll(".cat-pill").forEach(pill => {
+      pill.addEventListener("dragstart", event => {
+        dragged = pill;
+        pill.classList.add("dragging");
+        event.dataTransfer.effectAllowed = "move";
+      });
+      pill.addEventListener("dragend", () => {
+        pill.classList.remove("dragging");
+        dragged = null;
+        saveOrder();
+      });
+      pill.addEventListener("dragover", event => {
+        event.preventDefault();
+        if (!dragged || dragged === pill) return;
+        list.insertBefore(dragged, event.clientX < pill.getBoundingClientRect().left + pill.offsetWidth / 2 ? pill : pill.nextSibling);
+      });
+      // HTML drag-and-drop is inconsistent on Android, so support the requested
+      // hold-and-drag gesture with Pointer Events as well.
+      pill.addEventListener("pointerdown", event => {
+        if (event.pointerType === "mouse") return;
+        holdTimer = setTimeout(() => {
+          dragged = pill;
+          pill.classList.add("dragging");
+        }, 250);
+      });
+      pill.addEventListener("pointermove", event => {
+        if (!dragged || event.pointerType === "mouse") return;
+        const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".cat-pill");
+        if (target && target !== dragged && target.parentElement === list) {
+          list.insertBefore(dragged, event.clientX < target.getBoundingClientRect().left + target.offsetWidth / 2 ? target : target.nextSibling);
+        }
+      });
+      const finishPointerDrag = event => {
+        clearTimeout(holdTimer);
+        if (dragged && event.pointerType !== "mouse") {
+          dragged.classList.remove("dragging");
+          dragged = null;
+          this.suppressCategoryClick = true;
+          saveOrder();
+        }
+      };
+      pill.addEventListener("pointerup", finishPointerDrag);
+      pill.addEventListener("pointercancel", finishPointerDrag);
+    });
   }
 
   isItemInCat(item, categoryId) {
@@ -445,7 +508,7 @@ class POSPanel {
           `);
         });
       } else {
-        const defaultVariant = Object.keys(item.variants)[0];
+        const defaultVariant = item.variants.half ? "half" : Object.keys(item.variants)[0];
         const available = window.AutoBrixStore.getMenuItemAvailableStock(item.id, defaultVariant);
         const priceText = item.variants[defaultVariant].price;
         
@@ -476,52 +539,35 @@ class POSPanel {
   attachMenuCardEvents() {
     const grid = document.getElementById("pos-menu-items");
     grid.querySelectorAll(".menu-card").forEach(card => {
-      let pressTimer = null;
-      let isLongPress = false;
-      
-      const startPress = () => {
-        isLongPress = false;
-        pressTimer = setTimeout(() => {
-          isLongPress = true;
-          // Long press: open customization modal
-          const itemId = card.dataset.itemId;
-          const variantKey = card.dataset.variantKey;
+      let startX = 0;
+      let startY = 0;
+      let swiped = false;
+      card.addEventListener("pointerdown", event => {
+        startX = event.clientX;
+        startY = event.clientY;
+        swiped = false;
+      });
+      card.addEventListener("pointermove", event => {
+        if (Math.abs(event.clientX - startX) > 45 && Math.abs(event.clientX - startX) > Math.abs(event.clientY - startY)) swiped = true;
+      });
+      card.addEventListener("pointerup", event => {
+        const horizontalDistance = Math.abs(event.clientX - startX);
+        const verticalDistance = Math.abs(event.clientY - startY);
+        const itemId = card.dataset.itemId;
+        const variantKey = card.dataset.variantKey;
+        if (swiped && horizontalDistance > 45 && horizontalDistance > verticalDistance) {
           this.openCustomizerModal(itemId, variantKey);
-        }, 500); // 500ms threshold for long press
-      };
-
-      const endPress = (e) => {
-        if (pressTimer) {
-          clearTimeout(pressTimer);
-          pressTimer = null;
-        }
-        
-        if (!isLongPress && e.type === "click") {
-          // Short click: directly add to cart
-          const itemId = card.dataset.itemId;
-          const variantKey = card.dataset.variantKey;
+        } else {
           this.addToCart(itemId, variantKey, []);
         }
-      };
-
-      card.addEventListener("mousedown", startPress);
-      card.addEventListener("touchstart", startPress, { passive: true });
-      card.addEventListener("mouseup", endPress);
-      card.addEventListener("touchend", endPress);
-      card.addEventListener("mouseleave", () => {
-        if (pressTimer) {
-          clearTimeout(pressTimer);
-          pressTimer = null;
-        }
       });
-      card.addEventListener("click", endPress);
     });
   }
 
   openCustomizerModal(itemId, variantKey) {
     const item = window.AutoBrixStore.state.config.menuItems[itemId];
     this.selectedMenuItem = item;
-    this.selectedVariant = variantKey || Object.keys(item.variants)[0];
+    this.selectedVariant = variantKey || (item.variants.half ? "half" : Object.keys(item.variants)[0]);
     this.selectedModifiers = [];
 
     const modal = document.getElementById("pos-customize-modal");
@@ -834,6 +880,7 @@ class POSPanel {
       document.getElementById("aggregator-row").style.display = "none";
       document.getElementById("pos-cart-eta-value").innerText = "0 Min";
       this.saveCart();
+      this.renderActiveOrderCircles();
       return;
     }
 
@@ -1036,6 +1083,32 @@ class POSPanel {
 
     const countBadgeEl = document.getElementById("floating-cart-badge");
     if (countBadgeEl) countBadgeEl.innerText = `${itemCount}`;
+
+    this.renderActiveOrderCircles();
+  }
+
+  renderActiveOrderCircles() {
+    const bar = document.getElementById("floating-cart-action-bar");
+    if (!bar) return;
+    let strip = document.getElementById("active-orders-strip");
+    if (!strip) {
+      strip = document.createElement("div");
+      strip.id = "active-orders-strip";
+      strip.className = "active-orders-strip";
+      strip.setAttribute("aria-label", "Active orders");
+      bar.prepend(strip);
+    }
+    const activeOrders = (window.AutoBrixStore.state.orders || []).filter(order =>
+      order.paymentStatus === "UNPAID" && ["ACCEPTED", "COOKING", "READY", "COMPLETED"].includes(order.fulfillmentStatus)
+    ).sort((a, b) => new Date(a.ts_active || a.timestamp || 0) - new Date(b.ts_active || b.timestamp || 0));
+    strip.innerHTML = activeOrders.map(order => {
+      const orderNumber = (order.id || "").replace(/^#/, "").split("-").pop();
+      return `<button class="active-order-circle ${this.modifyingOrderId === order.id ? "selected" : ""}" data-order-id="${order.id}" title="Open order ${order.id}">${orderNumber}</button>`;
+    }).join("");
+    strip.querySelectorAll(".active-order-circle").forEach(button => button.addEventListener("click", () => {
+      this.loadOrderForModification(button.dataset.orderId);
+      this.toggleMobileCartDrawer(true);
+    }));
   }
 
   toggleMobileCartDrawer(show = null) {
@@ -1216,8 +1289,15 @@ class POSPanel {
     const month = now.getMonth() + 1;
     const shortYear = now.getFullYear().toString().slice(-2);
     const datePrefix = `${day}-${month}-${shortYear}-`;
-    const todayOrders = window.AutoBrixStore.state.orders.filter(o => o.id.startsWith("#" + datePrefix) || o.id.startsWith(datePrefix));
-    const nextSerial = todayOrders.length + 1;
+    const todayOrders = window.AutoBrixStore.state.orders.filter(o => (o.id || "").replace(/^#/, "").startsWith(datePrefix));
+    // Never reuse a number when an earlier order has been deleted or the local
+    // cache was refreshed out of sequence. Reusing count + 1 caused primary-key
+    // collisions during beverage-only orders as well as normal orders.
+    const lastSerial = todayOrders.reduce((highest, order) => {
+      const serial = Number((order.id || "").replace(/^#/, "").slice(datePrefix.length));
+      return Number.isFinite(serial) ? Math.max(highest, serial) : highest;
+    }, 0);
+    const nextSerial = lastSerial + 1;
     const serialStr = nextSerial.toString().padStart(4, '0');
     const orderId = editingOrderId || `#${datePrefix}${serialStr}`;
 
@@ -1301,7 +1381,7 @@ class POSPanel {
         
         // Show success notification/toast
         const successToast = document.createElement("div");
-        successToast.style = "position:fixed; bottom:24px; right:24px; background:#10b981; color:white; font-weight:700; font-size:0.9rem; padding:12px 24px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:9999;";
+        successToast.style = "position:fixed; top:16px; right:16px; background:#10b981; color:white; font-weight:700; font-size:0.9rem; padding:12px 24px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:9999;";
         successToast.innerText = `Order ${orderId} Placed Successfully (${paymentStatus === 'PAID' ? 'Paid' : 'Unpaid'})!`;
         document.body.appendChild(successToast);
         setTimeout(() => successToast.remove(), 3000);
