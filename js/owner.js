@@ -630,7 +630,7 @@ class OwnerPanel {
         name.includes("chola") || id.includes("chola") || name.includes("bhatura") || id.includes("bhatura")) {
       return "combos";
     }
-    if (name.includes("pepsi") || id.includes("pepsi") || name.includes("7up") || id.includes("7up") || name.includes("mirinda") || id.includes("mirinda") || name.includes("dew") || id.includes("dew") || name.includes("water") || id.includes("water") || name.includes("beverage") || id.includes("beverage")) return "cold_drink";
+    if (/water|beverage|cold.?drink|soft.?drink|soda|pepsi|coke|coca.?cola|sprite|7up|mirinda|dew|fanta|maaza|thums.?up/.test(`${name} ${id}`)) return "cold_drink";
     return "others";
   }
 

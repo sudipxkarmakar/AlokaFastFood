@@ -567,7 +567,11 @@ class AutoBrixStore {
   isBeverage(itemId) {
     const item = this.state.config.menuItems[itemId];
     if (!item) return false;
-    return item.station === 'reception' && item.foodType === 'veg' && itemId !== 'egg';
+    if (itemId === 'egg') return false;
+    const details = `${itemId} ${item.name || ''} ${item.category || ''}`.toLowerCase();
+    return item.category === 'cold_drink' ||
+      item.station === 'reception' ||
+      /water|beverage|cold.?drink|soft.?drink|soda|pepsi|coke|coca.?cola|sprite|7up|mirinda|dew|fanta|maaza|thums.?up/.test(details);
   }
 
   // --- Persistence Layers ---
@@ -734,14 +738,9 @@ class AutoBrixStore {
 
     // Calculate aggregated requirements per item ordered
     const requirements = {};
-    const isBeverage = this.isBeverage(itemId);
-    if (isBeverage) {
-      const ingId = `${itemId}_${variantId}`;
-      requirements[ingId] = 1.0;
-    } else {
-      for (const [ing, baseQty] of Object.entries(item.recipe)) {
-        requirements[ing] = (requirements[ing] || 0) + (baseQty * multiplier);
-      }
+    if (this.isBeverage(itemId)) return 999;
+    for (const [ing, baseQty] of Object.entries(item.recipe)) {
+      requirements[ing] = (requirements[ing] || 0) + (baseQty * multiplier);
     }
     for (const modId of modifierIds) {
       const mod = this.state.config.modifiers[modId];
@@ -1044,11 +1043,7 @@ class AutoBrixStore {
         const multiplier = menuInfo.variants[item.variant].recipeMultiplier;
         
         // Base recipe ingredients
-        const isBeverage = this.isBeverage(item.id);
-        if (isBeverage) {
-          const ingId = `${item.id}_${item.variant}`;
-          required[ingId] = (required[ingId] || 0) + qty;
-        } else {
+        if (!this.isBeverage(item.id)) {
           for (const [ing, baseQty] of Object.entries(menuInfo.recipe)) {
             required[ing] = (required[ing] || 0) + (baseQty * multiplier * qty);
           }
@@ -1171,13 +1166,7 @@ class AutoBrixStore {
           const multiplier = menuInfo.variants[item.variant].recipeMultiplier;
 
           // Release base recipe
-          const isBeverage = this.isBeverage(item.id);
-          if (isBeverage) {
-            const ing = `${item.id}_${item.variant}`;
-            const isRaw = state.inventory.raw[ing] !== undefined;
-            const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);
-            if (inv) inv.reserved = Math.max(0, inv.reserved - qty);
-          } else {
+          if (!this.isBeverage(item.id)) {
             for (const [ing, baseQty] of Object.entries(menuInfo.recipe)) {
               const isRaw = state.inventory.raw[ing] !== undefined;
               const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);
@@ -1220,16 +1209,7 @@ class AutoBrixStore {
         const multiplier = menuInfo.variants[item.variant].recipeMultiplier;
 
         // Base recipe
-        const isBeverage = this.isBeverage(item.id);
-        if (isBeverage) {
-          const ing = `${item.id}_${item.variant}`;
-          const isRaw = state.inventory.raw[ing] !== undefined;
-          const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);
-          if (inv) {
-            inv.stock = inv.stock - qty;
-            inv.reserved = Math.max(0, inv.reserved - qty);
-          }
-        } else {
+        if (!this.isBeverage(item.id)) {
           for (const [ing, baseQty] of Object.entries(menuInfo.recipe)) {
             const isRaw = state.inventory.raw[ing] !== undefined;
             const inv = isRaw ? state.inventory.raw[ing] : (state.inventory.intermediate[ing] || state.inventory.prepared[ing]);

@@ -304,7 +304,8 @@ class POSPanel {
     }
     if (categoryId === "cold_drink") {
       if (this.isItemInCat(item, "egg")) return false;
-      return item.id.toLowerCase().includes("pepsi") || item.id.toLowerCase().includes("7up") || item.id.toLowerCase().includes("mirinda") || item.id.toLowerCase().includes("dew") || item.id.toLowerCase().includes("water") || item.id.toLowerCase().includes("beverage") || item.station === "reception";
+      const details = `${item.id} ${item.name || ""}`.toLowerCase();
+      return /water|beverage|cold.?drink|soft.?drink|soda|pepsi|coke|coca.?cola|sprite|7up|mirinda|dew|fanta|maaza|thums.?up/.test(details) || item.station === "reception";
     }
     if (categoryId === "others") {
       return !this.isItemInCat(item, "rolls") && 
@@ -1020,12 +1021,14 @@ class POSPanel {
     const orderNumberEl = document.getElementById("floating-order-number");
     if (orderNumberEl) {
       const selectedOrderId = this.modifyingOrderId || "";
-      const orderDigits = selectedOrderId.match(/\d+/g)?.join("") || "";
-      const nextOrderNumber = Math.max(1, ...window.AutoBrixStore.state.orders
-        .map(order => Number((order.id || "").match(/\d+/g)?.join("") || 0) + 1));
-      const orderNumber = orderDigits ? Number(orderDigits) : nextOrderNumber;
-      const threeDigitNumber = ((orderNumber - 1) % 999) + 1;
-      orderNumberEl.innerText = `#${String(threeDigitNumber).padStart(3, "0")}`;
+      const selectedSerial = Number(selectedOrderId.match(/(\d+)\s*$/)?.[1]);
+      const now = new Date();
+      const datePrefix = `${now.getDate()}-${now.getMonth() + 1}-${now.getFullYear().toString().slice(-2)}-`;
+      const todayOrderCount = window.AutoBrixStore.state.orders.filter(order =>
+        (order.id || "").replace(/^#/, "").startsWith(datePrefix)
+      ).length;
+      const orderNumber = selectedSerial || todayOrderCount + 1;
+      orderNumberEl.innerText = `#${String(((orderNumber - 1) % 999) + 1).padStart(3, "0")}`;
     }
 
     const totalEl = document.getElementById("floating-cart-total");

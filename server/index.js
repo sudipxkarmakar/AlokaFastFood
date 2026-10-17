@@ -52,7 +52,7 @@ const db = require('./db');
         WHEN LOWER(id || ' ' || name) ~ 'chicken paratha|gogni|ghugni|chola|bhatura' THEN 'combos'
         WHEN LOWER(id || ' ' || name) ~ 'paratha' THEN 'combos'
         WHEN LOWER(id || ' ' || name) ~ 'roll' THEN 'rolls'
-        WHEN LOWER(id || ' ' || name) ~ 'pepsi|7up|mirinda|dew|water|beverage' THEN 'cold_drink'
+        WHEN LOWER(id || ' ' || name) ~ 'water|beverage|cold.?drink|soft.?drink|soda|pepsi|coke|coca.?cola|sprite|7up|mirinda|dew|fanta|maaza|thums.?up' THEN 'cold_drink'
         ELSE category
       END
       WHERE category IS NULL OR category = 'others'
@@ -207,7 +207,7 @@ if (false) (async () => {
         WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'chicken paratha|gogni|ghugni|chola|bhatura' THEN 'combos'
         WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'paratha' THEN 'paratha'
         WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'roll' THEN 'rolls'
-        WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'pepsi|7up|mirinda|dew|water|beverage' THEN 'cold_drink'
+        WHEN LOWER(CONCAT(id, ' ', name)) REGEXP 'water|beverage|cold.?drink|soft.?drink|soda|pepsi|coke|coca.?cola|sprite|7up|mirinda|dew|fanta|maaza|thums.?up' THEN 'cold_drink'
         ELSE category
       END
       WHERE category IS NULL OR category = 'others'
