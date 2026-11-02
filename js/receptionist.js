@@ -102,10 +102,6 @@ class POSPanel {
         
         <!-- Center Menu Cards Panel -->
         <div class="pos-menu-wrapper">
-          <div class="pos-search-bar">
-            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-            <input type="text" class="pos-search-input" id="pos-search" placeholder="Search menu item (e.g. Roll, Chowmein, Kosha)..." value="${this.searchQuery}">
-          </div>
           <div class="pos-menu-grid" id="pos-menu-items"></div>
         </div>
         
@@ -212,11 +208,7 @@ class POSPanel {
       });
     }
 
-    // Search filter
-    document.getElementById("pos-search").addEventListener("input", (e) => {
-      this.searchQuery = e.target.value.toLowerCase();
-      this.renderMenuGrid();
-    });
+    this.bindMenuCategorySwipe();
 
     // Set initial values from saved state
     document.getElementById("cart-cust-name").value = this.customerName;
@@ -481,26 +473,12 @@ class POSPanel {
     const grid = document.getElementById("pos-menu-items");
     if (!grid) return;
     const menuItems = window.AutoBrixStore.state.config.menuItems;
-    const selectedItemCount = this.cart.reduce((total, cartItem) => total + cartItem.quantity, 0);
-    let selectedCountEl = document.getElementById("pos-menu-selected-count");
-    if (!selectedCountEl) {
-      selectedCountEl = document.createElement("span");
-      selectedCountEl.id = "pos-menu-selected-count";
-      selectedCountEl.className = "pos-menu-selected-count";
-      const searchBar = document.getElementById("pos-search")?.closest(".pos-search-bar");
-      if (searchBar) searchBar.appendChild(selectedCountEl);
-    }
-    if (selectedCountEl) selectedCountEl.textContent = `${selectedItemCount} selected`;
-    
     let filtered = Object.values(menuItems).filter(item => item.active);
     
     if (this.activeCategory !== "all") {
       filtered = filtered.filter(item => this.isItemInCat(item, this.activeCategory));
     }
     
-    if (this.searchQuery) {
-      filtered = filtered.filter(item => item.name.toLowerCase().includes(this.searchQuery));
-    }
     filtered = window.AutoBrixStore.sortMenuItems(filtered);
 
     const cardHTMLs = [];
@@ -585,6 +563,43 @@ class POSPanel {
       .reduce((total, item) => total + item.quantity, 0);
   }
 
+  changeCategoryBySwipe(direction) {
+    // Read the displayed pill order, so swiping respects a staff member's
+    // custom category arrangement as well.
+    const categories = [...document.querySelectorAll("#pos-categories-list .cat-pill")]
+      .map(category => category.dataset.category);
+    const currentIndex = categories.indexOf(this.activeCategory);
+    if (currentIndex === -1 || !categories.length) return;
+
+    const nextIndex = Math.max(0, Math.min(categories.length - 1, currentIndex + direction));
+    if (nextIndex === currentIndex) return;
+
+    this.activeCategory = categories[nextIndex];
+    this.renderCategories();
+    this.renderMenuGrid();
+  }
+
+  bindMenuCategorySwipe() {
+    const grid = document.getElementById("pos-menu-items");
+    if (!grid || grid.dataset.categorySwipeBound) return;
+    grid.dataset.categorySwipeBound = "true";
+
+    let startX = 0;
+    let startY = 0;
+    grid.addEventListener("pointerdown", event => {
+      startX = event.clientX;
+      startY = event.clientY;
+    });
+    grid.addEventListener("pointerup", event => {
+      const horizontalDistance = event.clientX - startX;
+      const verticalDistance = event.clientY - startY;
+      if (Math.abs(horizontalDistance) < 55 || Math.abs(horizontalDistance) <= Math.abs(verticalDistance)) return;
+      // Swipe left for the next section and right for the previous one.
+      this.changeCategoryBySwipe(horizontalDistance < 0 ? 1 : -1);
+    });
+    grid.addEventListener("pointercancel", () => { startX = 0; startY = 0; });
+  }
+
   attachMenuCardEvents() {
     const grid = document.getElementById("pos-menu-items");
     grid.querySelectorAll(".menu-card").forEach(card => {
@@ -626,12 +641,18 @@ class POSPanel {
         } else if (customizerOpened) {
           event.preventDefault();
         } else if (swiped && horizontalDistance > 45 && horizontalDistance > verticalDistance) {
-          this.openCustomizerModal(itemId, variantKey);
+          // Horizontal swipes move through menu sections; long-press is the
+          // dedicated gesture for variants and modifiers.
+          event.preventDefault();
+          event.stopPropagation();
+          this.changeCategoryBySwipe(event.clientX < startX ? 1 : -1);
         } else {
           this.addToCart(itemId, variantKey, []);
         }
       });
       card.addEventListener("pointercancel", cancelLongPress);
+      card.addEventListener("contextmenu", event => event.preventDefault());
+      card.addEventListener("dragstart", event => event.preventDefault());
     });
   }
 

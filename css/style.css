@@ -2032,6 +2032,20 @@ header {
   transform: scale(0.97);
 }
 
+/* Menu cards are touch controls: long-press opens customization without the
+   browser highlighting card text or showing its text-selection callout. */
+.pos-menu-grid,
+.pos-menu-grid .menu-card,
+.pos-menu-grid .menu-card * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.pos-menu-grid {
+  touch-action: pan-y;
+}
+
 .menu-card-bg-img {
   position: absolute;
   inset: 0;
