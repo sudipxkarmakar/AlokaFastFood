@@ -4,7 +4,7 @@ class POSPanel {
   constructor(containerId) {
     this.containerId = containerId;
     this.container = document.getElementById(containerId);
-    this.activeCategory = "all";
+    this.activeCategory = "rolls";
     this.searchQuery = "";
     this.modifyingOrderId = null;
     this.categoryOrder = JSON.parse(localStorage.getItem("autobrix_category_order") || "[]");
@@ -49,13 +49,42 @@ class POSPanel {
   init() {
     this.render();
     this.bindEvents();
+    this.consumeKitchenNavigation();
     
     // Subscribe to store updates to keep stock numbers live!
     window.AutoBrixStore.subscribe(() => {
       this.renderCategories();
       this.renderMenuGrid();
       this.updateCartETA();
+      this.consumeKitchenNavigation();
     });
+  }
+
+  // Kitchen cards hand off an existing ticket (or a blank new ticket) through
+  // local storage because the POS and KDS live on separate pages.
+  consumeKitchenNavigation() {
+    const requestedOrderId = localStorage.getItem("autobrix_open_order_id");
+    if (requestedOrderId) {
+      const exists = window.AutoBrixStore.state.orders.some(order =>
+        order.id === requestedOrderId || order.id.replace(/^#/, "") === requestedOrderId.replace(/^#/, "")
+      );
+      if (exists) {
+        localStorage.removeItem("autobrix_open_order_id");
+        this.loadOrderForModification(requestedOrderId);
+      }
+      return;
+    }
+
+    if (localStorage.getItem("autobrix_new_order") === "1") {
+      localStorage.removeItem("autobrix_new_order");
+      this.modifyingOrderId = null;
+      this.cart = [];
+      this.customerName = "";
+      this.orderSource = "DINE_IN";
+      this.orderPriority = "NORMAL";
+      this.saveCart();
+      this.renderCart();
+    }
   }
 
   render() {
@@ -452,6 +481,16 @@ class POSPanel {
     const grid = document.getElementById("pos-menu-items");
     if (!grid) return;
     const menuItems = window.AutoBrixStore.state.config.menuItems;
+    const selectedItemCount = this.cart.reduce((total, cartItem) => total + cartItem.quantity, 0);
+    let selectedCountEl = document.getElementById("pos-menu-selected-count");
+    if (!selectedCountEl) {
+      selectedCountEl = document.createElement("span");
+      selectedCountEl.id = "pos-menu-selected-count";
+      selectedCountEl.className = "pos-menu-selected-count";
+      const searchBar = document.getElementById("pos-search")?.closest(".pos-search-bar");
+      if (searchBar) searchBar.appendChild(selectedCountEl);
+    }
+    if (selectedCountEl) selectedCountEl.textContent = `${selectedItemCount} selected`;
     
     let filtered = Object.values(menuItems).filter(item => item.active);
     
@@ -491,11 +530,13 @@ class POSPanel {
           .forEach(varKey => {
           const v = item.variants[varKey];
           const available = window.AutoBrixStore.getMenuItemAvailableStock(item.id, varKey);
+          const selectedQuantity = this.getMenuItemQuantity(item.id, varKey);
           
           cardHTMLs.push(`
-            <div class="menu-card-full-img menu-card" data-item-id="${item.id}" data-variant-key="${varKey}">
+            <div class="menu-card-full-img menu-card ${selectedQuantity ? "selected" : ""}" data-item-id="${item.id}" data-variant-key="${varKey}">
               <img class="menu-card-bg-img" src="${imageSrc}" alt="${item.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
               <div class="menu-card-gradient-overlay"></div>
+              ${selectedQuantity ? `<span class="menu-card-selection-count">${selectedQuantity}</span><button class="menu-card-minus" type="button" aria-label="Remove one ${item.name}" title="Remove one">−</button>` : ""}
               <div class="menu-card-content">
                 <div class="menu-card-name">${item.name} - ${v.name}</div>
                 <div class="menu-card-price-green">₹${v.price}</div>
@@ -511,11 +552,13 @@ class POSPanel {
         const defaultVariant = item.variants.half ? "half" : Object.keys(item.variants)[0];
         const available = window.AutoBrixStore.getMenuItemAvailableStock(item.id, defaultVariant);
         const priceText = item.variants[defaultVariant].price;
+        const selectedQuantity = this.getMenuItemQuantity(item.id, defaultVariant);
         
         cardHTMLs.push(`
-          <div class="menu-card-full-img menu-card" data-item-id="${item.id}" data-variant-key="${defaultVariant}">
+          <div class="menu-card-full-img menu-card ${selectedQuantity ? "selected" : ""}" data-item-id="${item.id}" data-variant-key="${defaultVariant}">
             <img class="menu-card-bg-img" src="${imageSrc}" alt="${item.name}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
             <div class="menu-card-gradient-overlay"></div>
+            ${selectedQuantity ? `<span class="menu-card-selection-count">${selectedQuantity}</span><button class="menu-card-minus" type="button" aria-label="Remove one ${item.name}" title="Remove one">−</button>` : ""}
             <div class="menu-card-content">
               <div class="menu-card-name">${item.name}</div>
               <div class="menu-card-price-green">₹${priceText}</div>
@@ -536,31 +579,59 @@ class POSPanel {
     }
   }
 
+  getMenuItemQuantity(itemId, variantId) {
+    return this.cart
+      .filter(item => item.id === itemId && item.variant === variantId && item.status !== "READY")
+      .reduce((total, item) => total + item.quantity, 0);
+  }
+
   attachMenuCardEvents() {
     const grid = document.getElementById("pos-menu-items");
     grid.querySelectorAll(".menu-card").forEach(card => {
       let startX = 0;
       let startY = 0;
       let swiped = false;
+      let longPressTimer = null;
+      let customizerOpened = false;
+      const cancelLongPress = () => {
+        if (longPressTimer) clearTimeout(longPressTimer);
+        longPressTimer = null;
+      };
       card.addEventListener("pointerdown", event => {
+        if (event.target.closest(".menu-card-minus")) return;
         startX = event.clientX;
         startY = event.clientY;
         swiped = false;
+        customizerOpened = false;
+        longPressTimer = setTimeout(() => {
+          customizerOpened = true;
+          this.openCustomizerModal(card.dataset.itemId, card.dataset.variantKey);
+        }, 450);
       });
       card.addEventListener("pointermove", event => {
+        if (Math.abs(event.clientX - startX) > 12 || Math.abs(event.clientY - startY) > 12) cancelLongPress();
         if (Math.abs(event.clientX - startX) > 45 && Math.abs(event.clientX - startX) > Math.abs(event.clientY - startY)) swiped = true;
       });
       card.addEventListener("pointerup", event => {
+        cancelLongPress();
+        const removeButton = event.target.closest(".menu-card-minus");
         const horizontalDistance = Math.abs(event.clientX - startX);
         const verticalDistance = Math.abs(event.clientY - startY);
         const itemId = card.dataset.itemId;
         const variantKey = card.dataset.variantKey;
-        if (swiped && horizontalDistance > 45 && horizontalDistance > verticalDistance) {
+        if (removeButton) {
+          event.preventDefault();
+          event.stopPropagation();
+          this.removeOneFromMenu(itemId, variantKey);
+        } else if (customizerOpened) {
+          event.preventDefault();
+        } else if (swiped && horizontalDistance > 45 && horizontalDistance > verticalDistance) {
           this.openCustomizerModal(itemId, variantKey);
         } else {
           this.addToCart(itemId, variantKey, []);
         }
       });
+      card.addEventListener("pointercancel", cancelLongPress);
     });
   }
 
@@ -837,6 +908,15 @@ class POSPanel {
     this.autoUpdateOrderSource();
     this.cart = window.AutoBrixStore.sortOrderItems(this.cart);
     this.renderCart();
+    this.renderMenuGrid();
+  }
+
+  removeOneFromMenu(itemId, variantId) {
+    const index = this.cart.findIndex(item =>
+      item.id === itemId && item.variant === variantId && item.status !== "READY"
+    );
+    if (index === -1) return;
+    this.changeQty(index, -1);
   }
 
   renderCart() {
@@ -880,6 +960,8 @@ class POSPanel {
       document.getElementById("aggregator-row").style.display = "none";
       document.getElementById("pos-cart-eta-value").innerText = "0 Min";
       this.saveCart();
+      this.updateFloatingCartBar();
+      this.renderMenuGrid();
       this.renderActiveOrderCircles();
       return;
     }
@@ -960,12 +1042,14 @@ class POSPanel {
 
     item.quantity = newQty;
     this.renderCart();
+    this.renderMenuGrid();
   }
 
   deleteItem(index) {
     this.cart.splice(index, 1);
     this.autoUpdateOrderSource();
     this.renderCart();
+    this.renderMenuGrid();
   }
 
   toggleItemType(index, type) {
@@ -1083,6 +1167,9 @@ class POSPanel {
 
     const countBadgeEl = document.getElementById("floating-cart-badge");
     if (countBadgeEl) countBadgeEl.innerText = `${itemCount}`;
+
+    const quickConfirmBtn = document.getElementById("floating-quick-confirm-btn");
+    if (quickConfirmBtn) quickConfirmBtn.disabled = itemCount === 0;
 
     this.renderActiveOrderCircles();
   }

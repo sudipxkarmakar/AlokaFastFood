@@ -128,38 +128,36 @@ class KitchenDisplay {
     const container = this.container.querySelector(".kitchen-orders-scroll") || document.getElementById("kitchen-orders-container");
     if (!container) return;
 
-    // Filter orders:
-    // 1. Must be in ACCEPTED or COOKING status
-    // 2. Must contain items belonging to this screen's stations
-    // 3. Those items must not be fully completed ("READY") yet
+    // Keep a ticket visible until both food and payment are complete.
     let activeOrders = state.orders.filter(order => {
       const isStatusActive = ["ACCEPTED", "COOKING", "READY"].includes(order.fulfillmentStatus);
       if (!isStatusActive) return false;
-
-      // check if any item of this order belongs to this display and is not yet READY
-      return order.items.some(item => this.stations.includes(item.station) && item.status !== "READY");
+      return order.items.some(item => this.stations.includes(item.station));
     });
 
-    // Priority sort: VIP > SWIGGY = ZOMATO > TAKEAWAY > NORMAL
-    const priorityWeight = { VIP: 5, SWIGGY: 4, ZOMATO: 4, TAKEAWAY: 3, NORMAL: 2 };
-    
+    // Retain ticket order even when staff prepare a later ticket first.
     activeOrders.sort((a, b) => {
-      const aRunning = !!a.ts_active;
-      const bRunning = !!b.ts_active;
-      if (aRunning !== bRunning) {
-        return aRunning ? -1 : 1;
-      }
-
-      const weightA = priorityWeight[a.priority] || 0;
-      const weightB = priorityWeight[b.priority] || 0;
-
-      if (weightA !== weightB) {
-        return weightB - weightA; // Higher weight first
-      }
-
       const queueA = a.ts_queued || (a.timestamps && a.timestamps.queued) || a.ts_active || a.timestamp;
       const queueB = b.ts_queued || (b.timestamps && b.timestamps.queued) || b.ts_active || b.timestamp;
       return new Date(queueA) - new Date(queueB);
+    });
+
+    // The kitchen is a continuous station queue: a later ticket's planned
+    // start is the finish of the ticket before it.  Readiness is intentionally
+    // excluded from this calculation, so marking a ticket ready never moves
+    // the timeline. Editing items recalculates the entire remaining queue.
+    const scheduleByOrderId = new Map();
+    let previousFinishMs = null;
+    activeOrders.forEach(order => {
+      const queueValue = order.ts_queued || (order.timestamps && order.timestamps.queued) || order.timestamp;
+      const queuedMs = queueValue && !isNaN(new Date(queueValue).getTime()) ? new Date(queueValue).getTime() : Date.now();
+      const stationWorkMinutes = order.items
+        .filter(item => this.stations.includes(item.station))
+        .reduce((sum, item) => sum + ((item.prepTime || 0) * item.quantity), 0);
+      const scheduledStartMs = Math.max(queuedMs, previousFinishMs || queuedMs);
+      const scheduledFinishMs = scheduledStartMs + (stationWorkMinutes * 60 * 1000);
+      scheduleByOrderId.set(order.id, { scheduledStartMs, scheduledFinishMs, stationWorkMinutes });
+      previousFinishMs = scheduledFinishMs;
     });
 
     // Update Header stats
@@ -193,11 +191,11 @@ class KitchenDisplay {
       return;
     }
 
-    container.innerHTML = activeOrders.map((order, idx) => {
-      const isOnHold = idx > 0;
+    container.innerHTML = activeOrders.map((order) => {
+      const schedule = scheduleByOrderId.get(order.id);
       const priorityClass = `priority-${order.priority}`;
       const orderedItems = window.AutoBrixStore.sortOrderItems(
-        order.items.filter(item => this.stations.includes(item.station) && item.status !== "READY")
+        order.items.filter(item => this.stations.includes(item.station))
       );
       const otherKitchenItems = order.items.filter(item => !this.stations.includes(item.station) && item.status !== "READY");
       
@@ -254,47 +252,32 @@ class KitchenDisplay {
         `;
       }).join("");
 
-      const subsetSum = order.items
-        .filter(it => this.stations.includes(it.station) && it.status !== "READY")
-        .reduce((sum, it) => sum + (it.prepTime * it.quantity), 0);
-      const totalItemPrepTime = subsetSum || order.eta || 0;
+      const totalItemPrepTime = schedule.stationWorkMinutes || order.eta || 0;
       const hasNewItemsForStation = order.items.some(it => this.stations.includes(it.station) && it.status !== "READY" && it.is_new);
+      const hasPendingItemsForStation = order.items.some(it => this.stations.includes(it.station) && it.status !== "READY");
+      const allOrderItemsReady = order.items.every(item => item.status === "READY");
+      const isPaid = order.paymentStatus === "PAID";
       const readyButtonStyle = hasNewItemsForStation
         ? "background:#d97706; color:#ffffff; box-shadow:0 0 0 2px rgba(245,158,11,0.25);"
         : "";
-      const readyButtonText = hasNewItemsForStation ? "Mark Added Items Ready" : "Mark Ready";
+      const readyButtonText = "Ready";
 
       // Calculate backwards timer values
-      const startTimestamp = order.ts_active ? new Date(order.ts_active) : new Date();
+      const startTimestamp = new Date(schedule.scheduledStartMs);
       const elapsedSec = Math.floor((new Date() - startTimestamp) / 1000);
       const elapsedMin = Math.floor(elapsedSec / 60);
-      const remainingSec = (totalItemPrepTime * 60) - (isOnHold ? 0 : elapsedSec);
-      const isDelayed = !isOnHold && remainingSec < 0;
+      const remainingSec = (totalItemPrepTime * 60) - elapsedSec;
+      const isDelayed = remainingSec < 0;
       const absSec = Math.abs(remainingSec);
       const min = Math.floor(absSec / 60);
       const sec = absSec % 60;
       const formattedElapsed = (isDelayed ? "-" : "") + min + ":" + sec.toString().padStart(2, "0");
         
       const delayMin = elapsedMin - totalItemPrepTime;
-      const delayText = isDelayed ? "DELAYED by " + delayMin + "m" : "ETA: " + totalItemPrepTime + "m";
-
-      const isRunningOrder = !!order.ts_active && ["ACCEPTED", "COOKING"].includes(order.fulfillmentStatus);
-      let deliveryTime;
-      if (isRunningOrder) {
-        const activeTime = new Date(order.ts_active);
-        const pendingPrep = order.items
-          .filter(it => it.status !== "READY")
-          .reduce((sum, it) => sum + (it.prepTime * it.quantity), 0);
-        const prepMin = pendingPrep || totalItemPrepTime;
-        deliveryTime = new Date(activeTime.getTime() + prepMin * 60 * 1000);
-      } else {
-        const queueTimeStr = order.ts_queued || (order.timestamps && order.timestamps.queued) || order.timestamp;
-        const queueTime = queueTimeStr ? new Date(queueTimeStr) : new Date();
-        const estMinutes = (typeof order.eta === "number" && order.eta > 0)
-          ? order.eta
-          : window.AutoBrixStore.calculateCartWaitTime(order.items, { excludeOrderId: order.id });
-        deliveryTime = new Date(queueTime.getTime() + estMinutes * 60 * 1000);
-      }
+      const delayText = isDelayed
+        ? "DELAYED by " + delayMin + "m"
+        : "Ready in: " + Math.ceil(Math.max(0, remainingSec) / 60) + "m";
+      const deliveryTime = new Date(schedule.scheduledFinishMs);
 
       let dHours = deliveryTime.getHours();
       const dMinutes = deliveryTime.getMinutes().toString().padStart(2, '0');
@@ -304,7 +287,7 @@ class KitchenDisplay {
       const formattedDelivery = dHours.toString().padStart(2, '0') + ":" + dMinutes + " " + dAmpm;
 
       // Compute dynamic card style based on elapsed time ratio (0 for on-hold)
-      const ratio = (!isOnHold && totalItemPrepTime > 0) ? (elapsedMin / totalItemPrepTime) : 0;
+      const ratio = totalItemPrepTime > 0 ? (elapsedMin / totalItemPrepTime) : 0;
       let cardStyle = "background: var(--bg-card); border: 1px solid rgba(255,255,255,0.08);";
       if (ratio >= 1.0) {
         cardStyle = "background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05)); border: 1px solid rgba(239, 68, 68, 0.4);";
@@ -315,14 +298,16 @@ class KitchenDisplay {
       }
 
       return `
-        <div class="kitchen-order-card ${priorityClass} ${isDelayed ? "delayed" : ""}" id="k-card-${order.id}" data-timestamp="${order.ts_active || order.ts_queued || order.timestamp || new Date().toISOString()}" data-preptime="${totalItemPrepTime}" style="${cardStyle} border-radius:8px; padding:12px; margin-bottom:12px; transition:all 0.3s ease; ${isOnHold ? "pointer-events: none; user-select: none; border-color: rgba(255,255,255,0.05);" : ""}">
+        <div class="kitchen-order-card ${priorityClass} ${isDelayed ? "delayed" : ""}" id="k-card-${order.id}" data-timestamp="${new Date(schedule.scheduledStartMs).toISOString()}" data-preptime="${totalItemPrepTime}" style="${cardStyle} border-radius:8px; padding:12px; margin-bottom:12px; transition:all 0.3s ease;">
           <div class="kitchen-card-header" style="border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:flex-start;">
             <div class="kitchen-card-meta" style="display:flex; flex-direction:column; gap:2px;">
               <div style="display:flex; align-items:center; gap:6px;">
                 <span class="kitchen-card-id" style="font-size:1rem; font-weight:800; color:var(--text-primary);">${order.id}</span>
-                ${isOnHold ? '<span style="background:rgba(255,255,255,0.08); color:var(--text-muted); border:1px solid rgba(255,255,255,0.12); font-size:0.65rem; font-weight:800; padding:1px 6px; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em;">On Hold</span>' : ""}
+                ${allOrderItemsReady ? '<span style="background:rgba(16,185,129,0.16); color:#6ee7b7; border:1px solid rgba(16,185,129,0.35); font-size:0.65rem; font-weight:800; padding:1px 6px; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em;">Food ready</span>' : ""}
+                ${isPaid ? '<span style="background:rgba(94,234,212,0.16); color:#99f6e4; border:1px solid rgba(94,234,212,0.35); font-size:0.65rem; font-weight:800; padding:1px 6px; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em;">Paid</span>' : ""}
               </div>
               <span class="kitchen-card-time" style="font-size:0.75rem; color:var(--text-muted);">${order.customerName} [${order.source}]</span>
+              <span class="kitchen-order-total">Total: ₹${Number(order.total || 0).toFixed(2)}</span>
             </div>
             <span class="badge badge-${order.priority.toLowerCase()}">${order.priority}</span>
           </div>
@@ -331,9 +316,13 @@ class KitchenDisplay {
               ${itemsHTML}
               ${otherKitchenItems.length ? `<div style="margin-top:8px; padding:7px 8px; border-radius:6px; background:rgba(96,165,250,0.10); border:1px solid rgba(96,165,250,0.20); color:#bfdbfe; font-size:0.75rem; line-height:1.4;"><strong>Also being prepared elsewhere:</strong> ${otherKitchenItems.map(item => `${item.quantity}x ${item.name}`).join(', ')}</div>` : ''}
             </div>
-            <button class="k-item-btn cooking" style="width:100%; border:none; padding:10px; border-radius:6px; font-weight:800; font-size:0.9rem; cursor:pointer; margin-top:12px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.02em; ${readyButtonStyle}" onclick="KitchenDisplay.markOrderAsReady('${order.id}', '${this.screenType}')">
-              ${readyButtonText}
-            </button>
+            <div class="kitchen-card-actions">
+              <button class="k-item-btn cooking" ${hasPendingItemsForStation ? "" : "disabled"} style="flex:1; border:none; padding:10px; border-radius:6px; font-weight:800; font-size:0.82rem; cursor:${hasPendingItemsForStation ? "pointer" : "not-allowed"}; margin-top:12px; text-transform:uppercase; letter-spacing:0.02em; opacity:${hasPendingItemsForStation ? "1" : "0.5"}; ${readyButtonStyle}" onclick="KitchenDisplay.markOrderAsReady('${order.id}', '${this.screenType}')">
+                ${hasPendingItemsForStation ? readyButtonText : "Prepared"}
+              </button>
+              <button class="kitchen-action-icon" title="Add or edit items in POS" aria-label="Add or edit items" onclick="KitchenDisplay.openOrderInPOS('${order.id}')">+</button>
+              <button class="kitchen-payment-btn" ${isPaid ? "disabled" : ""} title="Mark customer payment received" onclick="KitchenDisplay.settlePayment('${order.id}')">${isPaid ? "Paid" : "Payment"}</button>
+            </div>
           </div>
           <div class="kitchen-card-footer" style="border-top:1px solid rgba(255,255,255,0.08); padding-top:6px; margin-top:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
             <span class="kitchen-timer-display ${isDelayed ? "delayed" : ""}" id="k-timer-${order.id}" style="display:inline-flex; align-items:center; gap:4px; font-weight:700; font-size:0.85rem;">
@@ -361,7 +350,7 @@ class KitchenDisplay {
       const timestamp = (rawTimestamp && rawTimestamp !== "null") ? new Date(rawTimestamp) : null;
       const prepTime = parseInt(card.dataset.preptime);
 
-      if (idx > 0 || !timestamp || isNaN(timestamp.getTime())) {
+      if (!timestamp || isNaN(timestamp.getTime())) {
         const timerSpan = document.getElementById(`k-timer-${orderId}`);
         if (timerSpan) {
           timerSpan.querySelector("span").innerText = `${prepTime}:00`;
@@ -408,7 +397,7 @@ class KitchenDisplay {
         } else {
           card.classList.remove("delayed");
           if (timerSpan) timerSpan.classList.remove("delayed");
-          delayTextSpan.innerText = `ETA: ${prepTime}m`;
+          delayTextSpan.innerText = `Ready in: ${Math.ceil(Math.max(0, remainingSec) / 60)}m`;
           delayTextSpan.style.color = "var(--text-secondary)";
         }
       }
@@ -450,6 +439,7 @@ class KitchenDisplay {
           window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/items/${index}/status`, { status: "READY", item_id: item.dbId })
         ));
         await window.AlokaAPI.loadAllState();
+        await KitchenDisplay.completeIfBothDone(orderId);
         return;
       } catch (err) {
         console.warn("API item status update error, falling back to store:", err);
@@ -457,6 +447,47 @@ class KitchenDisplay {
     }
 
     itemIndexes.forEach(({ index }) => window.AutoBrixStore.updateOrderItemStatus(orderId, index, "READY"));
+    await KitchenDisplay.completeIfBothDone(orderId);
+  }
+
+  static openOrderInPOS(orderId = null) {
+    if (orderId) localStorage.setItem("autobrix_open_order_id", orderId);
+    else localStorage.setItem("autobrix_new_order", "1");
+    window.location.href = "receptionist.html";
+  }
+
+  static async settlePayment(orderId) {
+    const order = window.AutoBrixStore.state.orders.find(item => item.id === orderId);
+    if (!order || order.paymentStatus === "PAID") return;
+    if (!confirm(`Mark payment received for ${orderId}?`)) return;
+
+    try {
+      if (window.AlokaAPI && window.AlokaAPI.isOnline()) {
+        await window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/status`, {
+          payment_status: "PAID"
+        });
+        await window.AlokaAPI.loadAllState();
+      } else {
+        window.AutoBrixStore.updatePaymentStatus(orderId, "PAID");
+      }
+      await KitchenDisplay.completeIfBothDone(orderId);
+    } catch (err) {
+      alert("Could not settle payment: " + err.message);
+    }
+  }
+
+  static async completeIfBothDone(orderId) {
+    const order = window.AutoBrixStore.state.orders.find(item => item.id === orderId);
+    if (!order || order.fulfillmentStatus === "COMPLETED" || order.paymentStatus !== "PAID" || !order.items.every(item => item.status === "READY")) return;
+
+    if (window.AlokaAPI && window.AlokaAPI.isOnline()) {
+      await window.AlokaAPI.patch(`/orders/${encodeURIComponent(orderId)}/status`, {
+        fulfillment_status: "COMPLETED", payment_status: "PAID"
+      });
+      await window.AlokaAPI.loadAllState();
+    } else {
+      window.AutoBrixStore.completeOrder(orderId);
+    }
   }
 
   async markOrderAsReady(orderId) {

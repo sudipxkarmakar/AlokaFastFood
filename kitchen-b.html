@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Kitchen Screen B — AutoBrix</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=7">
 </head>
 <body>
 
@@ -43,6 +43,8 @@
       </div>
     </main>
 
+    <button class="kitchen-new-order-dock" onclick="KitchenDisplay.openOrderInPOS()">+ New Order</button>
+
     <!-- Fixed Bottom View Switcher Navigation Bar Across Pages -->
     <nav class="bottom-nav-bar">
       <a href="receptionist.html" class="bottom-nav-item">
@@ -71,7 +73,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="js/store.js?v=5"></script>
   <script src="js/api.js?v=5"></script>
-  <script src="js/kitchen.js?v=5"></script>
+  <script src="js/kitchen.js?v=8"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       window.kitchenB = new AutoBrixKitchen('single-kds-b', ['moghlai', 'moghlai_tawa', 'kosha', 'deep_fry', 'prep']);

@@ -5,37 +5,52 @@ const db = require('../db');
 
 async function activateNextOrders() {
   try {
-    const [orders] = await db.query(
-      "SELECT id, fulfillment_status, ts_active, ts_queued FROM orders WHERE fulfillment_status IN ('ACCEPTED', 'COOKING', 'READY') ORDER BY COALESCE(ts_active, ts_queued, created_at)"
+    // Tickets retain their queued ordering, but every ticket can be prepared
+    // immediately; an earlier order must never lock the rest of the kitchen.
+    await db.query(
+      "UPDATE orders SET ts_active=COALESCE(ts_active, NOW()) WHERE fulfillment_status IN ('ACCEPTED', 'COOKING')"
     );
-    if (orders.length === 0) return;
-    const [items] = await db.query(`
-      SELECT oi.order_id, mi.station_id AS station, oi.status 
-      FROM order_items oi
-      JOIN menu_items mi ON oi.menu_item_id = mi.id
-    `);
-    const stationsA = ["tawa", "chilley"];
-    const stationsB = ["deep_fry", "moghlai", "kosha", "moghlai_tawa"];
-    const activeA = orders.filter(o =>
-      items.some(it => it.order_id === o.id && stationsA.includes(it.station) && it.status !== 'READY')
-    );
-    if (activeA.length > 0 && !activeA[0].ts_active) {
-      await db.query("UPDATE orders SET ts_active=NOW() WHERE id=?", [activeA[0].id]);
-    }
-    const activeB = orders.filter(o =>
-      items.some(it => it.order_id === o.id && stationsB.includes(it.station) && it.status !== 'READY')
-    );
-    if (activeB.length > 0 && !activeB[0].ts_active) {
-      await db.query("UPDATE orders SET ts_active=NOW() WHERE id=?", [activeB[0].id]);
-    }
   } catch (err) {
     console.error('[Queue Activator Error]', err.message);
   }
 }
 
+// A ticket may be paid before or after the kitchen finishes it.  Keep the
+// completion rule in one place so old tickets are reconciled too, rather than
+// depending on which button was pressed last in a browser.
+async function completeEligibleOrders(orderId = null) {
+  const scopedOrder = orderId ? 'AND o.id=?' : '';
+  await db.query(
+    `UPDATE orders AS o
+     SET fulfillment_status='COMPLETED',
+         ts_ready=COALESCE(ts_ready, NOW()),
+         ts_completed=COALESCE(ts_completed, NOW())
+     WHERE o.payment_status='PAID'
+       AND (
+         -- READY is the persisted order-level confirmation used by legacy
+         -- tickets, whose old line-item states may not have been updated.
+         o.fulfillment_status='READY'
+         OR (
+           o.fulfillment_status IN ('ACCEPTED', 'COOKING')
+           AND EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id=o.id)
+           AND NOT EXISTS (
+             SELECT 1 FROM order_items oi
+             WHERE oi.order_id=o.id AND COALESCE(oi.status, 'PENDING') <> 'READY'
+           )
+         )
+       )
+       ${scopedOrder}`,
+    orderId ? [orderId] : []
+  );
+}
+
 // GET orders (active by default)
 router.get('/', async (req, res) => {
   try {
+    // Reconcile tickets created before the two-condition completion rule was
+    // added.  This makes already-paid, already-prepared tickets disappear on
+    // the next refresh without changing incomplete tickets.
+    await completeEligibleOrders();
     const status = req.query.status;
     let query = 'SELECT * FROM orders';
     const params = [];
@@ -119,14 +134,13 @@ router.patch('/:id/status', async (req, res) => {
   try {
     const updates = [];
     const vals = [];
-    if (fulfillment_status) {
+    if (fulfillment_status && fulfillment_status !== 'COMPLETED') {
       updates.push('fulfillment_status=?'); vals.push(fulfillment_status);
       if (fulfillment_status === 'COOKING') { updates.push('ts_cooking=NOW()'); }
       if (fulfillment_status === 'READY') {
         updates.push('ts_ready=NOW()');
         await db.query("UPDATE order_items SET status='READY' WHERE order_id=?", [req.params.id]);
       }
-      if (fulfillment_status === 'COMPLETED') { updates.push('ts_completed=NOW()'); }
     }
     if (payment_status) { updates.push('payment_status=?'); vals.push(payment_status); }
     if (ts_active) { updates.push('ts_active=NOW()'); }
@@ -134,6 +148,8 @@ router.patch('/:id/status', async (req, res) => {
       vals.push(req.params.id);
       await db.query(`UPDATE orders SET ${updates.join(',')} WHERE id=?`, vals);
     }
+    // Payment and food readiness are independent. Close only if both are true.
+    await completeEligibleOrders(req.params.id);
     await activateNextOrders();
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -267,9 +283,15 @@ router.patch('/:id/items/:itemIndex/status', async (req, res) => {
         [orderId, 'READY']
       );
       if (allReadyRows[0].unready === 0) {
-        await db.query('UPDATE orders SET fulfillment_status=?, ts_ready=COALESCE(ts_ready, NOW()) WHERE id=?', ['READY', orderId]);
+        const [orderRows] = await db.query('SELECT payment_status FROM orders WHERE id=?', [orderId]);
+        const isPaid = orderRows[0] && orderRows[0].payment_status === 'PAID';
+        await db.query(
+          'UPDATE orders SET fulfillment_status=?, ts_ready=COALESCE(ts_ready, NOW()), ts_completed=CASE WHEN ? THEN COALESCE(ts_completed, NOW()) ELSE ts_completed END WHERE id=?',
+          [isPaid ? 'COMPLETED' : 'READY', isPaid, orderId]
+        );
         await db.query("INSERT INTO audit_logs (action, payload) VALUES ('Order Ready', ?)", [`All items in Order #${orderId} are ready to serve.`]);
       }
+      await completeEligibleOrders(orderId);
     }
     await activateNextOrders();
     res.json({ success: true });
